@@ -65,7 +65,7 @@ const maaivelden = [];
 //   jaren50 roodbruine baksteen · jaren60 gele baksteen · galerij beton met witte schotten (hoogbouw 1960-1980)
 //   kop rode kopgevel van die galerijflats · winkel glazen pui met lichte luifelband · huis rijtjeshuis
 //   modern licht metselwerk (1990-2010) · nieuw donker metselwerk (na 2010)
-const stijlen = ["jaren50", "jaren60", "galerij", "kop", "winkel", "huis", "modern", "nieuw"];
+const stijlen = ["jaren50", "bruinwit", "geel", "creme", "zeilschip", "galerij", "kop", "winkel", "huis", "modern", "nieuw"];
 const muren = Object.fromEntries(stijlen.map((s) => [s, { pos: [], uv: [] }]));
 const daken = { plat: { pos: [] }, pannen: { pos: [] } };
 const voetafdrukken = [];
@@ -79,7 +79,7 @@ for (const f of panden) {
   maaivelden.push(a.b3_h_maaiveld ?? 0);
   for (const deel of Object.values(f.CityObjects).filter((o) => o.type === "BuildingPart")) {
     const ver = Math.hypot(...V[deel.geometry[0].boundaries[0][0][0][0]].filter((_, k) => k !== 1));
-    const lod = ver < 230 ? "2.2" : "1.2";
+    const lod = ver < 270 ? "2.2" : "1.2";
     const g = deel.geometry.find((x) => x.lod === lod) ?? deel.geometry.at(-1);
     const sem = g.semantics;
     const vlakken = g.boundaries[0];
@@ -97,7 +97,9 @@ for (const f of panden) {
     else if (jaar >= 2010) stijl = "nieuw";
     else if (jaar >= 1990) stijl = "modern";
     else if (lagen >= 8 && jaar >= 1960) stijl = "galerij";
-    else if (jaar >= 1960) stijl = "jaren60";
+    else if (jaar >= 1955) stijl = "bruinwit"; // donkerbruine baksteen met witte raambanden, zoals rond het plein
+    const eigen = L.stijlPerPand?.[f.id.replace("NL.IMBAG.Pand.", "")];
+    if (eigen) stijl = eigen;
     // lange as van het gebouw: de korte gevels van galerijflats zijn de rode kopgevels
     let as = [1, 0], langst = 0;
     for (let i = 0; i < grond.length - 1; i++) {
@@ -106,7 +108,7 @@ for (const f of panden) {
     }
     voetafdrukken.push({ ring: grond.map((p) => p.map(r1)), h: r1(a.b3_h_dak_70p ?? 6), naam: og?.t.name });
     if (og?.t.name === L.flat && !sluip) sluip = { grond, h0: a.b3_h_maaiveld ?? 0, lagen };
-    const pannen = a.b3_dak_type === "slanted" && stijl === "huis";
+    const pannen = a.b3_dak_type === "slanted" && (stijl === "huis" || stijl === "jaren50");
     vlakken.forEach((vlak, k) => {
       const soort = sem.surfaces[sem.values[0][k]].type;
       if (soort === "GroundSurface") return;
@@ -235,6 +237,25 @@ for (const n of knoop.values()) {
   winkels.push([t.name, r1(best.q[0] + best.nrm[0] * 0.12), r1(best.q[1] + best.nrm[1] * 0.12), r1(Math.atan2(best.nrm[0], best.nrm[1])), r1(h)]);
 }
 
+// ---------- oversteken: zebra op straat, dambord over de parkeergangen ----------
+const oversteken = [];
+for (const w of wegen) {
+  const h = w.tags.highway;
+  if (!h || !(["secondary", "tertiary", "residential", "unclassified", "service", "living_street", "cycleway"].includes(h))) continue;
+  for (let i = 0; i < w.nodes.length; i++) {
+    const n = knoop.get(w.nodes[i]);
+    if (n?.tags?.highway !== "crossing") continue;
+    const p = lokaal(n.lat, n.lon);
+    if (Math.hypot(...p) > 150) continue;
+    const a = knoop.get(w.nodes[Math.max(0, i - 1)]), b = knoop.get(w.nodes[Math.min(w.nodes.length - 1, i + 1)]);
+    if (!a || !b) continue;
+    const [pa, pb] = [lokaal(a.lat, a.lon), lokaal(b.lat, b.lon)];
+    const soort = n.tags["crossing:markings"] === "no" ? (w.tags.service === "parking_aisle" ? "dambord" : null) : h === "cycleway" ? "blokken" : w.tags.service === "parking_aisle" ? "dambord" : "zebra";
+    if (!soort) continue;
+    oversteken.push([soort, r1(p[0]), r1(p[1]), r1(Math.atan2(pb[0] - pa[0], pb[1] - pa[1])), r1(BREED[h] ?? 5)]);
+  }
+}
+
 // ---------- parkeerplekken ----------
 // [x, z, hoek, haaks(1)/langs(0)]: uit parkeervakken, uit stroken langs de straat en langs de gangen van de parkeerplaats.
 const plekken = [];
@@ -307,7 +328,7 @@ for (const w of wegen) {
 const uit = {
   naam: L.naam, bron: "3D BAG (CC BY 4.0), © OpenStreetMap-bijdragers (ODbL)",
   sluipschutter, muren, daken, voetafdrukken: voetafdrukken.filter((v) => Math.hypot(...v.ring[0]) < 260),
-  vlakken, lijnen, bomen, heggen, dingen, plekken, winkels, graaf: { knopen, kanten },
+  vlakken, lijnen, bomen, heggen, dingen, plekken, winkels, oversteken, graaf: { knopen, kanten },
 };
 writeFileSync(`data/${id}.json`, JSON.stringify(uit));
 const tri = Object.values(muren).reduce((s, m) => s + m.pos.length / 9, 0) + Object.values(daken).reduce((s, m) => s + m.pos.length / 9, 0);

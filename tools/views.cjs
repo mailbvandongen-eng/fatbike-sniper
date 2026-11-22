@@ -7,7 +7,10 @@ const UIT = process.argv[2] ?? "/tmp/fbs/views";
 const TYPE = { ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".svg": "image/svg+xml" };
 // [naam, camera x,y,z, doel x,y,z, zoom]
 const VIEWS = [
+  ["balkon-zuid", null, [15, 0, 40], 1],
+  ["balkon-oost", null, [120, 5, 10], 1],
   ["jumbo-vanaf-balkon", null, [29.6, 3, 49.7], 5],
+  ["zeilschip", [60, 1.7, 20], [214, 15, 46], 1],
   ["pleinzicht-vanaf-parkeerplaats", [10, 1.7, 5], [10, 12, -60], 1],
   ["oostkant-winkels", [60, 1.7, 25], [115, 6, 0], 1],
   ["overkapping", [100, 1.7, 50], [90, 4, 38], 1],

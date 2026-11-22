@@ -9,5 +9,13 @@ export const LOCATIES = {
     flat: "Pleinzicht",
     verdieping: 4,
     jumbo: [84450.0, 454639.8],
+    // Gevels die afwijken van de regel "stijl op bouwjaar", naar Google 3D-beelden van Bob (22-11-2026). Sleutel = BAG-pand.
+    stijlPerPand: {
+      "1916100000102052": "bruinwit", // blok achter de parkeerplaats, boven de Jumbo
+      "1916100000098418": "geel", // blok aan de westkant
+      "1916100000101520": "creme", // blok aan de oostkant, met zonneschermen
+      "1916100000099002": "zeilschip", // 't Zeilschip
+      "1916100000115288": "zeilschip",
+    },
   },
 };

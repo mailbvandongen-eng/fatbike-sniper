@@ -7,7 +7,14 @@ import { maakAuto, maakFiets, kies, tussen, plak, stuk, blok, buis, bol, M, V } 
 // Kleuren naar de foto's van De Julianabaan (Wikimedia Commons, 2016 en 2024) en de luchtfoto van PDOK.
 const GEVEL = {
   jaren50: { b: 2.9, h: 2.8, steen: ["#7a3b22", "#84442a", "#6d341f", "#8a4a30"], voeg: "#b8a89a", raam: [1.35, 1.45], kozijn: "#f1ede4", latei: "#cfc8bb" },
-  jaren60: { b: 3.2, h: 2.8, steen: ["#a8875a", "#9a7a50", "#b39468", "#a07f55"], voeg: "#d6cbb5", raam: [2.0, 1.4], kozijn: "#efe9dc", latei: "#8a8278" },
+  // donkerbruine baksteen met brede witte raambanden (Google 3D, rond het plein)
+  bruinwit: { b: 3.0, h: 2.8, bruinwit: true },
+  // crèmegeel met gele betonnen penanten (westkant)
+  geel: { b: 3.0, h: 2.8, geel: true },
+  // licht metselwerk met blauw-witte zonneschermen (oostkant, boven de winkels)
+  creme: { b: 3.2, h: 2.8, creme: true },
+  // 't Zeilschip: wit met balkons
+  zeilschip: { b: 3.2, h: 2.9, zeilschip: true },
   galerij: { b: 3.6, h: 2.8, galerij: true },
   kop: { b: 3.0, h: 2.8, kop: true },
   winkel: { b: 5.0, h: 3.7, winkel: true },
@@ -53,6 +60,31 @@ function gevelTextuur(st) {
       x.fillStyle = "#d7d4cd"; x.fillRect(0, H - 1.14 * PX, W, 0.07 * PX);
       x.fillStyle = "#c9c6bf"; x.fillRect(0, 0, W, 0.1 * PX); // vloerrand van de galerij erboven
       x.fillStyle = "#f4f3f0"; x.fillRect(0, 0, 0.22 * PX, H); // wit schot
+    } else if (st.bruinwit) {
+      stenen(x, W, H, ["#4e3426", "#5a3b2b", "#47301f", "#553a2c"], "#7d6a5c");
+      // witte raamband over bijna de hele breedte, met een witte borstwering-strook eronder
+      x.fillStyle = "#f2f0ea"; x.fillRect(0, H * 0.2, W, H * 0.06);
+      ruit(x, 0.18 * PX, H * 0.28, W - 0.36 * PX, H * 0.46, "#f4f2ed", Math.random() < 0.3);
+      x.fillStyle = "#f4f2ed"; x.fillRect(0, H * 0.74, W, 4);
+    } else if (st.geel) {
+      x.fillStyle = "#cdb36b"; x.fillRect(0, 0, W, H);
+      ruit(x, 0.45 * PX, H * 0.26, W - 0.9 * PX, H * 0.5, "#f1ede2", Math.random() < 0.3);
+      x.fillStyle = "#e0c56e"; x.fillRect(0, 0, 0.34 * PX, H); // gele penant
+      x.fillStyle = "#b99d55"; x.fillRect(0.3 * PX, 0, 0.05 * PX, H);
+      x.fillStyle = "#d9cfb8"; x.fillRect(0, H - 0.14 * PX, W, 0.14 * PX);
+    } else if (st.creme) {
+      x.fillStyle = "#e6dfcf"; x.fillRect(0, 0, W, H);
+      ruit(x, 0.4 * PX, H * 0.3, W - 0.8 * PX, H * 0.45, "#ffffff", Math.random() < 0.3);
+      // zonnescherm: blauw-wit gestreept, schuin boven het raam
+      const zy = H * 0.12, zh = H * 0.2;
+      for (let i = 0; i < W - 0.6 * PX; i += 0.22 * PX) { x.fillStyle = (i / (0.22 * PX)) % 2 < 1 ? "#2f5d9a" : "#f4f4f0"; x.fillRect(0.3 * PX + i, zy, 0.22 * PX, zh); }
+      x.fillStyle = "#00000025"; x.fillRect(0.3 * PX, zy + zh, W - 0.6 * PX, H * 0.08);
+    } else if (st.zeilschip) {
+      x.fillStyle = "#eceae4"; x.fillRect(0, 0, W, H);
+      ruit(x, 0.3 * PX, H * 0.12, W * 0.62, H * 0.62, "#dcdad4", Math.random() < 0.3);
+      x.fillStyle = "#f7f6f2"; x.fillRect(0, H - 0.95 * PX, W, 0.95 * PX); // balkon
+      x.fillStyle = "#c8c5bd"; x.fillRect(0, H - 0.97 * PX, W, 3);
+      x.fillStyle = "#7fa0b8"; x.fillRect(W * 0.72, H * 0.12, W * 0.22, H * 0.62);
     } else if (st.kop) {
       // rode kopgevel van geprofileerde platen
       for (let i = 0; i < W; i += 6) { x.fillStyle = i % 12 ? "#8e2b22" : "#7a231c"; x.fillRect(i, 0, 6, H); }
@@ -164,7 +196,7 @@ function maakOverkappingen(lijnen, scene) {
 // ---------- grond ----------
 const GRONDKLEUR = {
   // naar de luchtfoto: straten en parkeerplaats van roodbruine klinkers, stoepen beige, fietspad rood asfalt
-  basis: "#b0a48e", plein: "#c2b08e", stoep: "#c0ad8a", weg: "#7a5a53", asfalt: "#4d4e52", parkeer: "#785850", vak: "#6c6a69", fietspad: "#9a463a",
+  basis: "#b5a88f", plein: "#cdb98e", stoep: "#d2be8f", weg: "#86645e", asfalt: "#4d4e52", parkeer: "#84625c", vak: "#5f5d5d", fietspad: "#a04a3f",
   gras: "#5f7f42", struik: "#3f5f2f", eiland: "#a59f93", speel: "#c4ad7f", fietsvlak: "#a9a196", tram: "#6d6a63", gebouw: "#3c3a37",
 };
 function tekenGrond(d, midden, maat, px) {
@@ -193,6 +225,30 @@ function tekenGrond(d, midden, maat, px) {
   x.setLineDash([3 * s, 4 * s]);
   for (const l of d.lijnen) if (l.s === "weg" && l.asfalt && l.b >= 6) lijn(l, "#d8d6cc", 0.12);
   x.setLineDash([]);
+  // witte blokjes langs de randen van de fietspaden
+  x.fillStyle = "#f1efe8";
+  const blok = 0.3;
+  for (const l of d.lijnen) if (l.s === "fietspad" && Math.hypot(...l.p[0]) < 160) for (let i = 0; i < l.p.length - 1; i++) {
+    const [a, b] = [l.p[i], l.p[i + 1]], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const dx = (b[0] - a[0]) / L, dz = (b[1] - a[1]) / L;
+    for (const k of [-1, 1]) for (let t = 0.3; t < L; t += 0.75) {
+      const [px, pz] = P([a[0] + dx * t - dz * k * (l.b / 2 - 0.2), a[1] + dz * t + dx * k * (l.b / 2 - 0.2)]);
+      x.fillRect(px - (blok * s) / 2, pz - (blok * s) / 2, blok * s, blok * s);
+    }
+  }
+  // oversteken: zebra (strepen), dambord (parkeergangen) of blokken (fietspad)
+  for (const [soort, ox, oz, hoek, breed] of d.oversteken ?? []) {
+    const fx = Math.sin(hoek), fz = Math.cos(hoek), zx = fz, zz = -fx; // f = langs de weg, z = dwars
+    const vak = (a, b, w, h, kl) => {
+      x.fillStyle = kl; x.beginPath();
+      [[a, b], [a + w, b], [a + w, b + h], [a, b + h]].forEach(([u, v], i) => x[i ? "lineTo" : "moveTo"](...P([ox + fx * u + zx * v, oz + fz * u + zz * v])));
+      x.fill();
+    };
+    const half = breed / 2 + 0.3;
+    if (soort === "zebra") for (let v = -half; v < half; v += 1.0) vak(-1.5, v, 3, 0.5, "#f1efe8");
+    else if (soort === "dambord") for (let u = -1.5, i = 0; u < 1.5; u += 0.5, i++) for (let v = -half, j = 0; v < half; v += 0.5, j++) vak(u, v, 0.5, 0.5, (i + j) % 2 ? "#f1efe8" : "#2b2b2b");
+    else for (const u of [-1.1, 1.1]) for (let v = -half; v < half; v += 0.75) vak(u - 0.15, v, 0.3, 0.3, "#f1efe8");
+  }
   for (const l of d.lijnen) if (l.s === "tram") { lijn(l, GRONDKLEUR.tram, 2.2); lijn(l, "#9b9890", 0.1); }
   // parkeervakken: witte lijnen links en rechts van elke haakse plek
   for (const v of d.vlakken) if (v.s === "vak" || v.s === "strook") vlak(v.r, GRONDKLEUR.parkeer);
@@ -232,7 +288,7 @@ export function bouwWereld(d, scene) {
     const g = new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.Float32BufferAttribute(m.pos, 3));
     g.computeVertexNormals();
-    const mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: soort === "pannen" ? "#6e3a2c" : "#5d5c59", roughness: 0.95 }));
+    const mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: soort === "pannen" ? "#b8532e" : "#6a6863", roughness: 0.95 }));
     mesh.castShadow = mesh.receiveShadow = true;
     scene.add(mesh); wereld.botsers.push(mesh);
   }

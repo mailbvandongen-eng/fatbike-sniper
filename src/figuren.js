@@ -287,7 +287,11 @@ export function maakFiets(soort, o = {}) {
 }
 
 // ---------- auto's ----------
-const AUTOKLEUR = ["#e8e8e8", "#1b1b1b", "#8a8d91", "#5b5e63", "#1f3b6e", "#8b1e1e", "#c9c3b3", "#2d4a3a", "#d1d4d8", "#33363b", "#6e7f8f", "#b5501f"];
+// Zoals op het plein (Google 3D): vooral zwart, donkergrijs, zilver en wit; af en toe blauw, rood of een gele taxi.
+const AUTOKLEUR = [
+  ...Array(9).fill("#141517"), ...Array(4).fill("#2a2c30"), ...Array(5).fill("#4a4d52"), ...Array(6).fill("#a9adb2"), ...Array(7).fill("#e9eaec"),
+  "#1f3b6e", "#2f5fa0", "#8b1e1e", "#b3241f", "#e2b021", "#6f7d70", "#c9c3b3",
+];
 export function maakAuto(o = {}) {
   const bak = [];
   const kl = o.kleur ?? kies(AUTOKLEUR);
