@@ -2,7 +2,7 @@
 import * as THREE from "three";
 import { bouwWereld, zetFietsenInRekken, bevries } from "./wereld.js";
 import { Graaf, Voetganger, Fietser, Auto, Boodschapper, Staander } from "./verkeer.js";
-import { kies, tussen, maakGeweer, MAT } from "./figuren.js";
+import { kies, tussen, maakGeweer, MAT, laadFietsen } from "./figuren.js";
 import { laadMensen, maakMens } from "./mensen.js";
 import { Effecten } from "./effecten.js";
 import { Geluid } from "./geluid.js";
@@ -14,7 +14,8 @@ const KOGEL_V = 850, ZWAARTE = 9.81, NUL_AFSTAND = 75;
 // ---------- renderer en scène ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
 const telefoon = matchMedia("(pointer: coarse)").matches;
-let pr = Math.min(devicePixelRatio, telefoon ? 1.6 : 2);
+// vaste resolutie: steeds bijstellen maakt het beeld even zwart
+const pr = Math.min(devicePixelRatio, telefoon ? 1.5 : 2);
 renderer.setPixelRatio(pr);
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
@@ -51,12 +52,13 @@ const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 15
   })));
   const env = new THREE.PMREMGenerator(renderer).fromScene(omg, 0.02).texture;
   for (const m of [MAT.auto, MAT.glas]) { m.envMap = env; m.needsUpdate = true; }
+  MAT.env = env;
   MAT.glas.envMapIntensity = 1.6;
 }
 const zon = new THREE.DirectionalLight("#fff1dc", 2.6);
 zon.position.set(-90, 110, 30);
 zon.castShadow = true;
-zon.shadow.mapSize.set(2048, 2048);
+zon.shadow.mapSize.set(telefoon ? 1024 : 2048, telefoon ? 1024 : 2048);
 Object.assign(zon.shadow.camera, { left: -110, right: 110, top: 110, bottom: -110, near: 10, far: 400 });
 zon.shadow.bias = -0.0004; zon.shadow.normalBias = 0.04;
 scene.add(zon, zon.target);
@@ -85,7 +87,7 @@ async function laad() {
   data = await (await fetch(`data/${LOCATIE}.json?v=${window.VERSIE ?? ""}`)).json();
   $("#plek").textContent = data.naam;
   wereld = bouwWereld(data, scene);
-  await laadMensen((v) => $("#laden").style.setProperty("--v", v));
+  await Promise.all([laadMensen((v) => $("#laden").style.setProperty("--v", v)), laadFietsen()]);
   graaf = new Graaf(data.graaf);
   // jij: de schutter met het geweer
   schutter = maakMens("schutter");
@@ -651,14 +653,15 @@ function volgDoel() {
   }
   if (best && volg?.r === best.r) {
     let dy = best.y - volg.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
-    kijk.yaw += dy * 0.85; kijk.pitch += (best.x - volg.x) * 0.85;
+    // alleen kleine stapjes volgen: verspringt de fatbike (opnieuw verschenen), dan niet meedraaien
+    if (Math.abs(dy) < 0.02 && Math.abs(best.x - volg.x) < 0.02) { kijk.yaw += dy * 0.85; kijk.pitch += (best.x - volg.x) * 0.85; }
   }
   volg = best ? { r: best.r, y: best.y, x: best.x } : null;
 }
 
 // ---------- lus ----------
 const klok = new THREE.Timer();
-let tijd = 0, fpsT = 0, fpsN = 0;
+let tijd = 0;
 function lus() {
   klok.update();
   const echt = Math.min(klok.getDelta(), 0.05);
@@ -767,11 +770,6 @@ function lus() {
   renderer.render(scene, filmCam?.cam ?? camera);
 
   // prestaties: bij een trage telefoon de resolutie omlaag
-  fpsT += echt; fpsN++;
-  if (fpsT > 2) {
-    const fps = fpsN / fpsT; fpsT = 0; fpsN = 0;
-    if (fps < 40 && pr > 1) { pr = Math.max(1, pr - 0.2); renderer.setPixelRatio(pr); }
-  }
   requestAnimationFrame(lus);
 }
 zetZoom(1);

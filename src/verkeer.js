@@ -145,7 +145,7 @@ export class Voetganger extends Reiziger {
     this.kar = Math.random() < 0.15 ? maakKar() : null;
     this.groep = new THREE.Group();
     this.groep.add(this.mens);
-    if (this.kar) { this.kar.position.z = 0.8; this.groep.add(this.kar); this.v *= 0.85; }
+    if (this.kar) { this.kar.position.z = 0.62; this.groep.add(this.kar); this.v *= 0.85; }
     this.schrik = 0;
     this.soort = "voetganger";
     scene.add(this.groep);
@@ -168,8 +168,8 @@ export class Voetganger extends Reiziger {
     if (!this.kar || !this.groep.visible || !this.m.hoog.visible) return;
     this.groep.updateMatrixWorld(true);
     const omlaag = new THREE.Vector3(0, -1, 0);
-    for (const [k, x] of [["L", 0.2], ["R", -0.2]]) {
-      const doel = this.groep.localToWorld(new THREE.Vector3(x, 0.98, 0.3));
+    for (const [k, x] of [["L", 0.18], ["R", -0.18]]) {
+      const doel = this.groep.localToWorld(new THREE.Vector3(x, 0.86, 0.32));
       this.m.arm(k, doel, omlaag.clone().add(new THREE.Vector3(Math.sign(x) * 0.4, 0, -0.4).applyQuaternion(this.groep.quaternion)));
     }
   }
@@ -210,7 +210,7 @@ export class Boodschapper extends Voetganger {
       if (this.binnen <= 0) {
         // met een kar of met tassen terug naar de auto
         this.fase2 = "terug"; this.groep.visible = true; this.i = 0;
-        if (Math.random() < 0.5) { this.kar = maakKar(); this.kar.position.z = 0.8; this.groep.add(this.kar); this.v = this.vBasis * 0.85; }
+        if (Math.random() < 0.5) { this.kar = maakKar(); this.kar.position.z = 0.62; this.groep.add(this.kar); this.v = this.vBasis * 0.85; }
         else this.tassen = true;
         this.lijn = this.maakLijn(this.winkel, [this.auto.x, this.auto.z]);
       }
@@ -288,7 +288,7 @@ export class Fietser extends Reiziger {
     super(graaf, fat ? FAT : FIETS, v, (b) => (b > 4 ? b / 2 - 0.9 : b > 2 ? 0.5 : 0.2), 0.6, 1.6, fat ? 65 : 100);
     this.soort = soort; this.fat = fat;
     if (fat) this.trek = 1.6;
-    this.fiets = maakFiets(soort);
+    this.fiets = maakFiets(soort === "bakfiets" ? "fiets" : soort);
     this.groep = new THREE.Group();
     this.groep.add(this.fiets);
     const fu = this.fiets.userData;
@@ -296,7 +296,7 @@ export class Fietser extends Reiziger {
     if (fat && Math.random() < (ronde > 1 ? 0.45 : 0.3)) this.berijders.push(maakMens("fatbiker"));
     this.berijders.forEach((m, i) => {
       // de heup (zoals in de rijbeweging) op het zadel; de bestuurder leunt voorover naar het stuur
-      const h = m.zithoogte(), leun = i ? 0.05 : fat ? 0.38 : 0.5;
+      const h = m.zithoogte(), leun = i ? 0.05 : fat ? 0.22 : 0.3;
       m.leun = leun;
       m.object.position.set(0, fu.zadel + 0.07 - h * Math.cos(leun), fu.zadelZ - h * Math.sin(leun) - i * 0.45);
       this.groep.add(m.object);
@@ -330,10 +330,21 @@ export class Fietser extends Reiziger {
     for (const m of this.berijders) m.object.rotation.set(m.leun, 0, scheef);
     // de bestuurder houdt het stuur vast (wie achterop zit niet)
     const m = this.berijders[0];
+    if (m && !m.bijgesteld) {
+      // schuif de bestuurder zo dat hij het stuur kan pakken (arm ~0,6 m); de modellen verschillen per fiets
+      this.groep.updateMatrixWorld(true);
+      const hv = this.fiets.userData.handvatten, midden = this.fiets.localToWorld(hv[0].clone().add(hv[1]).multiplyScalar(0.5));
+      const sch = this.groep.worldToLocal(m.plek("DEF-upper_armL").clone().add(m.plek("DEF-upper_armR")).multiplyScalar(0.5));
+      const doel = this.groep.worldToLocal(midden);
+      const d = sch.distanceTo(doel);
+      if (d > 0.6) { m.object.position.z += Math.min(0.05, (d - 0.58) * 0.5); m.object.position.y -= Math.min(0.01, (d - 0.58) * 0.08); }
+      else m.bijgesteld = true;
+      if ((m.stappen = (m.stappen ?? 0) + 1) > 40) m.bijgesteld = true;
+    }
     if (m?.hoog.visible) {
       this.groep.updateMatrixWorld(true);
       const terug = new THREE.Vector3(0, -0.5, -1).applyQuaternion(this.groep.quaternion);
-      this.fiets.userData.handvatten.forEach((h, i) => {
+      this.fiets.userData.handvatten.forEach((h, i) => { // [0] = links (+x), [1] = rechts
         const opzij = new THREE.Vector3(i ? -0.8 : 0.8, 0, 0).applyQuaternion(this.groep.quaternion);
         m.arm(i ? "R" : "L", this.fiets.localToWorld(h.clone()), terug.clone().add(opzij));
       });

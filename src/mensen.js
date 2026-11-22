@@ -21,6 +21,7 @@ const CLIP = {
 const EENMALIG = new Set(["Hit_Chest", "Death01", "LayToIdle", "Hit_Knockback"]);
 
 let modellen = {}, clips = {}, zithoogte = {};
+const KLEIN = matchMedia("(pointer: coarse)").matches;
 const v1 = new THREE.Vector3(), v2 = new THREE.Vector3(), v3 = new THREE.Vector3(), v4 = new THREE.Vector3(), v5 = new THREE.Vector3(),
   v6 = new THREE.Vector3(), v7 = new THREE.Vector3(), v8 = new THREE.Vector3(), q1 = new THREE.Quaternion(), q2 = new THREE.Quaternion();
 /** Draai een bot (in de wereld) zo dat richting van -> naar wijst. */
@@ -49,6 +50,12 @@ export async function laadMensen(voortgang) {
       const m = o.material;
       // de exporter zet het materiaal op mengen; wij knippen uit en schrijven diepte, anders vechten de vlakjes
       Object.assign(m, { transparent: false, depthWrite: true, alphaTest: 0.5, side: THREE.FrontSide, metalness: 0, roughness: 0.85 });
+      // op de telefoon de textuur verkleinen (1024 -> 512): scheelt 4x geheugen, op afstand zie je het verschil niet
+      if (KLEIN && m.map?.image && !m.map.userData.klein) {
+        const c = document.createElement("canvas"); c.width = c.height = 512;
+        c.getContext("2d").drawImage(m.map.image, 0, 0, 512, 512);
+        m.map.image = c; m.map.userData.klein = true; m.map.needsUpdate = true;
+      }
       o.frustumCulled = false;
     });
     modellen[n] = g.scene;

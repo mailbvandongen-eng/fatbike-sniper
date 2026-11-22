@@ -51,3 +51,12 @@ Een app op het beginscherm van de iPhone toont vaak nog de oude pagina. Daarom:
 - `tools/versie.mjs` berekent een versie (hash van alle spelbestanden) en zet die in `versie.json` en `index.html`. Elk bestand wordt opgehaald met `?v=<versie>`. Het script draait vanzelf vóór elke commit via `.git/hooks/pre-commit`; zet die hook opnieuw neer na een verse clone.
 - Bij het openen, en elke keer dat het spel weer naar voren komt, vraagt het spel `versie.json` op zonder cache. Is de versie anders, dan laadt het zichzelf opnieuw. Dat gebeurt nooit midden in een ronde.
 - Onder de Begin-knop staat van wanneer de versie is.
+
+## Fietsen en winkelwagen
+
+Echte modellen van Sketchfab (CC BY 4.0, naamsvermelding verplicht):
+- fatbike: [OUXI V8 fatbike](https://sketchfab.com/3d-models/38ffc8e49c4d4133a150d913a13764ed) door GokuSSJB
+- fiets en e-bike: [Dutch Bicycle](https://sketchfab.com/3d-models/1967bfe65c164c589351985e7becc8b8) door Fairyflosslord7
+- winkelwagen: [Shopping Cart](https://sketchfab.com/3d-models/b96f896453b240ae804d0399f1faf027) door adrianxy
+
+`tools/fietsen/bouw.sh` haalt ze op en maakt er spelmodellen van (`fiets.py`): echte maat, losse draaiende wielen, het frame in een vervangbare kleur, minder driehoeken. De afmetingen (wielen, handvatten, zadel) staan in `assets/fietsen/*.json`. Fietsen ver weg in de rekken gebruiken een licht model.

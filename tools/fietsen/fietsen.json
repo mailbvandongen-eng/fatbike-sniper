@@ -1,0 +1,51 @@
+{
+  "_uitleg": "Bron: Sketchfab (CC BY). 'bron' = wielen ongeveer, afgelezen van een zijaanzicht van het origineel; fiets.py verfijnt dat.",
+  "fietsen": {
+    "fatbike": {
+      "uid": "38ffc8e49c4d4133a150d913a13764ed",
+      "naam": "OUXI V8 fatbike",
+      "maker": "GokuSSJB",
+      "bron": {
+        "as": "y",
+        "voor": [
+          -0.635,
+          -0.347
+        ],
+        "achter": [
+          0.663,
+          -0.332
+        ],
+        "r": 0.313
+      },
+      "straal": 0.29,
+      "doel": 6500,
+      "metaal": "#2a2b2d",
+      "band": "#141414",
+      "band_dikte": 0.085,
+      "bandbreedte": 0.075
+    },
+    "omafiets": {
+      "uid": "1967bfe65c164c589351985e7becc8b8",
+      "naam": "Dutch Bicycle",
+      "maker": "Fairyflosslord7",
+      "bron": {
+        "as": "x",
+        "voor": [
+          3.44,
+          2.52
+        ],
+        "achter": [
+          -3.42,
+          2.42
+        ],
+        "r": 2.27
+      },
+      "straal": 0.35,
+      "doel": 2600,
+      "metaal": "#b9bcc0",
+      "band": "#1c1c1c",
+      "band_dikte": 0.045,
+      "bandbreedte": 0.05
+    }
+  }
+}

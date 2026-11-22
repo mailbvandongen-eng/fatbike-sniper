@@ -1,6 +1,7 @@
 // Alle figuren worden in code opgebouwd: mensen (één SkinnedMesh met 12 botten), fietsen, fatbikes, auto's.
 // Voorkant = +z. Eén draw call per figuur waar het kan (vertex-kleuren).
 import * as THREE from "three";
+import { GLTFLoader } from "../lib/three-addons.js";
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const kleur = new THREE.Color();
@@ -26,9 +27,13 @@ function plak(bak, metBotten) {
   let o = 0;
   for (const { g, bot } of bak) {
     const k = g.attributes.position.count;
-    pos.set(g.attributes.position.array, o * 3);
-    nor.set(g.attributes.normal.array, o * 3);
-    col.set(g.attributes.color.array, o * 3);
+    // ingeladen modellen kunnen andere getaltypes hebben (bytes voor kleur, rgba): lees punt voor punt
+    const kopie = (attr, doel) => {
+      if (attr.array instanceof Float32Array && attr.itemSize === 3 && !attr.isInterleavedBufferAttribute) doel.set(attr.array, o * 3);
+      else for (let i = 0; i < k; i++) { doel[(o + i) * 3] = attr.getX(i); doel[(o + i) * 3 + 1] = attr.getY(i); doel[(o + i) * 3 + 2] = attr.getZ(i); }
+    };
+    kopie(g.attributes.position, pos); kopie(g.attributes.normal, nor);
+    if (g.attributes.color) kopie(g.attributes.color, col); else col.fill(1, o * 3, (o + k) * 3);
     if (metBotten) for (let i = 0; i < k; i++) { si[(o + i) * 4] = bot; sw[(o + i) * 4] = 1; }
     o += k;
   }
@@ -218,7 +223,7 @@ function wiel(r, band, velg, kl = "#1b1b1b", spaken = true) {
 }
 
 /** soort: fatbike | fiets | ebike | bakfiets. Geeft een Group met wielen in userData en raakvlakken (in lokale ruimte). */
-export function maakFiets(soort, o = {}) {
+function maakFietsOud(soort, o = {}) {
   const g = new THREE.Group(), bak = [];
   const raak = [];
   let rW, band, wielbasis, zadel, stuurP, kl = o.kleur;
@@ -335,7 +340,7 @@ function profiel(pts, breed, bevel = 0) {
   const v = new THREE.Shape();
   v.moveTo(pts[0][0], pts[0][1]);
   for (const p of pts.slice(1)) v.lineTo(p[0], p[1]);
-  const g = new THREE.ExtrudeGeometry(v, { depth: breed, bevelEnabled: bevel > 0, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 2 });
+  const g = new THREE.ExtrudeGeometry(v, { depth: breed, bevelEnabled: bevel > 0, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 1 });
   g.translate(0, 0, -breed / 2);
   return g;
 }
@@ -373,7 +378,7 @@ export function maakAuto(o = {}) {
   if (dak.length >= 2) blok(lak, kb + 0.04, 0.07, Math.max(...dak) - Math.min(...dak) + 0.06, V(0, H + 0.02, (Math.max(...dak) + Math.min(...dak)) / 2), kl);
   const voor = kas.filter(([z]) => z > 0).sort((a, b) => b[0] - a[0]), achter = kas.filter(([z]) => z <= 0).sort((a, b) => a[0] - b[0]);
   const stijl = (a, b) => {
-    for (const x of [-kb / 2, kb / 2]) buis(lak, V(x, a[1], a[0]), V(x, b[1], b[0]), 0.045, kl, 0, 5);
+    for (const x of [-kb / 2, kb / 2]) buis(lak, V(x, a[1], a[0]), V(x, b[1], b[0]), 0.045, kl, 0, 4);
   };
   const vOnder = voor.find(([, y]) => Math.abs(y - gordel) < 0.01), vBoven = voor.find(([, y]) => y >= H - 0.01);
   const aOnder = achter.find(([, y]) => Math.abs(y - gordel) < 0.01), aBoven = achter.find(([, y]) => y >= H - 0.01);
@@ -391,14 +396,13 @@ export function maakAuto(o = {}) {
   if (soort !== "busje") { blok(rest, kb - 0.2, 0.12, 0.5, V(0, 0.55, midden - 0.85), stof); blok(rest, kb - 0.2, 0.55, 0.12, V(0, 0.85, midden - 1.12), stof, [-0.15, 0, 0]); }
   const dash = vOnder ? vOnder[0] - 0.3 : midden + 0.8;
   blok(rest, kb - 0.1, 0.22, 0.4, V(0, gordel - 0.05, dash), "#1c1c1e");
-  stuk(rest, new THREE.TorusGeometry(0.17, 0.025, 4, 14), "#111", M(V(0.42, gordel + 0.05, dash - 0.3), [-0.5, 0, 0]));
+  stuk(rest, new THREE.TorusGeometry(0.17, 0.025, 3, 8), "#111", M(V(0.42, gordel + 0.05, dash - 0.3), [-0.5, 0, 0]));
   // wielen: band + velg aan de buitenkant
   const velg = kies(["#b9bcc0", "#8d9196", "#2a2b2d", "#c7c9cc"]);
   for (const z of [z0 + 0.78, z1 - 0.8]) for (const s of [-1, 1]) {
-    stuk(rest, new THREE.CylinderGeometry(0.32, 0.32, 0.22, 16), "#141414", M(V(s * (B / 2 - 0.08), 0.32, z), [0, 0, Math.PI / 2]));
-    stuk(rest, new THREE.CylinderGeometry(0.2, 0.2, 0.03, 12), velg, M(V(s * (B / 2 + 0.035), 0.32, z), [0, 0, Math.PI / 2]));
-    stuk(rest, new THREE.CylinderGeometry(0.06, 0.06, 0.04, 6), "#333", M(V(s * (B / 2 + 0.05), 0.32, z), [0, 0, Math.PI / 2]));
-  }
+    stuk(rest, new THREE.CylinderGeometry(0.32, 0.32, 0.22, 10, 1, true), "#141414", M(V(s * (B / 2 - 0.08), 0.32, z), [0, 0, Math.PI / 2]));
+    stuk(rest, new THREE.CylinderGeometry(0.2, 0.2, 0.03, 8), velg, M(V(s * (B / 2 + 0.035), 0.32, z), [0, 0, Math.PI / 2]));
+      }
   // bumpers, grille, verlichting, kenteken, spiegels
   for (const z of [z1 + 0.04, z0 - 0.04]) blok(rest, B + 0.04, 0.2, 0.12, V(0, 0.4, z), "#1e1f21");
   blok(rest, B * 0.45, 0.16, 0.04, V(0, 0.66, z1 + 0.03), "#141518");
@@ -420,7 +424,7 @@ export function maakAuto(o = {}) {
 }
 
 /** Winkelwagentje. */
-export function maakKar() {
+function maakKarOud() {
   const bak = [];
   for (const [w, h, d, p] of [[0.5, 0.02, 0.8, V(0, 0.45, 0)], [0.02, 0.4, 0.8, V(0.25, 0.65, 0)], [0.02, 0.4, 0.8, V(-0.25, 0.65, 0)], [0.5, 0.4, 0.02, V(0, 0.65, 0.4)], [0.5, 0.4, 0.02, V(0, 0.65, -0.4)], [0.5, 0.03, 0.03, V(0, 0.98, -0.5)]])
     blok(bak, w, h, d, p, "#a9adb3");
@@ -458,4 +462,93 @@ export function maakGeweer() {
   const m = new THREE.Mesh(plak(bak), MAT.voertuig);
   m.castShadow = true;
   return m;
+}
+
+
+// ---------- echte modellen (Sketchfab, CC BY; zie tools/fietsen en CREDITS) ----------
+const ECHT = {};
+const FRAMEKLEUR = {
+  fatbike: ["#141414", "#141414", "#141414", "#1c1d1f", "#3c3f33", "#b9ab8e", "#e9e9e6", "#28324a", "#5b5e63"],
+  fiets: ["#141414", "#141414", "#1c2b4a", "#283d2b", "#5a1f1f", "#7a7a75", "#e8e4da", "#3f5e7a", "#b3241f", "#6b4b2b"],
+};
+const kleurCache = new Map();
+/** Frame in de gevraagde kleur: de "tover-magenta" punten krijgen die kleur (per kleur één keer). */
+function inKleur(geo, hex) {
+  const sleutel = geo.uuid + hex;
+  if (kleurCache.has(sleutel)) return kleurCache.get(sleutel);
+  const g = geo.clone(), c = g.attributes.color, k = new THREE.Color(hex);
+  // kleuren kunnen als bytes of lineair binnenkomen en zijn langs randen gemengd: alles "magenta-achtig" telt mee
+  const lin = new THREE.Color();
+  for (let i = 0; i < c.count; i++) {
+    const r = c.getX(i), gg = c.getY(i), b = c.getZ(i);
+    const m = Math.min(r, b) - gg; // hoeveel magenta
+    if (m > 0.25) { lin.setRGB(r, gg, b); const t = Math.min(1, m / 0.7); c.setXYZ(i, r + (k.r - r) * t, gg + (k.g - gg) * t, b + (k.b - b) * t); }
+  }
+  c.needsUpdate = true;
+  kleurCache.set(sleutel, g);
+  return g;
+}
+export async function laadFietsen() {
+  const L = new GLTFLoader(), v = window.VERSIE ?? "";
+  for (const n of ["fatbike", "omafiets"]) {
+    const [g, meta] = await Promise.all([L.loadAsync(`assets/fietsen/${n}.glb?v=${v}`), fetch(`assets/fietsen/${n}.json?v=${v}`).then((r) => r.json())]);
+    const delen = {};
+    g.scene.traverse((o) => { if (o.isMesh) { delen[o.name] = o; o.geometry.deleteAttribute("uv"); } });
+    // three: x blijft x, (blender y, z) wordt (z = -y, y = z)
+    const T = ([x, y, z]) => V(x, z, -y);
+    ECHT[n] = { delen, meta, wielen: meta.wielen.map(T), handvatten: meta.handvatten.map(T), zadel: T(meta.zadel), maat: meta.maat };
+  }
+  const k = await L.loadAsync(`assets/kar/kar.glb?v=${v}`);
+  k.scene.traverse((o) => { if (o.isMesh) { o.castShadow = true; if (o.material.name === "Chrome") { o.material.metalness = 0.85; o.material.roughness = 0.3; o.material.envMap = MAT.env ?? null; } } });
+  ECHT.kar = k.scene;
+}
+export const fietsenGeladen = () => !!ECHT.fatbike;
+
+export function maakFiets(soort, o = {}) {
+  if (!ECHT.fatbike || o.licht) return maakFietsOud(soort, o);
+  const fat = soort === "fatbike", M_ = ECHT[fat ? "fatbike" : "omafiets"];
+  const kl = o.kleur ?? kies(FRAMEKLEUR[fat ? "fatbike" : "fiets"]);
+  const g = new THREE.Group();
+  const frame = new THREE.Mesh(inKleur(M_.delen.frame.geometry, kl), MAT.voertuig);
+  frame.position.copy(M_.delen.frame.position); frame.quaternion.copy(M_.delen.frame.quaternion);
+  frame.castShadow = true;
+  g.add(frame);
+  const wielen = ["wiel_voor", "wiel_achter"].map((n) => {
+    const d = M_.delen[n], w = new THREE.Mesh(inKleur(d.geometry, kl), MAT.voertuig);
+    w.position.copy(d.position); w.quaternion.copy(d.quaternion); w.castShadow = true; g.add(w);
+    return w;
+  });
+  // wiel_voor is op z > 0 (voorkant = +z)
+  if (wielen[0].position.z < wielen[1].position.z) wielen.reverse();
+  const [wv, wa] = [wielen[0], wielen[1]];
+  // fatbike: lange buddyseat; de bestuurder zit voorin
+  const R = M_.meta.straal, zadel = M_.zadel.y, zadelZ = fat ? M_.zadel.z * 0.55 : M_.zadel.z;
+  // e-bike: accu op de bagagedrager
+  if (soort === "ebike") {
+    const bak = [];
+    blok(bak, 0.1, 0.09, 0.36, V(0, R * 2 + 0.08, wa.position.z * 0.75), "#2a2a2a");
+    const accu = new THREE.Mesh(plak(bak), MAT.voertuig); g.add(accu);
+  }
+  const breed = fat ? 0.11 : 0.04;
+  const raak = [
+    { deel: "band", min: V(-breed, 0, wa.position.z - R), max: V(breed, R * 2, wa.position.z + R) },
+    { deel: "band", min: V(-breed, 0, wv.position.z - R), max: V(breed, R * 2, wv.position.z + R) },
+    { deel: "frame", min: V(-0.12, R * 0.8, wa.position.z), max: V(0.12, M_.maat[2], wv.position.z) },
+  ];
+  // de accu van de fatbike zit schuin in het voorste deel van het frame
+  if (fat) raak.unshift({ deel: "accu", min: V(-0.09, R * 1.45, -0.05), max: V(0.09, R * 2.6, wv.position.z * 0.55) });
+  g.userData = {
+    soort, wielen: [wa, wv], rW: R, raak, zadel, zadelZ, hoofd: frame,
+    handvatten: M_.handvatten.map((h) => h.clone()).sort((a, b) => b.x - a.x),
+    wielbasis: wv.position.z - wa.position.z,
+  };
+  return g;
+}
+
+export function maakKar() {
+  if (!ECHT.kar) return maakKarOud();
+  const k = ECHT.kar.clone();
+  // duwstang: achter (-z), op ~0,84 m
+  k.userData.stang = 0.31;
+  return k;
 }

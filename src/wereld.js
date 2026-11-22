@@ -326,7 +326,8 @@ export function bouwWereld(d, scene) {
     scene.add(mesh); wereld.botsers.push(mesh);
   }
   // grond: groot (680 m) en fijn (170 m rond de parkeerplaats)
-  for (const [maat, px, y] of [[680, 2048, -0.02], [170, 2048, 0]]) {
+  // de verre grond grof (1024), het plein zelf fijn (2048)
+  for (const [maat, px, y] of [[680, 1024, -0.02], [170, 2048, 0]]) {
     const t = tekenGrond(d, [0, 0], maat, px);
     const g = new THREE.PlaneGeometry(maat, maat);
     g.rotateX(-Math.PI / 2);
@@ -405,7 +406,7 @@ export function bouwWereld(d, scene) {
   // geparkeerde auto's in de vakken
   wereld.geparkeerd = [];
   for (const [x, z, hoek, haaks] of d.plekken) {
-    if (Math.hypot(x, z) > 170 || Math.random() < 0.28) continue;
+    if (Math.hypot(x, z) > 125 || Math.random() < 0.28) continue;
     const auto = maakAuto({ soort: haaks ? undefined : kies(["hatch", "sedan", "hatch"]) });
     auto.position.set(x + tussen(-0.15, 0.15), 0, z + tussen(-0.15, 0.15));
     // haaks: meestal met de neus het vak in
@@ -423,7 +424,8 @@ export function zetFietsenInRekken(wereld, scene, voegToe) {
     const dx = Math.cos(hoek), dz = Math.sin(hoek);
     for (let i = 0; i < r.n; i++) {
       if (Math.random() < 0.35) continue;
-      const f = maakFiets(Math.random() < 0.25 ? "ebike" : "fiets");
+      // dichtbij het echte model, ver weg het lichte
+      const f = maakFiets(Math.random() < 0.25 ? "ebike" : "fiets", { licht: Math.hypot(r.x, r.z) > 45 });
       const s = (i - r.n / 2) * 0.6;
       f.position.set(r.x + dx * s, 0, r.z + dz * s);
       f.rotation.y = hoek + Math.PI / 2 + (i % 2 ? Math.PI : 0) + tussen(-0.1, 0.1);
@@ -441,7 +443,8 @@ export function bevries(objecten, scene) {
     o.updateMatrixWorld(true);
     o.traverse((m) => {
       if (!m.isMesh) return;
-      const g = m.geometry.clone().applyMatrix4(m.matrixWorld);
+      const g = (m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone()).applyMatrix4(m.matrixWorld);
+      if (!g.attributes.normal) g.computeVertexNormals();
       if (!perMat.has(m.material)) perMat.set(m.material, []);
       perMat.get(m.material).push({ g, bot: 0 });
     });
