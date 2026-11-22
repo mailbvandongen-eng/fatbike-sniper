@@ -2,7 +2,7 @@
 import * as THREE from "three";
 import { bouwWereld, zetFietsenInRekken, bevries } from "./wereld.js";
 import { Graaf, Voetganger, Fietser, Auto, Boodschapper, Staander } from "./verkeer.js";
-import { kies, tussen, maakGeweer } from "./figuren.js";
+import { kies, tussen, maakGeweer, MAT } from "./figuren.js";
 import { laadMensen, maakMens } from "./mensen.js";
 import { Effecten } from "./effecten.js";
 import { Geluid } from "./geluid.js";
@@ -40,6 +40,18 @@ const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 15
   const lucht = new THREE.Mesh(g, m);
   lucht.renderOrder = -1;
   scene.add(lucht);
+}
+// spiegeling voor autolak en ruiten: lucht boven, straat onder (eenmalig in een kaart gebakken)
+{
+  const omg = new THREE.Scene();
+  omg.add(new THREE.Mesh(new THREE.SphereGeometry(10, 32, 16), new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    vertexShader: "varying vec3 p; void main(){ p = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.); }",
+    fragmentShader: "varying vec3 p; void main(){ vec3 lucht = mix(vec3(.85,.9,.95), vec3(.42,.62,.85), clamp(p.y*1.6,0.,1.)); vec3 grond = vec3(.32,.26,.24); vec3 c = p.y > 0. ? lucht : mix(vec3(.55,.5,.47), grond, clamp(-p.y*4.,0.,1.)); c += vec3(1.,.95,.85) * pow(max(dot(p, normalize(vec3(-.6,.7,.2))),0.), 64.) * 6.; gl_FragColor = vec4(c,1.); }",
+  })));
+  const env = new THREE.PMREMGenerator(renderer).fromScene(omg, 0.02).texture;
+  for (const m of [MAT.auto, MAT.glas]) { m.envMap = env; m.needsUpdate = true; }
+  MAT.glas.envMapIntensity = 1.6;
 }
 const zon = new THREE.DirectionalLight("#fff1dc", 2.6);
 zon.position.set(-90, 110, 30);
@@ -193,6 +205,7 @@ function begin() {
   for (let i = 0; i < ri.tegelijk; i++) nieuweFatbike(i === 0);
   $("#start").hidden = $("#einde").hidden = true;
   $("#hud").hidden = false;
+  setTimeout(zetSchuifLengte, 0);
   tekenHud();
 }
 // boodschappers: uit een geparkeerde auto naar een winkel en terug
@@ -244,7 +257,7 @@ function eindeRonde(gewonnen, reden) {
 function tekenHud() {
   if (!spel.ri) return;
   const over = spel.ri.fatbikes - spel.geraakt;
-  $("#doelen").innerHTML = Array.from({ length: spel.ri.fatbikes }, (_, i) => `<i class="fb${i < spel.geraakt ? " weg" : ""}"></i>`).join("") + `<span>${over}</span>`;
+  $("#doelen").innerHTML = `<i class="fb"></i><span>${over}</span>`;
   $("#kogels").innerHTML = `<i class="kogel"></i>${spel.kogels}`;
   $("#fouten").innerHTML = Array.from({ length: spel.ri.fouten + 1 }, (_, i) => `<i class="${i < spel.fouten ? "x aan" : "x"}">✕</i>`).join("");
   $("#score").textContent = spel.score + spel.rondeScore;
@@ -517,7 +530,7 @@ function zetZoom(z) {
   const scoop = kijk.zoom > 1.5;
   document.body.classList.toggle("scoop", scoop);
   $("#zoomWaarde").textContent = `${kijk.zoom.toFixed(kijk.zoom < 10 ? 1 : 0)}×`;
-  $("#zoomSchuif").value = kijk.zoom;
+  $("#zoomSchuif").value = zoomNaarSchuif(kijk.zoom);
 }
 function draai(dx, dy) {
   const k = (fov() * Math.PI) / 180 / innerHeight;
@@ -571,11 +584,17 @@ const knop = (sel, neer, op) => {
   el.addEventListener("pointerup", uit); el.addEventListener("pointercancel", uit); el.addEventListener("pointerleave", uit);
 };
 knop("#vuur", schiet);
-knop("#scoopKnop", () => zetZoom(kijk.zoom > 1.5 ? 1 : kijk.scoopZoom));
 knop("#hoger", () => wisselStand(1));
 knop("#lager", () => wisselStand(-1));
 addEventListener("keydown", (e) => { if (e.code === "PageUp" || e.code === "KeyE") wisselStand(1); if (e.code === "PageDown" || e.code === "KeyC") wisselStand(-1); });
-$("#zoomSchuif").addEventListener("input", (e) => zetZoom(+e.target.value));
+// schuif: onderste 8% = gewoon kijken, daarboven 2× tot 40×, logaritmisch (fijn bij weinig zoom)
+const ZMAX = 40, ZMIN = 2, ONDER = 80;
+const schuifNaarZoom = (v) => (v < ONDER ? 1 : ZMIN * Math.pow(ZMAX / ZMIN, (v - ONDER) / (1000 - ONDER)));
+function zoomNaarSchuif(z) { return z < 1.5 ? 0 : ONDER + ((1000 - ONDER) * Math.log(z / ZMIN)) / Math.log(ZMAX / ZMIN); }
+$("#zoomSchuif").addEventListener("input", (e) => zetZoom(schuifNaarZoom(+e.target.value)));
+// de schuif staat rechtop: de lengte volgt de hoogte van het vak
+const zetSchuifLengte = () => $("#zoomSchuif").style.setProperty("--l", `${$("#zoom").clientHeight}px`);
+addEventListener("resize", zetSchuifLengte); setTimeout(zetSchuifLengte, 0);
 $("#begin").addEventListener("click", begin);
 
 // ---------- nieuwe versie? ----------

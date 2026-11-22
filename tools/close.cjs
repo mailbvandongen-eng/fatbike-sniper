@@ -41,6 +41,15 @@ const TYPE = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/jav
   await page.evaluate(() => { const s = window.__spel; s.vrijeCamera = { pos: [-1.2, 1.3, -32.5], doel: [-6, 1, -29.5] }; });
   await page.waitForTimeout(3000);
   await page.screenshot({ path: `${UIT}/schuin.png` });
+  // door de kijker vanaf het balkon naar de rij (zoals de speler het ziet)
+  await page.evaluate(() => { const s = window.__spel; s.vrijeCamera = null; const o = s.oog; s.kijk.yaw = Math.atan2(-4.7 - o.x, -30 - o.z); s.kijk.pitch = Math.atan2(0.9 - o.y, Math.hypot(-4.7 - o.x, -30 - o.z)); s.zetZoom(5); });
+  await page.waitForTimeout(3500);
+  await page.screenshot({ path: `${UIT}/kijker.png` });
+  await page.evaluate(() => window.__spel.zetZoom(1));
+  // een geparkeerde auto van dichtbij
+  await page.evaluate(() => { const s = window.__spel; s.vrijeCamera = { pos: [8, 1.8, -16], doel: [4, 0.8, -10] }; });
+  await page.waitForTimeout(3000);
+  await page.screenshot({ path: `${UIT}/auto.png` });
   // de schutter van opzij, op het balkon
   await page.evaluate(() => { const s = window.__spel; const o = s.oog; s.vrijeCamera = { pos: [o.x + 2.2, o.y, o.z + 0.6], doel: [o.x, o.y - 0.3, o.z] }; });
   await page.waitForTimeout(3000);

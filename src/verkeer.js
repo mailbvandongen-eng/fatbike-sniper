@@ -296,7 +296,7 @@ export class Fietser extends Reiziger {
     if (fat && Math.random() < (ronde > 1 ? 0.45 : 0.3)) this.berijders.push(maakMens("fatbiker"));
     this.berijders.forEach((m, i) => {
       // de heup (zoals in de rijbeweging) op het zadel; de bestuurder leunt voorover naar het stuur
-      const h = m.zithoogte(), leun = i ? 0.05 : fat ? 0.35 : 0.3;
+      const h = m.zithoogte(), leun = i ? 0.05 : fat ? 0.38 : 0.5;
       m.leun = leun;
       m.object.position.set(0, fu.zadel + 0.07 - h * Math.cos(leun), fu.zadelZ - h * Math.sin(leun) - i * 0.45);
       this.groep.add(m.object);

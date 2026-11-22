@@ -266,7 +266,8 @@ export function maakFiets(soort, o = {}) {
       raak.push({ deel: "frame", min: V(-0.33, 0.25, -0.2), max: V(0.33, 0.8, wielbasis / 2) });
     } else buis(bak, stuurB.clone().add(V(0, -0.3, -0.03)), v, 0.016, "#333");
     buis(bak, stuurB.clone().add(V(0, -0.3, -0.03)), stuurB, 0.016, "#333");
-    stuk(bak, new THREE.TorusGeometry(0.2, 0.012, 4, 10, Math.PI), "#222", M(stuurB.clone().add(V(0, 0, -0.12)), [Math.PI / 2, 0, 0]));
+    // Hollands stuur: buigt terug naar de fietser, handvatten ~0,25 m achter de stuurpen
+    stuk(bak, new THREE.TorusGeometry(0.22, 0.012, 4, 10, Math.PI), "#222", M(stuurB.clone().add(V(0, 0, -0.24)), [Math.PI / 2, 0, 0]));
     blok(bak, 0.16, 0.06, 0.25, zadelP.clone().add(V(0, 0.06, 0)), "#2a1f19");
     blok(bak, 0.03, 0.16, 0.5, V(0.07, 0.3, trap.z - 0.18), kl); // kettingkast
     if (soort !== "bakfiets") {
@@ -296,8 +297,8 @@ export function maakFiets(soort, o = {}) {
   raak.push({ deel: "band", min: V(-band - 0.02, 0, wielbasis / 2 - rW), max: V(band + 0.02, rW * 2, wielbasis / 2 + rW) });
   // handvatten (lokaal), links = +x (de berijder kijkt naar +z)
   const hv = soort === "fatbike" ? [V(0.3, stuurP.y + 0.04, stuurP.z - 0.06), V(-0.3, stuurP.y + 0.04, stuurP.z - 0.06)]
-    : [V(0.2, stuurP.y, stuurP.z - 0.12), V(-0.2, stuurP.y, stuurP.z - 0.12)];
-  const zadelZ = soort === "fatbike" ? -0.12 : soort === "bakfiets" ? -0.43 : -0.23;
+    : [V(0.22, stuurP.y, stuurP.z - 0.24), V(-0.22, stuurP.y, stuurP.z - 0.24)];
+  const zadelZ = soort === "fatbike" ? -0.06 : soort === "bakfiets" ? -0.36 : -0.12;
   g.userData = { soort, wielen: [wa, wv], rW, raak, zadel, zadelZ, stuur: stuurP, wielbasis, hoofd: m, handvatten: hv };
   return g;
 }
@@ -308,50 +309,114 @@ const AUTOKLEUR = [
   ...Array(9).fill("#141517"), ...Array(4).fill("#2a2c30"), ...Array(5).fill("#4a4d52"), ...Array(6).fill("#a9adb2"), ...Array(7).fill("#e9eaec"),
   "#1f3b6e", "#2f5fa0", "#8b1e1e", "#b3241f", "#e2b021", "#6f7d70", "#c9c3b3",
 ];
+/** Knipt een veelhoek (punten [z, y]) af op y >= grens (Sutherland-Hodgman). */
+function boven(pts, grens) {
+  const uit = [];
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i], b = pts[(i + 1) % pts.length];
+    const ai = a[1] >= grens, bi = b[1] >= grens;
+    if (ai) uit.push(a);
+    if (ai !== bi) { const t = (grens - a[1]) / (b[1] - a[1]); uit.push([a[0] + (b[0] - a[0]) * t, grens]); }
+  }
+  return uit;
+}
+/** Knipt een veelhoek af op z >= grens (kant 1) of z <= grens (kant -1). */
+function knipZ(pts, grens, kant) {
+  const uit = [];
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i], b = pts[(i + 1) % pts.length];
+    const ai = (a[0] - grens) * kant >= 0, bi = (b[0] - grens) * kant >= 0;
+    if (ai) uit.push(a);
+    if (ai !== bi) { const t = (grens - a[0]) / (b[0] - a[0]); uit.push([grens, a[1] + (b[1] - a[1]) * t]); }
+  }
+  return uit;
+}
+function profiel(pts, breed, bevel = 0) {
+  const v = new THREE.Shape();
+  v.moveTo(pts[0][0], pts[0][1]);
+  for (const p of pts.slice(1)) v.lineTo(p[0], p[1]);
+  const g = new THREE.ExtrudeGeometry(v, { depth: breed, bevelEnabled: bevel > 0, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 2 });
+  g.translate(0, 0, -breed / 2);
+  return g;
+}
+/** Een auto: carrosserie, ruiten waar je doorheen kijkt, interieur, wielen met velgen, bumpers, spiegels. Voorkant = +z. */
 export function maakAuto(o = {}) {
-  const bak = [];
+  const lak = [], rest = [], glas = [];
   const kl = o.kleur ?? kies(AUTOKLEUR);
   const soort = o.soort ?? kies(["hatch", "hatch", "sedan", "suv", "busje"]);
-  const L = { hatch: 3.9, sedan: 4.6, suv: 4.5, busje: 5.0 }[soort];
+  const L = { hatch: 3.95, sedan: 4.6, suv: 4.5, busje: 5.0 }[soort];
   const B = soort === "busje" ? 1.95 : soort === "suv" ? 1.85 : 1.76;
   const H = { hatch: 1.48, sedan: 1.45, suv: 1.68, busje: 2.1 }[soort];
-  const vorm = new THREE.Shape();
   const z0 = -L / 2, z1 = L / 2;
-  // zijprofiel in (z, y)
+  // zijprofiel in (z, y), tegen de klok in
   const pts = soort === "busje"
     ? [[z0, 0.3], [z1, 0.3], [z1, 0.95], [z1 - 0.45, 1.3], [z1 - 0.8, H], [z0, H]]
     : soort === "hatch"
-    ? [[z0, 0.3], [z1, 0.3], [z1, 0.78], [z1 - 0.9, 0.92], [z1 - 1.6, H], [z0 + 0.4, H], [z0 + 0.05, 0.98]]
+    ? [[z0, 0.3], [z1, 0.3], [z1, 0.78], [z1 - 0.95, 0.93], [z1 - 1.6, H], [z0 + 0.4, H], [z0 + 0.05, 0.98]]
     : soort === "suv"
     ? [[z0, 0.35], [z1, 0.35], [z1, 0.95], [z1 - 1.0, 1.08], [z1 - 1.6, H], [z0 + 0.35, H], [z0, 1.05]]
     : [[z0, 0.3], [z1, 0.3], [z1, 0.75], [z1 - 1.1, 0.88], [z1 - 1.75, H], [z0 + 1.0, H], [z0 + 0.45, 0.95], [z0, 0.88]];
-  vorm.moveTo(pts[0][0], pts[0][1]);
-  for (const p of pts.slice(1)) vorm.lineTo(p[0], p[1]);
-  const romp = new THREE.ExtrudeGeometry(vorm, { depth: B, bevelEnabled: true, bevelThickness: 0.06, bevelSize: 0.05, bevelSegments: 1 });
-  romp.translate(0, 0, -B / 2);
-  stuk(bak, romp, kl, M(V(), [0, -Math.PI / 2, 0]));
-  // ruiten: iets kleiner profiel van het bovenste deel, donker
-  const ram = new THREE.Shape();
-  const top = pts.filter((p) => p[1] > 0.85);
-  const midY = soort === "busje" ? 1.0 : soort === "suv" ? 1.1 : 0.95;
-  const rpts = [[top[0][0] - 0.05, midY], ...top.map(([z, y]) => [z * 0.97, Math.min(y, H) - 0.07])].filter((p) => p[1] >= midY - 0.01);
-  ram.moveTo(rpts[0][0], midY);
-  for (const p of rpts) ram.lineTo(p[0], Math.max(p[1], midY));
-  ram.lineTo(rpts.at(-1)[0], midY);
-  const ruit = new THREE.ExtrudeGeometry(ram, { depth: B + 0.1, bevelEnabled: false });
-  ruit.translate(0, 0, -(B + 0.1) / 2);
-  stuk(bak, ruit, "#1d2630", M(V(), [0, -Math.PI / 2, 0], [0.985, 1, 1]));
-  for (const z of [z0 + 0.75, z1 - 0.75]) for (const x of [-B / 2 + 0.02, B / 2 - 0.02])
-    stuk(bak, new THREE.CylinderGeometry(0.31, 0.31, 0.22, 10), "#151515", M(V(x, 0.31, z), [0, 0, Math.PI / 2]));
-  for (const x of [-B / 2 + 0.3, B / 2 - 0.3]) {
-    blok(bak, 0.3, 0.1, 0.05, V(x, 0.72, z1 + 0.05), "#f4f1e0");
-    blok(bak, 0.3, 0.1, 0.05, V(x, 0.8, z0 - 0.05), "#8e1111");
+  const R = M(V(), [0, -Math.PI / 2, 0]); // profiel (z, y) -> auto
+  const gordel = { busje: 1.05, suv: 1.1, hatch: 0.95, sedan: 0.93 }[soort];
+  // een busje heeft alleen voorin ramen; de laadruimte is dicht
+  const knip = soort === "busje" ? z1 - 1.75 : -Infinity;
+  const voorDeel = knip > -Infinity ? knipZ(pts, knip, 1) : pts;
+  if (knip > -Infinity) stuk(lak, profiel(knipZ(pts, knip, -1), B, 0.05), kl, R);
+  // onderkant tot aan de gordellijn: lak
+  stuk(lak, profiel(voorDeel.map(([z, y]) => [z, Math.min(y, gordel)]), B, 0.05), kl, R);
+  // de kas: glas, iets smaller dan de auto
+  const kas = boven(voorDeel, gordel);
+  const kb = B * 0.9;
+  stuk(glas, profiel(kas, kb), "#ffffff", R);
+  // dak en stijlen in de lak
+  const dak = kas.filter(([, y]) => y >= H - 0.01).map(([z]) => z);
+  if (dak.length >= 2) blok(lak, kb + 0.04, 0.07, Math.max(...dak) - Math.min(...dak) + 0.06, V(0, H + 0.02, (Math.max(...dak) + Math.min(...dak)) / 2), kl);
+  const voor = kas.filter(([z]) => z > 0).sort((a, b) => b[0] - a[0]), achter = kas.filter(([z]) => z <= 0).sort((a, b) => a[0] - b[0]);
+  const stijl = (a, b) => {
+    for (const x of [-kb / 2, kb / 2]) buis(lak, V(x, a[1], a[0]), V(x, b[1], b[0]), 0.045, kl, 0, 5);
+  };
+  const vOnder = voor.find(([, y]) => Math.abs(y - gordel) < 0.01), vBoven = voor.find(([, y]) => y >= H - 0.01);
+  const aOnder = achter.find(([, y]) => Math.abs(y - gordel) < 0.01), aBoven = achter.find(([, y]) => y >= H - 0.01);
+  if (vOnder && vBoven) stijl(vOnder, vBoven);
+  if (aOnder && aBoven) stijl(aOnder, aBoven);
+  const midden = vOnder && aOnder ? (vOnder[0] + aOnder[0]) / 2 + 0.1 : 0;
+  stijl([midden, gordel], [midden, H]);
+  // interieur: stoelen, achterbank, dashboard, stuur
+  const stof = kies(["#2a2a2c", "#3b3a38", "#4a4238", "#222"]);
+  for (const x of [-0.42, 0.42]) {
+    blok(rest, 0.5, 0.12, 0.5, V(x, 0.55, midden + 0.15), stof);
+    blok(rest, 0.48, 0.62, 0.12, V(x, 0.88, midden - 0.12), stof, [-0.2, 0, 0]);
+    blok(rest, 0.24, 0.16, 0.1, V(x, 1.24, midden - 0.18), stof);
   }
-  blok(bak, B * 0.4, 0.12, 0.04, V(0, 0.45, z1 + 0.06), "#e9e6d0"); // kenteken
-  const mesh = new THREE.Mesh(plak(bak), MAT.auto);
-  mesh.castShadow = true; mesh.receiveShadow = true;
-  mesh.userData = { soort, L, B, H, raak: [{ deel: "auto", min: V(-B / 2, 0.15, z0), max: V(B / 2, H, z1) }] };
-  return mesh;
+  if (soort !== "busje") { blok(rest, kb - 0.2, 0.12, 0.5, V(0, 0.55, midden - 0.85), stof); blok(rest, kb - 0.2, 0.55, 0.12, V(0, 0.85, midden - 1.12), stof, [-0.15, 0, 0]); }
+  const dash = vOnder ? vOnder[0] - 0.3 : midden + 0.8;
+  blok(rest, kb - 0.1, 0.22, 0.4, V(0, gordel - 0.05, dash), "#1c1c1e");
+  stuk(rest, new THREE.TorusGeometry(0.17, 0.025, 4, 14), "#111", M(V(0.42, gordel + 0.05, dash - 0.3), [-0.5, 0, 0]));
+  // wielen: band + velg aan de buitenkant
+  const velg = kies(["#b9bcc0", "#8d9196", "#2a2b2d", "#c7c9cc"]);
+  for (const z of [z0 + 0.78, z1 - 0.8]) for (const s of [-1, 1]) {
+    stuk(rest, new THREE.CylinderGeometry(0.32, 0.32, 0.22, 16), "#141414", M(V(s * (B / 2 - 0.08), 0.32, z), [0, 0, Math.PI / 2]));
+    stuk(rest, new THREE.CylinderGeometry(0.2, 0.2, 0.03, 12), velg, M(V(s * (B / 2 + 0.035), 0.32, z), [0, 0, Math.PI / 2]));
+    stuk(rest, new THREE.CylinderGeometry(0.06, 0.06, 0.04, 6), "#333", M(V(s * (B / 2 + 0.05), 0.32, z), [0, 0, Math.PI / 2]));
+  }
+  // bumpers, grille, verlichting, kenteken, spiegels
+  for (const z of [z1 + 0.04, z0 - 0.04]) blok(rest, B + 0.04, 0.2, 0.12, V(0, 0.4, z), "#1e1f21");
+  blok(rest, B * 0.45, 0.16, 0.04, V(0, 0.66, z1 + 0.03), "#141518");
+  for (const s of [-1, 1]) {
+    blok(rest, 0.36, 0.1, 0.05, V(s * (B / 2 - 0.28), 0.74, z1 + 0.02), "#f6f4ea");
+    blok(rest, 0.32, 0.12, 0.05, V(s * (B / 2 - 0.24), 0.82, z0 - 0.02), "#a3141a");
+    blok(lak, 0.16, 0.1, 0.12, V(s * (B / 2 + 0.08), gordel + 0.08, (vOnder?.[0] ?? midden + 0.8) - 0.15), kl);
+  }
+  blok(rest, 0.52, 0.12, 0.03, V(0, 0.45, z1 + 0.105), "#e9d64a");  // gele kentekenplaat
+  blok(rest, 0.52, 0.12, 0.03, V(0, 0.55, z0 - 0.105), "#e9d64a");
+  const g = new THREE.Group();
+  for (const [bak, mat] of [[lak, MAT.auto], [rest, MAT.voertuig], [glas, MAT.glas]]) {
+    const m = new THREE.Mesh(plak(bak), mat);
+    m.castShadow = mat !== MAT.glas; m.receiveShadow = true;
+    g.add(m);
+  }
+  g.userData = { soort, L, B, H, raak: [{ deel: "auto", min: V(-B / 2, 0.15, z0), max: V(B / 2, H, z1) }] };
+  return g;
 }
 
 /** Winkelwagentje. */
@@ -370,7 +435,9 @@ export function maakKar() {
 export const MAT = {
   mens: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 }),
   voertuig: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6, metalness: 0.15 }),
-  auto: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.35, metalness: 0.35 }),
+  auto: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.28, metalness: 0.45 }),
+  // getint glas: je kijkt erdoorheen naar het interieur, met een glans van de lucht
+  glas: new THREE.MeshStandardMaterial({ color: "#26313a", transparent: true, opacity: 0.62, roughness: 0.04, metalness: 0.6, depthWrite: false }),
 };
 export { plak, stuk, blok, buis, bol, M, V };
 
