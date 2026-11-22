@@ -240,7 +240,7 @@ const GRONDKLEUR = {
   basis: "#b5a88f", plein: "#cdb98e", stoep: "#d2be8f", weg: "#86645e", asfalt: "#4d4e52", parkeer: "#84625c", vak: "#5f5d5d", fietspad: "#a04a3f",
   gras: "#5f7f42", struik: "#3f5f2f", eiland: "#a59f93", speel: "#c4ad7f", fietsvlak: "#a9a196", tram: "#6d6a63", gebouw: "#3c3a37",
 };
-function tekenGrond(d, midden, maat, px) {
+export function tekenGrond(d, midden, maat, px) {
   const c = document.createElement("canvas");
   c.width = c.height = px;
   const x = c.getContext("2d");
@@ -266,14 +266,28 @@ function tekenGrond(d, midden, maat, px) {
   x.setLineDash([3 * s, 4 * s]);
   for (const l of d.lijnen) if (l.s === "weg" && l.asfalt && l.b >= 6) lijn(l, "#d8d6cc", 0.12);
   x.setLineDash([]);
+  const fietspaden = d.lijnen.filter((l) => l.s === "fietspad");
+  const afstLijn = (q, m) => {
+    let best = 1e9;
+    for (let i = 0; i < m.p.length - 1; i++) {
+      const [a, b] = [m.p[i], m.p[i + 1]], dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz || 1;
+      const t = Math.max(0, Math.min(1, ((q[0] - a[0]) * dx + (q[1] - a[1]) * dz) / L2));
+      best = Math.min(best, Math.hypot(q[0] - a[0] - dx * t, q[1] - a[1] - dz * t));
+    }
+    return best;
+  };
   // witte blokjes langs de randen van de fietspaden
   x.fillStyle = "#f1efe8";
-  const blok = 0.3;
+  const blok = 0.32;
   for (const l of d.lijnen) if (l.s === "fietspad" && Math.hypot(...l.p[0]) < 160) for (let i = 0; i < l.p.length - 1; i++) {
     const [a, b] = [l.p[i], l.p[i + 1]], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
     const dx = (b[0] - a[0]) / L, dz = (b[1] - a[1]) / L;
     for (const k of [-1, 1]) for (let t = 0.3; t < L; t += 0.75) {
-      const [px, pz] = P([a[0] + dx * t - dz * k * (l.b / 2 - 0.2), a[1] + dz * t + dx * k * (l.b / 2 - 0.2)]);
+      // alleen aan de buitenrand: ligt er aan deze kant nog een fietspad (andere rijrichting), dan is dit het midden
+      const buiten = [a[0] + dx * t - dz * k * (l.b / 2 + 0.6), a[1] + dz * t + dx * k * (l.b / 2 + 0.6)];
+      if (fietspaden.some((m) => m !== l && afstLijn(buiten, m) < m.b / 2 + 0.2)) continue;
+      // op de grens van het rood, half erover: zo lees je ze als rand
+      const [px, pz] = P([a[0] + dx * t - dz * k * (l.b / 2 + 0.05), a[1] + dz * t + dx * k * (l.b / 2 + 0.05)]);
       x.fillRect(px - (blok * s) / 2, pz - (blok * s) / 2, blok * s, blok * s);
     }
   }
