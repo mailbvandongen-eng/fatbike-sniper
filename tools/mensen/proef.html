@@ -37,7 +37,7 @@ for (let i = 0; i < n; i++) {
   if (clip) mx.clipAction(clip).play();
   mixers.push(mx);
 }
-window.klaar = true;
+window.klaar = true; { const nm = []; sc.traverse((o) => { if (o.isBone && /arm|hand|hips/.test(o.name)) nm.push(o.name); }); console.log("mbotten " + [...new Set(nm)].join(",")); }
 const t = new THREE.Clock();
 (function lus() { const dt = t.getDelta(); mixers.forEach((m) => m.update(Math.min(dt, 0.05))); r.render(sc, cam); requestAnimationFrame(lus); })();
 window.namen = beweging.animations.map((a) => a.name);

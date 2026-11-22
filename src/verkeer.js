@@ -161,6 +161,17 @@ export class Voetganger extends Reiziger {
     this.m.mixer.update(dt);
     this.groep.position.copy(this.pos);
     this.groep.rotation.y = this.richting;
+    this.handenOpKar();
+  }
+  /** Beide handen op de duwstang van de winkelwagen. */
+  handenOpKar() {
+    if (!this.kar || !this.groep.visible || !this.m.hoog.visible) return;
+    this.groep.updateMatrixWorld(true);
+    const omlaag = new THREE.Vector3(0, -1, 0);
+    for (const [k, x] of [["L", 0.2], ["R", -0.2]]) {
+      const doel = this.groep.localToWorld(new THREE.Vector3(x, 0.98, 0.3));
+      this.m.arm(k, doel, omlaag.clone().add(new THREE.Vector3(Math.sign(x) * 0.4, 0, -0.4).applyQuaternion(this.groep.quaternion)));
+    }
   }
   stap(dt) {
     if (this.schrik > 0) {
@@ -207,7 +218,7 @@ export class Boodschapper extends Voetganger {
     }
     if (this.fase2 === "inladen") {
       this.binnen -= dt;
-      this.m.zet("staan"); this.m.mixer.update(dt);
+      this.m.zet("staan"); this.m.mixer.update(dt); this.handenOpKar();
       if (this.binnen <= 0) this.klaar = true;
       return;
     }
@@ -230,6 +241,7 @@ export class Boodschapper extends Voetganger {
     this.m.mixer.update(dt);
     this.groep.position.copy(this.pos);
     this.groep.rotation.y = this.richting;
+    this.handenOpKar();
   }
   verAf() { return false; }
 }
@@ -283,8 +295,10 @@ export class Fietser extends Reiziger {
     this.berijders = [maakMens(fat ? "fatbiker" : "voetganger")];
     if (fat && Math.random() < (ronde > 1 ? 0.45 : 0.3)) this.berijders.push(maakMens("fatbiker"));
     this.berijders.forEach((m, i) => {
-      // de heup (zoals in de rijbeweging) op het zadel
-      m.object.position.set(0, fu.zadel + 0.07 - m.zithoogte(), (fat ? -0.12 : -0.38) - i * 0.42);
+      // de heup (zoals in de rijbeweging) op het zadel; de bestuurder leunt voorover naar het stuur
+      const h = m.zithoogte(), leun = i ? 0.05 : fat ? 0.35 : 0.3;
+      m.leun = leun;
+      m.object.position.set(0, fu.zadel + 0.07 - h * Math.cos(leun), fu.zadelZ - h * Math.sin(leun) - i * 0.45);
       this.groep.add(m.object);
     });
     this.vlucht = 0;
@@ -313,7 +327,17 @@ export class Fietser extends Reiziger {
     this.groep.rotation.set(0, this.richting, 0);
     const scheef = THREE.MathUtils.clamp(-this.draaiing * this.snelheid * 0.09, -0.3, 0.3);
     this.fiets.rotation.z = scheef;
-    for (const m of this.berijders) m.object.rotation.z = scheef;
+    for (const m of this.berijders) m.object.rotation.set(m.leun, 0, scheef);
+    // de bestuurder houdt het stuur vast (wie achterop zit niet)
+    const m = this.berijders[0];
+    if (m?.hoog.visible) {
+      this.groep.updateMatrixWorld(true);
+      const terug = new THREE.Vector3(0, -0.5, -1).applyQuaternion(this.groep.quaternion);
+      this.fiets.userData.handvatten.forEach((h, i) => {
+        const opzij = new THREE.Vector3(i ? -0.8 : 0.8, 0, 0).applyQuaternion(this.groep.quaternion);
+        m.arm(i ? "R" : "L", this.fiets.localToWorld(h.clone()), terug.clone().add(opzij));
+      });
+    }
   }
   schrikken() { if (this.fat) { this.vlucht = 8; this.wacht = 0; } }
   get object() { return this.groep; }

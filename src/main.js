@@ -78,8 +78,7 @@ async function laad() {
   // jij: de schutter met het geweer
   schutter = maakMens("schutter");
   geweer = maakGeweer();
-  geweer.position.set(-0.11, 1.5, -0.02); // kolf tegen de rechterschouder, loop naar voren
-  schutter.object.add(geweer);
+  scene.add(geweer); // los in de wereld: elk beeld tegen de schouder gelegd, in de kijkrichting
   scene.add(schutter.object);
   // ▲▼ gaan van laag naar hoog: eerst de plekken op de grond, dan de verdiepingen
   standen = data.standplaatsen.map((st, i) => ({ ...st, i })).sort((a, b) => a.pos[1] - b.pos[1]);
@@ -113,7 +112,7 @@ function zetStand(nr) {
   standNr = nr;
   const st = standen[nr];
   oog.set(...st.pos);
-  if (st.soort === "grond") oog.y = 1.22;
+  if (st.soort === "grond") oog.y = 1.5; // staand, leunend over het muurtje
   camera.position.copy(oog);
   const [nx, nz] = st.normaal;
   kijk.basisYaw = Math.atan2(nx, nz);
@@ -680,7 +679,6 @@ function lus() {
     if (r instanceof Boodschapper) nieuweBoodschapper();
   }
   // op de grond: je gluurt over het muurtje, met de kijker kom je omhoog
-  if (standen[standNr]?.soort === "grond") oog.y = THREE.MathUtils.lerp(oog.y, kijk.zoom > 1.5 ? 1.5 : 1.22, Math.min(1, echt * 8));
   zetDetail();
   stapKogels(dt);
   stapVallers(dt);
@@ -718,12 +716,25 @@ function lus() {
   const st = standen[standNr];
   if (schutter && st) {
     const fx = Math.sin(kijk.yaw), fz = Math.cos(kijk.yaw);
-    schutter.object.position.set(oog.x, st.soort === "grond" ? 0 : oog.y - 1.6, oog.z);
-    schutter.object.rotation.y = kijk.yaw;
-    schutter.zet(st.soort === "grond" && !scoop ? "hurken" : "richten");
+    // staan en (op straat) iets voorover leunen over het muurtje; het lijf staat een stukje achter het oog
+    const grond = st.soort === "grond";
+    schutter.object.position.set(oog.x - fx * (grond ? 0.3 : 0.15), grond ? 0 : oog.y - 1.6, oog.z - fz * (grond ? 0.3 : 0.15));
+    schutter.object.rotation.set(grond ? 0.14 : 0.05, kijk.yaw, 0, "YXZ");
+    schutter.zet("staan");
     schutter.mixer.update(echt);
-    geweer.rotation.x = -kijk.pitch;
-    schutter.object.visible = !scoop;
+    schutter.object.updateMatrixWorld(true);
+    // het geweer: kolf tegen de rechterschouder, loop in de kijkrichting, iets naar het midden
+    const schouder = schutter.plek("DEF-upper_armR");
+    const links = new THREE.Vector3(fz, 0, -fx); // de linkerkant van de schutter (hij kijkt naar +z)
+    const dir = new THREE.Vector3(Math.sin(kijk.yaw) * Math.cos(kijk.pitch), Math.sin(kijk.pitch), Math.cos(kijk.yaw) * Math.cos(kijk.pitch));
+    geweer.position.copy(schouder).addScaledVector(links, 0.07).addScaledVector(dir, -0.1).add(new THREE.Vector3(0, 0.03, 0));
+    geweer.rotation.set(-kijk.pitch, kijk.yaw, 0, "YXZ");
+    geweer.updateMatrixWorld(true);
+    // handen aan het geweer: rechts om de greep, links onder de voorkant; ellebogen omlaag
+    const omlaag = new THREE.Vector3(0, -1, 0);
+    schutter.arm("R", geweer.localToWorld(new THREE.Vector3(0, -0.06, 0.2)), omlaag.clone().addScaledVector(links, -0.6));
+    schutter.arm("L", geweer.localToWorld(new THREE.Vector3(0, -0.04, 0.58)), omlaag.clone().addScaledVector(links, 0.4));
+    schutter.object.visible = geweer.visible = !scoop;
     if (scoop) camera.position.copy(oog);
     else {
       // over de schouder: per plek een andere afstand en hoogte (op het dak hoger, anders zie je alleen grind)
@@ -731,6 +742,9 @@ function lus() {
       camera.position.set(oog.x - fx * ach - fz * rechts, oog.y + op, oog.z - fz * ach + fx * rechts);
     }
   }
+  // alleen voor tests: een vaste camera ergens anders
+  const vc = window.__spel?.vrijeCamera;
+  if (vc) { camera.position.set(...vc.pos); camera.lookAt(...vc.doel); }
   renderer.render(scene, filmCam?.cam ?? camera);
 
   // prestaties: bij een trage telefoon de resolutie omlaag

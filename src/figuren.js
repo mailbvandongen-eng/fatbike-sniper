@@ -294,7 +294,11 @@ export function maakFiets(soort, o = {}) {
   g.add(wa, wv);
   raak.push({ deel: "band", min: V(-band - 0.02, 0, -wielbasis / 2 - rW), max: V(band + 0.02, rW * 2, -wielbasis / 2 + rW) });
   raak.push({ deel: "band", min: V(-band - 0.02, 0, wielbasis / 2 - rW), max: V(band + 0.02, rW * 2, wielbasis / 2 + rW) });
-  g.userData = { soort, wielen: [wa, wv], rW, raak, zadel, stuur: stuurP, wielbasis, hoofd: m };
+  // handvatten (lokaal), links = +x (de berijder kijkt naar +z)
+  const hv = soort === "fatbike" ? [V(0.3, stuurP.y + 0.04, stuurP.z - 0.06), V(-0.3, stuurP.y + 0.04, stuurP.z - 0.06)]
+    : [V(0.2, stuurP.y, stuurP.z - 0.12), V(-0.2, stuurP.y, stuurP.z - 0.12)];
+  const zadelZ = soort === "fatbike" ? -0.12 : soort === "bakfiets" ? -0.43 : -0.23;
+  g.userData = { soort, wielen: [wa, wv], rW, raak, zadel, zadelZ, stuur: stuurP, wielbasis, hoofd: m, handvatten: hv };
   return g;
 }
 

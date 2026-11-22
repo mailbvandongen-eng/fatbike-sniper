@@ -27,17 +27,24 @@ const TYPE = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/jav
     const s = window.__spel;
     const fat = s.reizigers.filter((r) => r.fat);
     const fiets = s.reizigers.find((r) => r.soort === "fiets");
-    const loper = s.reizigers.find((r) => r.soort === "voetganger");
-    const rij = [...fat.slice(0, 2), fiets, loper];
-    rij.forEach((r, i) => { r.wacht = 1e9; r.pos.set(-6 + i * 2.2, 0, -30); r.pad.copy(r.pos); r.richting = Math.PI / 2; });
-    s.camera.position.set(-2.7, 1.5, -25.5);
-    s.kijk.basisYaw = Math.PI; s.kijk.yaw = Math.PI; s.kijk.pitch = -0.08;
+    const kar = s.reizigers.find((r) => r.kar && !r.lijn);
+    const rij = [fat[0], fiets, kar].filter(Boolean);
+    rij.forEach((r, i) => { r.wacht = 1e9; r.v = 0; r.vBasis = 0; r.pos.set(-6 + i * 2.6, 0, -30); r.pad.copy(r.pos); r.richting = Math.PI / 2; });
+    window.__vast = () => rij.forEach((r, i) => { r.pos.set(-6 + i * 2.6, 0, -30); r.pad.copy(r.pos); r.richting = Math.PI / 2; });
+    setInterval(window.__vast, 50);
+    s.zetZoom(1);
   });
-  await page.waitForTimeout(2500);
+  // camera los van de schutter: kijk van opzij naar de rij
+  await page.evaluate(() => { const s = window.__spel; s.vrijeCamera = { pos: [-3.4, 1.4, -26.2], doel: [-3.4, 0.9, -30] }; });
+  await page.waitForTimeout(4000);
   await page.screenshot({ path: `${UIT}/rij.png` });
-  await page.evaluate(() => { const s = window.__spel; s.kijk.yaw = Math.PI - 0.9; s.camera.position.set(-6.5, 1.3, -27); });
-  await page.waitForTimeout(1500);
+  await page.evaluate(() => { const s = window.__spel; s.vrijeCamera = { pos: [-1.2, 1.3, -32.5], doel: [-6, 1, -29.5] }; });
+  await page.waitForTimeout(3000);
   await page.screenshot({ path: `${UIT}/schuin.png` });
+  // de schutter van opzij, op het balkon
+  await page.evaluate(() => { const s = window.__spel; const o = s.oog; s.vrijeCamera = { pos: [o.x + 2.2, o.y, o.z + 0.6], doel: [o.x, o.y - 0.3, o.z] }; });
+  await page.waitForTimeout(3000);
+  await page.screenshot({ path: `${UIT}/schutter.png` });
   console.log(fouten.join("\n") || "geen fouten");
   await browser.close();
 })();
