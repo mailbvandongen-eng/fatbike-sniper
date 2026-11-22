@@ -530,6 +530,9 @@ function draai(dx, dy) {
 }
 const doek = renderer.domElement;
 doek.addEventListener("pointerdown", (e) => {
+  // de eerste vinger op het scherm: vergeet vingers waarvan we het loslaten gemist hebben
+  // (anders telt een nieuwe veeg als knijpen en kun je niet meer draaien)
+  if (e.isPrimary) { vingers.clear(); knijp = null; }
   doek.setPointerCapture(e.pointerId);
   vingers.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: performance.now() });
   if (vingers.size === 2) { const [a, b] = [...vingers.values()]; knijp = { d: Math.hypot(a.x - b.x, a.y - b.y), z: kijk.zoom }; }
@@ -554,6 +557,7 @@ const los = (e) => {
 };
 doek.addEventListener("pointerup", los);
 doek.addEventListener("pointercancel", los);
+doek.addEventListener("lostpointercapture", los);
 doek.addEventListener("contextmenu", (e) => e.preventDefault());
 addEventListener("wheel", (e) => { zetZoom(kijk.zoom * Math.exp(-e.deltaY * 0.0015)); }, { passive: true });
 addEventListener("keydown", (e) => {
