@@ -7,6 +7,7 @@ Een sluipschuttersspel in de browser. Je staat op het balkon van de 4e verdiepin
 - Een **mens** raken: de kogel scheert langs, de persoon schrikt en jij krijgt een fout. Na 3 fouten ben je af.
 - Door de **kijker** zie je 1× tot 14×. Het vizier beweegt mee met je adem, dus houd je adem in voor een stil vizier. Dat gaat maar 5 seconden.
 - De kogel vliegt echt: hij doet er even over en zakt een beetje. Bij een rijdende fatbike moet je dus voorhouden.
+- Met ▲▼ wissel je van standplaats: de 1e, 4e en 7e verdieping en het dak van Pleinzicht, of op de grond achter een van drie muurtjes. Op de grond gluur je over de rand. Met de kijker kom je omhoog, en blijf je te lang staan, dan word je gezien: mensen wijzen naar je en fatbikes gaan er hard vandoor.
 - Elke ronde komen er meer fatbikes en rijden ze harder. Je score en sterren hangen af van tijd, kogels en fouten.
 
 ## De echte plek
@@ -31,6 +32,7 @@ node tools/bouw.mjs julianaplein    # wereld bouwen naar data/julianaplein.json
 node tools/kijk.cjs /tmp/shots [telefoon]   # spel testen in Chromium en foto's maken
 node tools/close.cjs /tmp/close     # figuren van dichtbij bekijken
 node tools/views.cjs /tmp/views     # vaste standpunten: Jumbo, Pleinzicht, winkels, overkapping
+node tools/standen.cjs /tmp/standen # alle standplaatsen via ▲▼ en het gezien worden op de grond
 ```
 
 De testscripts openen het spel zonder webserver: de bestanden komen rechtstreeks van schijf. Ze gebruiken playwright-core uit `/root/tools/pw` en `/usr/bin/chromium` met swiftshader. Dat draait op ongeveer 1 beeld per seconde, dus de scripts wachten op toestanden en niet op vaste tijden.

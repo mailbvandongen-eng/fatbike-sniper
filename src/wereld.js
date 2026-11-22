@@ -166,6 +166,39 @@ function maakBorden(winkels, scene) {
   scene.add(m);
 }
 
+// ---------- lage muurtjes, haagbogen en het boogje op Bon Appetit ----------
+function maakMuurtjesEnBogen(d, scene, wereld) {
+  const steen = [], groen = [], wit = [];
+  for (const m of d.muurtjes ?? []) for (let i = 0; i < m.length - 1; i++) {
+    const [a, b] = [m[i], m[i + 1]], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (L < 0.2) continue;
+    const hoek = Math.atan2(b[0] - a[0], b[1] - a[1]);
+    blok(steen, 0.3, 1.0, L + 0.3, V((a[0] + b[0]) / 2, 0.5, (a[1] + b[1]) / 2), "#6e4a3c", [0, hoek, 0]);
+    blok(steen, 0.38, 0.08, L + 0.38, V((a[0] + b[0]) / 2, 1.04, (a[1] + b[1]) / 2), "#a9a49a", [0, hoek, 0]);
+  }
+  // haagbogen: twee groene pilaren met een boog erover, dwars op het pad
+  for (const [x, z, hoek, breed] of d.bogen ?? []) {
+    const r = breed / 2 + 0.5;
+    const g = new THREE.TorusGeometry(r, 0.32, 6, 14, Math.PI);
+    const p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) p.setXYZ(i, p.getX(i) * (1 + (Math.random() - 0.5) * 0.06), p.getY(i) * (1 + (Math.random() - 0.5) * 0.06), p.getZ(i) * (1 + Math.random() * 0.15));
+    g.computeVertexNormals();
+    stuk(groen, g, "#4f7a2e", M(V(x, 1.9, z), [0, hoek, 0]));
+    for (const k of [-1, 1]) blok(groen, 0.62, 1.9, 0.62, V(x + Math.cos(hoek) * k * r, 0.95, z - Math.sin(hoek) * k * r), "#47702a", [0, hoek, 0]);
+  }
+  if (d.dakboog) {
+    const [x, z, h, hoek] = d.dakboog;
+    stuk(wit, new THREE.TorusGeometry(2.4, 0.12, 6, 16, Math.PI), "#f6f6f2", M(V(x, h, z), [0, hoek, 0], [1, 0.6, 1]));
+  }
+  const maak = (bak, ruw) => {
+    if (!bak.length) return;
+    const m = new THREE.Mesh(plak(bak), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: ruw }));
+    m.castShadow = m.receiveShadow = true;
+    scene.add(m); wereld.botsers.push(m);
+  };
+  maak(steen, 0.9); maak(groen, 1); maak(wit, 0.4);
+}
+
 // ---------- glazen overkappingen boven de winkelstraten ----------
 function maakOverkappingen(lijnen, scene) {
   const glas = [], staal = [];
@@ -306,6 +339,7 @@ export function bouwWereld(d, scene) {
   // stoepranden: lage randen langs wegen in het speelgebied zijn te duur; we laten ze weg.
 
   maakBorden(d.winkels ?? [], scene);
+  maakMuurtjesEnBogen(d, scene, wereld);
   maakOverkappingen(d.lijnen, scene);
 
   // bomen (instanced): stam + twee kruinen

@@ -1,7 +1,7 @@
 // Fatbike Sniper: hoofdlus, camera, besturing, schieten, rondes.
 import * as THREE from "three";
 import { bouwWereld, zetFietsenInRekken, bevries } from "./wereld.js";
-import { Graaf, Voetganger, Fietser, Auto } from "./verkeer.js";
+import { Graaf, Voetganger, Fietser, Auto, Boodschapper, Staander } from "./verkeer.js";
 import { houding, kies, tussen } from "./figuren.js";
 import { Effecten } from "./effecten.js";
 import { Geluid } from "./geluid.js";
@@ -52,11 +52,14 @@ scene.add(new THREE.HemisphereLight("#cfe0f0", "#6b6359", 1.05));
 // ---------- staat ----------
 const fx = new Effecten(scene);
 const geluid = new Geluid();
-let wereld, graaf, data, sluip;
+let wereld, graaf, data;
+// standplaatsen: balkons en dak van Pleinzicht, en op de grond achter muurtjes
+let standen = [], standNr = 0, standDecor = null, wisselTot = 0;
+const wisselt = () => performance.now() < wisselTot;
 const reizigers = [];
 const stil = []; // geparkeerde auto's en fietsen in rekken: { object, raak, soort }
 const vallers = []; // fatbikes en berijders die vallen of vliegen
-const spel = { reizigers, jumbo: new THREE.Vector3(), ronde: 1, bezig: false, score: 0 };
+const spel = { reizigers, ronde: 1, bezig: false, score: 0 };
 let tijdSchaal = 1, filmCam = null;
 
 // camera-sturing
@@ -69,17 +72,26 @@ async function laad() {
   $("#plek").textContent = data.naam;
   wereld = bouwWereld(data, scene);
   graaf = new Graaf(data.graaf);
-  sluip = data.sluipschutter;
-  camera.position.set(...sluip.pos);
-  const n = sluip.muur.normaal;
-  kijk.basisYaw = Math.atan2(n[0], n[1]);
-  kijk.yaw = Math.atan2(sluip.kijk[0] - sluip.pos[0], sluip.kijk[2] - sluip.pos[2]);
-  spel.jumbo.set(sluip.kijk[0], 0, sluip.kijk[2]);
-  bouwBalkon();
+  // ▲▼ gaan van laag naar hoog: eerst de plekken op de grond, dan de verdiepingen
+  standen = data.standplaatsen.map((st, i) => ({ ...st, i })).sort((a, b) => a.pos[1] - b.pos[1]);
+  // geen hangplek of groepje vlak bij een standplaats op de grond
+  const grondPos = data.standplaatsen.filter((st) => st.soort === "grond").map((st) => st.pos);
+  spel.hangplekken = data.hangplekken.filter(([x, z]) => grondPos.every((p) => Math.hypot(p[0] - x, p[2] - z) > 9)).map(([x, z]) => new THREE.Vector3(x, 0, z));
+  zetStand(standen.findIndex((st) => st.i === data.startStand));
   for (const a of wereld.geparkeerd) stil.push({ object: a, raak: a.userData.raak, soort: "auto" });
   zetFietsenInRekken(wereld, scene, (f) => stil.push({ object: f, raak: f.userData.raak, soort: "fiets" }));
   bevries(stil.map((s) => s.object), scene);
-  for (let i = 0; i < (telefoon ? 34 : 46); i++) reizigers.push(new Voetganger(graaf, scene));
+  // druk plein: veel mensen dicht bij de parkeerplaats, boodschappers, groepjes en mensen op bankjes
+  for (let i = 0; i < (telefoon ? 55 : 75); i++) reizigers.push(new Voetganger(graaf, scene));
+  for (let i = 0; i < (telefoon ? 12 : 16); i++) nieuweBoodschapper();
+  for (const h of spel.hangplekken.slice(0, 4)) {
+    const n = 2 + ((Math.random() * 2) | 0);
+    for (let k = 0; k < n; k++) {
+      const a = (k / n) * Math.PI * 2 + Math.random();
+      reizigers.push(new Staander(scene, h.x + Math.cos(a) * 0.8 + 1.5, h.z + Math.sin(a) * 0.8, Math.atan2(-Math.cos(a), -Math.sin(a))));
+    }
+  }
+  for (const [soort, x, z] of data.dingen) if (soort === "bank" && Math.hypot(x, z) < 75 && Math.random() < 0.6) reizigers.push(new Staander(scene, x + tussen(-0.5, 0.5), z, Math.random() * Math.PI * 2, true));
   for (let i = 0; i < 12; i++) reizigers.push(new Fietser(graaf, scene, kies(["fiets", "fiets", "fiets", "ebike", "ebike", "bakfiets"])));
   for (let i = 0; i < 9; i++) reizigers.push(new Auto(graaf, scene));
   $("#laden").hidden = true;
@@ -87,13 +99,47 @@ async function laad() {
   toonStart();
 }
 
-// het balkon waar je op staat: vloer, borstwering, stukje gevel
-function bouwBalkon() {
+// ---------- standplaatsen ----------
+function zetStand(nr) {
+  standNr = nr;
+  const st = standen[nr];
+  camera.position.set(...st.pos);
+  if (st.soort === "grond") camera.position.y = 1.22;
+  const [nx, nz] = st.normaal;
+  kijk.basisYaw = Math.atan2(nx, nz);
+  // op de grond kijk je recht over het muurtje; boven kijk je naar de Jumbo
+  kijk.yaw = st.soort === "grond" ? kijk.basisYaw : Math.atan2(st.kijk[0] - st.pos[0], st.kijk[2] - st.pos[2]);
+  kijk.pitch = st.soort === "grond" ? 0 : st.soort === "dak" ? -0.6 : -0.3;
+  if (standDecor) scene.remove(standDecor);
+  standDecor = bouwDecor(st);
+  if (standDecor) scene.add(standDecor);
+  spel.zicht = 0;
+  document.body.classList.toggle("grond", st.soort === "grond");
+  $("#hoger").classList.toggle("uit", nr >= standen.length - 1);
+  $("#lager").classList.toggle("uit", nr <= 0);
+}
+/** Wat er om je heen staat: balkon met borstwering, of de dakrand. Op de grond staat het echte muurtje er al. */
+function bouwDecor(st) {
+  if (st.soort === "grond") return null;
   const g = new THREE.Group();
-  const n = sluip.muur.normaal;
-  g.position.set(sluip.pos[0] - n[0] * 0.9, sluip.pos[1] - 1.6, sluip.pos[2] - n[1] * 0.9);
-  g.rotation.y = Math.atan2(n[0], n[1]);
+  const [nx, nz] = st.normaal;
   const beton = new THREE.MeshStandardMaterial({ color: "#d9d5cc", roughness: 0.9 });
+  if (st.soort === "dak") {
+    // je staat op het grind, achter de dakrand
+    g.position.set(st.pos[0], st.pos[1] - 1.6, st.pos[2]);
+    g.rotation.y = Math.atan2(nx, nz);
+    // lage dakrand vlak voor je
+    const rand = new THREE.Mesh(new THREE.BoxGeometry(8, 0.45, 0.25), beton);
+    rand.position.set(0, 0.22, 0.45);
+    const kap = new THREE.Mesh(new THREE.BoxGeometry(8, 0.05, 0.32), new THREE.MeshStandardMaterial({ color: "#8d9093", metalness: 0.5, roughness: 0.4 }));
+    kap.position.set(0, 0.47, 0.45);
+    const vloer = new THREE.Mesh(new THREE.BoxGeometry(8, 0.1, 3), new THREE.MeshStandardMaterial({ color: "#6f6d68", roughness: 1 }));
+    vloer.position.set(0, -0.05, -0.6);
+    g.add(rand, kap, vloer);
+    return g;
+  }
+  g.position.set(st.pos[0] - nx * 0.9, st.pos[1] - 1.6, st.pos[2] - nz * 0.9);
+  g.rotation.y = Math.atan2(nx, nz);
   const glas = new THREE.MeshStandardMaterial({ color: "#9fb3bd", transparent: true, opacity: 0.25, roughness: 0.1 });
   const vloer = new THREE.Mesh(new THREE.BoxGeometry(5, 0.2, 1.2), beton);
   vloer.position.set(0, -0.1, 0.6);
@@ -105,13 +151,52 @@ function bouwBalkon() {
   plaat.position.set(0, -0.12, 1.15);
   g.add(vloer, rand, ruit, plaat);
   for (const x of [-2.45, 2.45]) { const w = new THREE.Mesh(new THREE.BoxGeometry(0.15, 2.8, 1.2), beton); w.position.set(x, 1.3, 0.6); g.add(w); }
-  scene.add(g);
+  return g;
+}
+/** Naar een andere standplaats: even het trappenhuis in (je kunt dan niet schieten). */
+function wisselStand(richting) {
+  const nr = standNr + richting;
+  if (wisselt() || filmCam || nr < 0 || nr >= standen.length) return;
+  wisselTot = performance.now() + 2000;
+  zetZoom(1);
+  const w = $("#wissel");
+  w.querySelector("b").textContent = standen[nr].naam;
+  w.classList.add("aan");
+  geluid.stappen?.();
+  setTimeout(() => zetStand(nr), 700);
+  setTimeout(() => w.classList.remove("aan"), 1900);
+}
+
+// ---------- gezien worden (alleen op de grond) ----------
+function stapZicht(echt) {
+  const st = standen[standNr];
+  if (st?.soort !== "grond" || !spel.bezig) { $("#oog").hidden = true; return; }
+  $("#oog").hidden = false;
+  const boven = kijk.zoom > 1.5;
+  if (boven) {
+    let k = 0;
+    for (const r of reizigers) if (r.mens && !r.fat) { const d = Math.hypot(r.pos.x - camera.position.x, r.pos.z - camera.position.z); if (d < 25) k += 1 - d / 25; }
+    spel.zicht += echt * (0.04 + k * 0.09);
+  } else spel.zicht -= echt * 0.08; // gluren over de rand valt nauwelijks op
+  spel.zicht = THREE.MathUtils.clamp(spel.zicht, 0, 1);
+  if (spel.zicht >= 1 && !spel.gezienKoel) {
+    spel.gezienKoel = true;
+    melding("Je bent gezien!", "fout", "Duik weg achter het muurtje");
+    for (const r of reizigers) {
+      const d = Math.hypot(r.pos.x - camera.position.x, r.pos.z - camera.position.z);
+      if ((r.fat && d < 75) || (!r.fat && d < 35)) r.gezien?.(camera.position);
+    }
+    setTimeout(() => (spel.gezienKoel = false), 8000);
+    spel.zicht = 0.6;
+  }
+  $("#oog").style.setProperty("--v", spel.zicht);
+  $("#oog").classList.toggle("gevaar", spel.zicht > 0.7);
 }
 
 // ---------- rondes ----------
 function rondeInstellingen(r) {
   // geen klok: je hebt alle tijd. Wel een beperkt aantal kogels.
-  return { fatbikes: 3 + r, kogels: 3 + r + 5, tegelijk: Math.min(1 + r, 5), fouten: 2 };
+  return { fatbikes: 6 + r * 2, kogels: 6 + r * 2 + 6, tegelijk: Math.min(3 + r, 8), fouten: 2 };
 }
 function toonStart() {
   const best = +(localStorage.getItem("fbs-best") ?? 0);
@@ -130,6 +215,15 @@ function begin() {
   $("#hud").hidden = false;
   tekenHud();
 }
+// boodschappers: uit een geparkeerde auto naar een winkel en terug
+function nieuweBoodschapper() {
+  const autos = wereld.geparkeerd.filter((a) => Math.hypot(a.position.x, a.position.z) < 70);
+  const winkels = data.winkels.filter((w) => ["Jumbo", "Jumbo", "Jumbo", "Albert Heijn", "HEMA", "Action", "Kruidvat", "Etos", "Bruna", "Blokker", "Bon Appetit"].includes(w[0]) && Math.hypot(w[1], w[2]) < 120);
+  if (!autos.length || !winkels.length) return;
+  const w = kies(winkels.concat(winkels.filter((x) => x[0] === "Jumbo")));
+  // de deur: iets voor het bord, op straatniveau
+  reizigers.push(new Boodschapper(graaf, scene, kies(autos).position, [w[1] + Math.sin(w[3]) * 1.2, w[2] + Math.cos(w[3]) * 1.2]));
+}
 function weg(r) {
   scene.remove(r.object);
   reizigers.splice(reizigers.indexOf(r), 1);
@@ -140,7 +234,7 @@ function nieuweFatbike(stil = false) {
     // staat al op het plein, op zijn telefoon te kijken
     f.van = graaf.startKnoop(8, 55, 10);
     f.wacht = tussen(10, 30);
-  } else f.van = graaf.startKnoop(8, 115, 60); // komt van de rand binnen rijden
+  } else f.van = graaf.startKnoop(8, 75, 40); // komt van de rand van het plein binnen rijden
   const v = graaf.volgende(-1, f.van, 8, 2);
   if (v) { f.naar = v.n; f.breed = v.breed; f.t = stil ? 0.5 : 0; f.plaats(true); }
   reizigers.push(f);
@@ -191,7 +285,13 @@ function richting() {
   return d;
 }
 function schiet() {
-  if (!spel.bezig || herlaad > 0 || spel.kogels <= 0 || filmCam) return;
+  if (!spel.bezig || herlaad > 0 || spel.kogels <= 0 || filmCam || wisselt()) return;
+  if (standen[standNr]?.soort === "grond") {
+    // schieten op de grond valt op
+    let k = 0;
+    for (const r of reizigers) if (r.mens && Math.hypot(r.pos.x - camera.position.x, r.pos.z - camera.position.z) < 30) k++;
+    spel.zicht = Math.min(1, spel.zicht + 0.25 + k * 0.08);
+  }
   spel.kogels--; spel.schoten++;
   geluid.schot(); geluid.herladen();
   const d = richting();
@@ -444,7 +544,8 @@ function draai(dx, dy) {
   kijk.yaw -= dx * k * 1.05; kijk.pitch -= dy * k * 1.05;
   let d = kijk.yaw - kijk.basisYaw; d = Math.atan2(Math.sin(d), Math.cos(d));
   kijk.yaw = kijk.basisYaw + THREE.MathUtils.clamp(d, -RICHT.yawMax, RICHT.yawMax);
-  kijk.pitch = THREE.MathUtils.clamp(kijk.pitch, RICHT.pitchMin, RICHT.pitchMax);
+  const soort = standen[standNr]?.soort;
+  kijk.pitch = THREE.MathUtils.clamp(kijk.pitch, soort === "dak" ? -1.3 : soort === "grond" ? -0.4 : RICHT.pitchMin, RICHT.pitchMax);
 }
 const doek = renderer.domElement;
 doek.addEventListener("pointerdown", (e) => {
@@ -489,6 +590,9 @@ const knop = (sel, neer, op) => {
 knop("#vuur", schiet);
 knop("#adem", () => (adem.vast = true), () => (adem.vast = false));
 knop("#scoopKnop", () => zetZoom(kijk.zoom > 1.5 ? 1 : kijk.scoopZoom));
+knop("#hoger", () => wisselStand(1));
+knop("#lager", () => wisselStand(-1));
+addEventListener("keydown", (e) => { if (e.code === "PageUp" || e.code === "KeyE") wisselStand(1); if (e.code === "PageDown" || e.code === "KeyC") wisselStand(-1); });
 $("#zoomSchuif").addEventListener("input", (e) => zetZoom(+e.target.value));
 $("#begin").addEventListener("click", begin);
 
@@ -531,18 +635,35 @@ function lus() {
     // kogels op en er rijden nog fatbikes rond
     if (spel.kogels <= 0 && !kogels.length && spel.geraakt < spel.ri.fatbikes) eindeRonde(false, "Je kogels zijn op.");
     const actief = reizigers.filter((r) => r.fat).length;
-    if (actief < spel.ri.tegelijk && spel.gespawnd < spel.ri.fatbikes && Math.random() < echt * 0.25) nieuweFatbike();
+    if (actief < spel.ri.tegelijk && spel.gespawnd < spel.ri.fatbikes && Math.random() < echt * 0.6) nieuweFatbike();
+    // staat er niets op het plein, dan komt er een aanrijden
+    const dichtbij = reizigers.some((r) => r.fat && Math.hypot(r.pos.x, r.pos.z) < 60);
+    spel.leeg = dichtbij ? 0 : (spel.leeg ?? 0) + echt;
+    if (spel.leeg > 6) {
+      spel.leeg = 0;
+      const f = reizigers.find((r) => r.fat && !(r.toestand && r.toestand !== "rijden"));
+      if (f) { f.van = graaf.startKnoop(8, 60, 35); const v = graaf.volgende(-1, f.van, 8, 2, 65); if (v) { f.naar = v.n; f.breed = v.breed; f.t = 0; f.plaats(true); } }
+      else if (spel.gespawnd < spel.ri.fatbikes) nieuweFatbike();
+    }
   }
   for (const r of reizigers) {
     r.stap(dt, spel);
     if (r.verAf?.() && !(r.toestand && r.toestand !== "rijden")) {
       // terug naar het speelgebied
-      r.van = graaf.startKnoop(r.bit, 115, r.fat ? 70 : 0);
-      const v = graaf.volgende(-1, r.van, r.bit);
+      r.van = graaf.startKnoop(r.bit, r.straal * 0.95, r.fat ? r.straal * 0.6 : 0);
+      const v = graaf.volgende(-1, r.van, r.bit, 1, r.straal);
       if (v) { r.naar = v.n; r.breed = v.breed; r.t = 0; r.plaats(true); }
     }
     if (!r.fat && r instanceof Fietser && Math.random() < dt * 0.01) geluid.bel(afstandVol(r.pos));
   }
+  // klaar met boodschappen of weggerend: opruimen en een nieuwe laten komen
+  for (const r of [...reizigers]) if (r.klaar || r.weg) {
+    scene.remove(r.object); reizigers.splice(reizigers.indexOf(r), 1);
+    if (r instanceof Boodschapper) nieuweBoodschapper();
+  }
+  stapZicht(echt);
+  // op de grond: je gluurt over het muurtje, met de kijker kom je omhoog
+  if (standen[standNr]?.soort === "grond" && !filmCam) camera.position.y = THREE.MathUtils.lerp(camera.position.y, kijk.zoom > 1.5 ? 1.5 : 1.22, Math.min(1, echt * 8));
   stapKogels(dt);
   stapVallers(dt);
   fx.stap(dt);

@@ -70,6 +70,7 @@ export class Geluid {
     for (let i = 0; i < 14; i++) this.toon({ freq: i % 2 ? 1250 : 850, duur: 0.22, type: "square", gain: 0.06 * v, start: 0.15 + i * 0.25 });
   }
   bel(v = 0.4) { this.toon({ freq: 2300, duur: 0.6, gain: 0.12 * v }); this.toon({ freq: 3480, duur: 0.4, gain: 0.06 * v, start: 0.12 }); }
+  stappen() { for (let i = 0; i < 6; i++) this.ruisStoot({ duur: 0.07, filter: "bandpass", freq: 500 + Math.random() * 200, q: 1.5, gain: 0.35, start: i * 0.22 }); }
   hart() { this.toon({ freq: 55, freq2: 40, duur: 0.18, gain: 0.5 }); this.toon({ freq: 50, freq2: 38, duur: 0.16, gain: 0.35, start: 0.22 }); }
   goed() { this.toon({ freq: 880, duur: 0.12, gain: 0.15 }); this.toon({ freq: 1320, duur: 0.2, gain: 0.15, start: 0.09 }); }
   fout() { this.toon({ freq: 220, duur: 0.35, type: "sawtooth", gain: 0.12 }); this.toon({ freq: 160, duur: 0.45, type: "sawtooth", gain: 0.12, start: 0.15 }); }

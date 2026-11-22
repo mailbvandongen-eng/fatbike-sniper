@@ -107,7 +107,7 @@ for (const f of panden) {
       if (l > langst) { langst = l; as = [(grond[i + 1][0] - grond[i][0]) / l, (grond[i + 1][1] - grond[i][1]) / l]; }
     }
     voetafdrukken.push({ ring: grond.map((p) => p.map(r1)), h: r1(a.b3_h_dak_70p ?? 6), naam: og?.t.name });
-    if (og?.t.name === L.flat && !sluip) sluip = { grond, h0: a.b3_h_maaiveld ?? 0, lagen };
+    if (og?.t.name === L.flat && !sluip) sluip = { grond, h0: a.b3_h_maaiveld ?? 0, lagen, dak: a.b3_h_dak_70p ?? 28 };
     const pannen = a.b3_dak_type === "slanted" && (stijl === "huis" || stijl === "jaren50");
     vlakken.forEach((vlak, k) => {
       const soort = sem.surfaces[sem.values[0][k]].type;
@@ -154,7 +154,8 @@ for (let i = 0; i < g.length; i++) {
 const maxDot = Math.max(...kandidaten.map((k) => k.dot));
 const beste = kandidaten.filter((k) => k.dot > maxDot - 0.12).sort((a, b) => a.afst - b.afst)[0];
 // buiten de muur, op de galerij of het balkon van de 4e verdieping
-const ooghoogte = sluip.h0 - H0 + 3.4 + (L.verdieping - 1) * 2.8 + 1.45;
+const verdiepingHoogte = (v) => sluip.h0 - H0 + 3.4 + (v - 1) * 2.8 + 1.45;
+const ooghoogte = verdiepingHoogte(L.verdieping);
 const sluipschutter = {
   pos: [r1(beste.m[0] + beste.nrm[0] * 0.9), r1(ooghoogte), r1(beste.m[1] + beste.nrm[1] * 0.9)],
   muur: { normaal: beste.nrm.map(r1), breedte: r1(beste.len) },
@@ -162,7 +163,7 @@ const sluipschutter = {
 };
 
 // ---------- grond, straten, groen ----------
-const vlakken = [], lijnen = [], bomen = [], heggen = [], dingen = [];
+const vlakken = [], lijnen = [], bomen = [], heggen = [], dingen = [], muurtjes = [];
 const isDicht = (w) => w.nodes.length > 3 && w.nodes[0] === w.nodes.at(-1);
 const BREED = { secondary: 8, tertiary: 7, residential: 5.5, unclassified: 5, service: 4, living_street: 5, cycleway: 2.4, footway: 2.2, pedestrian: 5, path: 1.8, steps: 2 };
 for (const w of wegen) {
@@ -191,6 +192,7 @@ for (const w of wegen) {
   }
   if (t.railway === "tram") lijnen.push({ s: "tram", b: 1.6, p });
   if (t.barrier === "hedge") heggen.push({ l: p, h: 1.2 });
+  if ((t.barrier === "wall" || t.barrier === "retaining_wall") && Math.hypot(...p[0]) < 160) muurtjes.push(p);
   if (t.natural === "tree_row") for (let i = 0; i < p.length - 1; i++) {
     const [a, b] = [p[i], p[i + 1]], d = Math.hypot(b[0] - a[0], b[1] - a[1]);
     for (let s = 0; s < d; s += 8) bomen.push([r1(a[0] + ((b[0] - a[0]) * s) / d), r1(a[1] + ((b[1] - a[1]) * s) / d), 9]);
@@ -325,12 +327,72 @@ for (const w of wegen) {
   for (let i = 0; i < ns.length - 1; i++) kanten.push([kIdx(ns[i]), kIdx(ns[i + 1]), bits, r1(BREED[h]), een]);
 }
 
+// ---------- standplaatsen ----------
+// Op Pleinzicht (1e, 4e, 7e verdieping en het dak) en op de grond achter drie muurtjes rond de parkeerplaats.
+const standplaatsen = [];
+const [gx, gz] = [beste.m[0], beste.m[1]], [gnx, gnz] = beste.nrm;
+for (const v of [1, 4, 7]) standplaatsen.push({ naam: `Pleinzicht, ${v}e verdieping`, soort: "balkon", pos: [r1(gx + gnx * 0.9), r1(verdiepingHoogte(v)), r1(gz + gnz * 0.9)], normaal: [r1(gnx), r1(gnz)], kijk: sluipschutter.kijk });
+standplaatsen.push({ naam: "Pleinzicht, dak", soort: "dak", pos: [r1(gx - gnx * 0.45), r1(sluip.dak - H0 + 1.6), r1(gz - gnz * 0.45)], normaal: [r1(gnx), r1(gnz)], kijk: sluipschutter.kijk });
+const opMuur = (doel, naam) => {
+  let best = null;
+  for (const m of muurtjes) for (let i = 0; i < m.length - 1; i++) {
+    const [a, b] = [m[i], m[i + 1]], dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz;
+    if (L2 < 4) continue;
+    const u = Math.max(0.2, Math.min(0.8, ((doel[0] - a[0]) * dx + (doel[1] - a[1]) * dz) / L2));
+    const q = [a[0] + dx * u, a[1] + dz * u], d = Math.hypot(doel[0] - q[0], doel[1] - q[1]);
+    const l = Math.sqrt(L2), lq = Math.hypot(...q) || 1;
+    // alleen muurtjes waar je overheen naar de parkeerplaats kijkt (niet langs of dwars)
+    if (Math.abs((-dz / l) * (-q[0] / lq) + (dx / l) * (-q[1] / lq)) < 0.6) continue;
+    if (!best || d < best.d) {
+      let n = [-dz / l, dx / l];
+      // achter de muur = de kant die van het midden van de parkeerplaats af ligt
+      if (n[0] * -q[0] + n[1] * -q[1] > 0) n = [-n[0], -n[1]];
+      best = { d, q, n };
+    }
+  }
+  if (!best) return;
+  const { q, n } = best;
+  standplaatsen.push({ naam, soort: "grond", pos: [r1(q[0] + n[0] * 0.65), 1.45, r1(q[1] + n[1] * 0.65)], muur: [r1(q[0]), r1(q[1])], normaal: [r1(-n[0]), r1(-n[1])], kijk: [0, 0.8, 0] });
+};
+opMuur([-36, -12], "Achter het muurtje bij Bon Appetit");
+opMuur([24, 44], "Achter het muurtje bij de Jumbo");
+opMuur([44, -3], "Achter de muur aan de oostkant");
+// standaard: de 4e verdieping
+const startStand = standplaatsen.findIndex((x) => x.naam.includes(`${L.verdieping}e`));
+
+// ---------- haagbogen over het middenpad en het boogje op Bon Appetit ----------
+const terrein = vlakken.filter((v) => v.s === "parkeer").sort((a, b) => Math.hypot(...a.r[0]) - Math.hypot(...b.r[0]))[0];
+const bogen = [];
+for (const l of lijnen) if (l.s === "stoep" && terrein) for (let i = 0; i < l.p.length - 1; i++) {
+  const [a, b] = [l.p[i], l.p[i + 1]], len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  for (let t = 2; t < len - 1; t += 3.2) {
+    const p = [a[0] + ((b[0] - a[0]) * t) / len, a[1] + ((b[1] - a[1]) * t) / len];
+    if (!binnen(p, terrein.r) || Math.hypot(...p) > 45) continue;
+    if (bomen.some(([x, z]) => Math.hypot(x - p[0], z - p[1]) < 2.2)) continue;
+    if (bogen.some(([x, z]) => Math.hypot(x - p[0], z - p[1]) < 3)) continue;
+    bogen.push([r1(p[0]), r1(p[1]), r1(Math.atan2(b[0] - a[0], b[1] - a[1])), r1(Math.max(2.2, l.b))]);
+  }
+}
+const bon = winkels.find((w) => w[0] === "Bon Appetit");
+let dakboog = null;
+if (bon) {
+  const v = voetafdrukken.filter((v) => v.h - H0 < 7).map((v) => ({ v, c: v.ring.reduce((s, p) => [s[0] + p[0] / v.ring.length, s[1] + p[1] / v.ring.length], [0, 0]) }))
+    .sort((a, b) => Math.hypot(a.c[0] - bon[1], a.c[1] - bon[2]) - Math.hypot(b.c[0] - bon[1], b.c[1] - bon[2]))[0];
+  if (v) dakboog = [r1(v.c[0]), r1(v.c[1]), r1(v.v.h - H0), bon[3]];
+}
+
+// ---------- hangplekken voor fatbikes ----------
+const hangplekken = [];
+for (const w of winkels) if (["Jumbo", "Bon Appetit", "Albert Heijn", "HEMA", "Action"].includes(w[0])) hangplekken.push([r1(w[1] + Math.sin(w[3]) * 3), r1(w[2] + Math.cos(w[3]) * 3)]);
+for (const [s2, x, z] of dingen) if (s2 === "rek" && Math.hypot(x, z) < 70) hangplekken.push([x, z]);
+
 const uit = {
   naam: L.naam, bron: "3D BAG (CC BY 4.0), © OpenStreetMap-bijdragers (ODbL)",
   sluipschutter, muren, daken, voetafdrukken: voetafdrukken.filter((v) => Math.hypot(...v.ring[0]) < 260),
-  vlakken, lijnen, bomen, heggen, dingen, plekken, winkels, oversteken, graaf: { knopen, kanten },
+  vlakken, lijnen, bomen, heggen, dingen, plekken, winkels, oversteken, muurtjes, standplaatsen, startStand, bogen, dakboog, hangplekken, graaf: { knopen, kanten },
 };
 writeFileSync(`data/${id}.json`, JSON.stringify(uit));
 const tri = Object.values(muren).reduce((s, m) => s + m.pos.length / 9, 0) + Object.values(daken).reduce((s, m) => s + m.pos.length / 9, 0);
 console.log(`${id}: ${plekken.length} parkeerplekken, ${voetafdrukken.length} gebouwen, ${Math.round(tri)} driehoeken, ${bomen.length} bomen, ${knopen.length} knopen, ${kanten.length} kanten`);
-console.log("sluipschutter", JSON.stringify(sluipschutter));
+console.log("standplaatsen", standplaatsen.map((x) => x.naam + " " + x.pos.join(",")).join(" | "));
+console.log("bogen", bogen.length, "dakboog", JSON.stringify(dakboog), "hangplekken", hangplekken.length, "muurtjes", muurtjes.length);

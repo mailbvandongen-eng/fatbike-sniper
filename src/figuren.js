@@ -120,7 +120,7 @@ export function maakMens(o = {}) {
   return mesh;
 }
 
-/** Zet de houding van een mens. f = fase (rad), soort = lopen|rennen|duwen|staan|bellen|fietsen|trappen|achterop|wachten|boos|schrik|vliegen|liggen */
+/** Zet de houding van een mens. f = fase (rad), soort = lopen|rennen|duwen|staan|bellen|fietsen|trappen|achterop|wachten|wijzen|zitten|boos|schrik|vliegen|liggen */
 export function houding(mens, soort, f, sterkte = 1, extra = 0) {
   const b = mens.userData.botten;
   for (let i = 1; i < 12; i++) b[i].rotation.set(0, 0, 0);
@@ -169,6 +169,18 @@ export function houding(mens, soort, f, sterkte = 1, extra = 0) {
     b[4].rotation.x = -0.9; b[5].rotation.x = -0.4; b[4].rotation.z = 0.25;
     b[6].rotation.x = -0.5; b[6].rotation.z = -0.3; b[7].rotation.x = -1.9;
     b[3].rotation.x = 0.4; b[3].rotation.y = Math.sin(f * 0.2) * 0.15;
+  } else if (soort === "wijzen") {
+    // arm gestrekt omhoog naar de flat, andere hand voor de mond
+    b[6].rotation.x = -2.2; b[6].rotation.z = -0.15; b[7].rotation.x = -0.1;
+    b[4].rotation.x = -1.6; b[4].rotation.z = 0.5; b[5].rotation.x = -1.9;
+    b[3].rotation.x = -0.45; b[2].rotation.x = -0.08;
+  } else if (soort === "zitten") {
+    // op een bankje: heup op zithoogte
+    b[1].position.y = 0.5;
+    b[8].rotation.x = b[10].rotation.x = -1.5; b[9].rotation.x = b[11].rotation.x = 1.45;
+    b[8].rotation.z = 0.08; b[10].rotation.z = -0.08;
+    b[4].rotation.x = b[6].rotation.x = -0.5; b[5].rotation.x = b[7].rotation.x = -0.6;
+    b[3].rotation.y = Math.sin(f * 0.25) * 0.5; b[3].rotation.x = 0.1;
   } else if (soort === "boos") {
     // vuisten schudden en stampen
     b[4].rotation.x = -2.3 + s * 0.4; b[6].rotation.x = -2.3 - s * 0.4;

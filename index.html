@@ -76,6 +76,19 @@ body.scoop #zoom{opacity:1}
 #zoomSchuif::-moz-range-track{height:6px;border-radius:3px;background:#fff4}
 #zoomSchuif::-moz-range-thumb{width:26px;height:26px;border-radius:50%;background:#d8f5d0;border:3px solid #111}
 @media (pointer:fine){.knop{opacity:.85}}
+.knop.klein{width:52px;height:52px;left:max(34px,calc(var(--sal) + 26px))}
+#hoger{bottom:calc(max(36px,var(--sab) + 26px) + 154px)}
+#lager{bottom:calc(max(36px,var(--sab) + 26px) + 92px)}
+.knop.uit{opacity:.25;pointer-events:none}
+#oog{position:absolute;left:50%;top:calc(max(10px,var(--sat)) + 46px);transform:translateX(-50%);display:flex;align-items:center;gap:8px;padding:5px 12px;border-radius:999px;background:var(--glas);--v:0}
+#oog svg{width:22px;height:22px;color:var(--ink)}
+#oog i{width:90px;height:7px;border-radius:4px;background:linear-gradient(90deg,var(--geel) calc(var(--v)*100%),#fff2 0)}
+#oog.gevaar svg{color:var(--rood);animation:knipper .5s infinite}
+#oog.gevaar i{background:linear-gradient(90deg,var(--rood) calc(var(--v)*100%),#fff2 0)}
+#wissel{position:fixed;inset:0;z-index:6;display:grid;place-items:center;background:#0b0c0f;opacity:0;pointer-events:none;transition:opacity .6s;text-align:center}
+#wissel.aan{opacity:1;transition:opacity .35s}
+#wissel b{display:block;font-size:22px;margin-bottom:6px}
+#wissel span{color:var(--dim)}
 
 /* ---------- schermen ---------- */
 .scherm{position:fixed;inset:0;z-index:10;display:grid;place-items:center;overflow:auto;padding:max(20px,var(--sat)) max(20px,var(--sar)) max(20px,var(--sab)) max(20px,var(--sal));background:linear-gradient(180deg,#0b0c0fd0,#0b0c0ff2)}
@@ -127,6 +140,7 @@ h1 span{color:var(--geel)}
 <div id="zoomWaarde">1×</div>
 <svg id="kruis" viewBox="-11 -11 22 22" stroke="#fff" stroke-width="1.6" stroke-linecap="round"><path d="M-9 0h5M4 0h5M0-9v5M0 4v5"/><circle r="1" fill="#fff" stroke="none"/></svg>
 <div id="flits"></div>
+<div id="wissel"><div><b></b><span>Via het trappenhuis…</span></div></div>
 
 <div id="hud" hidden>
   <div class="bovenbalk">
@@ -136,6 +150,9 @@ h1 span{color:var(--geel)}
     <div class="pil" id="score">0</div>
   </div>
   <div id="meldingen"></div>
+  <div class="knop klein" id="hoger" aria-label="Hoger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg></div>
+  <div class="knop klein" id="lager" aria-label="Lager"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></div>
+  <div id="oog" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.6"/></svg><i></i></div>
   <div class="knop" id="scoopKnop" aria-label="Kijker"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/></svg></div>
   <div class="knop" id="adem" aria-label="Adem inhouden"><div id="ademBalk"></div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 4v7M12 11c-2 0-6 2-6 7 0 1.5 1 2 2 2 3 0 4-4 4-9zM12 11c2 0 6 2 6 7 0 1.5-1 2-2 2-3 0-4-4-4-9z"/></svg></div>
   <div class="knop" id="vuur" aria-label="Schiet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2" fill="currentColor"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/></svg></div>
@@ -154,7 +171,8 @@ h1 span{color:var(--geel)}
       <p>Je staat op het balkon van de 4e verdieping. Onder je ligt de parkeerplaats, met de Jumbo erachter.</p>
       <p><b>Schiet alle fatbikes kapot.</b> Mik op de dikke band of de accu: dan klapt hij of vliegt hij in brand.</p>
       <p>Raak <b>geen mensen, gewone fietsen of auto's</b>. Na 3 fouten ben je af. Je hebt alle tijd: alleen je kogels zijn op te maken.</p>
-      <p>Slepen = kijken · kijker = inzoomen · adem inhouden = stil vizier.</p>
+      <p>Slepen = kijken · kijker = inzoomen · adem inhouden = stil vizier · ▲▼ = andere verdieping of de straat op.</p>
+      <p>Op straat gluur je over een muurtje. Met de kijker kom je omhoog; blijf je te lang staan, dan zien ze je.</p>
     </div>
     <div class="knoppen">
       <button class="groot" id="begin">Begin</button>
@@ -176,9 +194,9 @@ h1 span{color:var(--geel)}
 </div>
 
 <!-- versie -->
-<script>window.VERSIE = "08c958ee41"; window.VERSIE_DATUM = "22-11, 16:25";</script>
-<script type="importmap">{"imports":{"three":"./lib/three.module.js?v=08c958ee41","./src/effecten.js":"./src/effecten.js?v=08c958ee41","./src/figuren.js":"./src/figuren.js?v=08c958ee41","./src/geluid.js":"./src/geluid.js?v=08c958ee41","./src/main.js":"./src/main.js?v=08c958ee41","./src/verkeer.js":"./src/verkeer.js?v=08c958ee41","./src/wereld.js":"./src/wereld.js?v=08c958ee41"}}</script>
-<script type="module" src="./src/main.js?v=08c958ee41"></script>
+<script>window.VERSIE = "654aa7c4f7"; window.VERSIE_DATUM = "22-11, 17:13";</script>
+<script type="importmap">{"imports":{"three":"./lib/three.module.js?v=654aa7c4f7","./src/effecten.js":"./src/effecten.js?v=654aa7c4f7","./src/figuren.js":"./src/figuren.js?v=654aa7c4f7","./src/geluid.js":"./src/geluid.js?v=654aa7c4f7","./src/main.js":"./src/main.js?v=654aa7c4f7","./src/verkeer.js":"./src/verkeer.js?v=654aa7c4f7","./src/wereld.js":"./src/wereld.js?v=654aa7c4f7"}}</script>
+<script type="module" src="./src/main.js?v=654aa7c4f7"></script>
 <!-- /versie -->
 </body>
 </html>
