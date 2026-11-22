@@ -65,7 +65,7 @@ const adem = { vast: false, voorraad: 1, moe: 0, hart: 0 };
 let terugslag = 0, herlaad = 0;
 
 async function laad() {
-  data = await (await fetch(`data/${LOCATIE}.json`)).json();
+  data = await (await fetch(`data/${LOCATIE}.json?v=${window.VERSIE ?? ""}`)).json();
   $("#plek").textContent = data.naam;
   wereld = bouwWereld(data, scene);
   graaf = new Graaf(data.graaf);
@@ -491,7 +491,29 @@ knop("#adem", () => (adem.vast = true), () => (adem.vast = false));
 knop("#scoopKnop", () => zetZoom(kijk.zoom > 1.5 ? 1 : kijk.scoopZoom));
 $("#zoomSchuif").addEventListener("input", (e) => zetZoom(+e.target.value));
 $("#begin").addEventListener("click", begin);
-$("#volgende").addEventListener("click", () => { $("#einde").hidden = true; $("#start").hidden = false; toonStart(); });
+
+// ---------- nieuwe versie? ----------
+// Een app op het beginscherm van de iPhone blijft vaak de oude pagina tonen. Daarom vragen we bij het openen
+// en elke keer dat het spel weer naar voren komt versie.json op (zonder cache). Is die anders, dan laden we
+// opnieuw met de nieuwe versie in het adres, zodat de browser alles vers ophaalt. Nooit midden in een ronde.
+let nieuweVersie = null;
+async function kijkVersie() {
+  try {
+    const r = await fetch(`versie.json?t=${Date.now()}`, { cache: "no-store" });
+    const { versie } = await r.json();
+    if (versie && window.VERSIE && versie !== window.VERSIE) { nieuweVersie = versie; ververs(); }
+  } catch {}
+}
+function ververs() {
+  if (!nieuweVersie || spel.bezig) return;
+  location.replace(`./?v=${nieuweVersie}`);
+}
+$("#versie").textContent = window.VERSIE_DATUM ? `Versie van ${window.VERSIE_DATUM}` : "";
+kijkVersie();
+document.addEventListener("visibilitychange", () => { if (!document.hidden) kijkVersie(); });
+addEventListener("pageshow", (e) => { if (e.persisted) kijkVersie(); });
+$("#volgende").addEventListener("click", () => {
+  if (nieuweVersie) return ververs(); $("#einde").hidden = true; $("#start").hidden = false; toonStart(); });
 addEventListener("resize", () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
 
 // ---------- lus ----------

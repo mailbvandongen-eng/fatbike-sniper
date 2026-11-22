@@ -160,6 +160,7 @@ h1 span{color:var(--geel)}
       <button class="groot" id="begin">Begin</button>
       <p class="klein" id="startBest"></p>
       <p class="klein">Gebouwen: 3D BAG (CC BY 4.0) · Kaart: © OpenStreetMap-bijdragers</p>
+      <p class="klein" id="versie"></p>
     </div>
   </div>
 </div>
@@ -174,7 +175,10 @@ h1 span{color:var(--geel)}
   </div>
 </div>
 
-<script type="importmap">{"imports":{"three":"./lib/three.module.js"}}</script>
-<script type="module" src="src/main.js"></script>
+<!-- versie -->
+<script>window.VERSIE = "968db6b610"; window.VERSIE_DATUM = "22-11, 14:35";</script>
+<script type="importmap">{"imports":{"three":"./lib/three.module.js?v=968db6b610","./src/effecten.js":"./src/effecten.js?v=968db6b610","./src/figuren.js":"./src/figuren.js?v=968db6b610","./src/geluid.js":"./src/geluid.js?v=968db6b610","./src/main.js":"./src/main.js?v=968db6b610","./src/verkeer.js":"./src/verkeer.js?v=968db6b610","./src/wereld.js":"./src/wereld.js?v=968db6b610"}}</script>
+<script type="module" src="./src/main.js?v=968db6b610"></script>
+<!-- /versie -->
 </body>
 </html>
