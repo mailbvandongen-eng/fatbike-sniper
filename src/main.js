@@ -2,7 +2,8 @@
 import * as THREE from "three";
 import { bouwWereld, zetFietsenInRekken, bevries } from "./wereld.js";
 import { Graaf, Voetganger, Fietser, Auto, Boodschapper, Staander } from "./verkeer.js";
-import { houding, kies, tussen } from "./figuren.js";
+import { kies, tussen, maakGeweer } from "./figuren.js";
+import { laadMensen, maakMens } from "./mensen.js";
 import { Effecten } from "./effecten.js";
 import { Geluid } from "./geluid.js";
 
@@ -55,6 +56,8 @@ const geluid = new Geluid();
 let wereld, graaf, data;
 // standplaatsen: balkons en dak van Pleinzicht, en op de grond achter muurtjes
 let standen = [], standNr = 0, standDecor = null, wisselTot = 0;
+let schutter = null, geweer = null; // jij, van achteren te zien
+const oog = new THREE.Vector3(); // waar je ogen zijn (de kogel vertrekt hier)
 const wisselt = () => performance.now() < wisselTot;
 const reizigers = [];
 const stil = []; // geparkeerde auto's en fietsen in rekken: { object, raak, soort }
@@ -63,15 +66,21 @@ const spel = { reizigers, ronde: 1, bezig: false, score: 0 };
 let tijdSchaal = 1, filmCam = null;
 
 // camera-sturing
-const kijk = { yaw: 0, pitch: -0.25, basisYaw: 0, zoom: 1, scoopZoom: 5 };
-const adem = { vast: false, voorraad: 1, moe: 0, hart: 0 };
+const kijk = { yaw: 0, pitch: -0.25, basisYaw: 0, zoom: 1, scoopZoom: 8 };
 let terugslag = 0, herlaad = 0;
 
 async function laad() {
   data = await (await fetch(`data/${LOCATIE}.json?v=${window.VERSIE ?? ""}`)).json();
   $("#plek").textContent = data.naam;
   wereld = bouwWereld(data, scene);
+  await laadMensen((v) => $("#laden").style.setProperty("--v", v));
   graaf = new Graaf(data.graaf);
+  // jij: de schutter met het geweer
+  schutter = maakMens("schutter");
+  geweer = maakGeweer();
+  geweer.position.set(-0.11, 1.5, -0.02); // kolf tegen de rechterschouder, loop naar voren
+  schutter.object.add(geweer);
+  scene.add(schutter.object);
   // ▲▼ gaan van laag naar hoog: eerst de plekken op de grond, dan de verdiepingen
   standen = data.standplaatsen.map((st, i) => ({ ...st, i })).sort((a, b) => a.pos[1] - b.pos[1]);
   // geen hangplek of groepje vlak bij een standplaats op de grond
@@ -103,8 +112,9 @@ async function laad() {
 function zetStand(nr) {
   standNr = nr;
   const st = standen[nr];
-  camera.position.set(...st.pos);
-  if (st.soort === "grond") camera.position.y = 1.22;
+  oog.set(...st.pos);
+  if (st.soort === "grond") oog.y = 1.22;
+  camera.position.copy(oog);
   const [nx, nz] = st.normaal;
   kijk.basisYaw = Math.atan2(nx, nz);
   // op de grond kijk je recht over het muurtje; boven kijk je naar de Jumbo
@@ -113,7 +123,6 @@ function zetStand(nr) {
   if (standDecor) scene.remove(standDecor);
   standDecor = bouwDecor(st);
   if (standDecor) scene.add(standDecor);
-  spel.zicht = 0;
   document.body.classList.toggle("grond", st.soort === "grond");
   $("#hoger").classList.toggle("uit", nr >= standen.length - 1);
   $("#lager").classList.toggle("uit", nr <= 0);
@@ -150,7 +159,6 @@ function bouwDecor(st) {
   const plaat = new THREE.Mesh(new THREE.BoxGeometry(5, 0.25, 0.12), beton);
   plaat.position.set(0, -0.12, 1.15);
   g.add(vloer, rand, ruit, plaat);
-  for (const x of [-2.45, 2.45]) { const w = new THREE.Mesh(new THREE.BoxGeometry(0.15, 2.8, 1.2), beton); w.position.set(x, 1.3, 0.6); g.add(w); }
   return g;
 }
 /** Naar een andere standplaats: even het trappenhuis in (je kunt dan niet schieten). */
@@ -160,37 +168,10 @@ function wisselStand(richting) {
   wisselTot = performance.now() + 2000;
   zetZoom(1);
   const w = $("#wissel");
-  w.querySelector("b").textContent = standen[nr].naam;
   w.classList.add("aan");
   geluid.stappen?.();
   setTimeout(() => zetStand(nr), 700);
   setTimeout(() => w.classList.remove("aan"), 1900);
-}
-
-// ---------- gezien worden (alleen op de grond) ----------
-function stapZicht(echt) {
-  const st = standen[standNr];
-  if (st?.soort !== "grond" || !spel.bezig) { $("#oog").hidden = true; return; }
-  $("#oog").hidden = false;
-  const boven = kijk.zoom > 1.5;
-  if (boven) {
-    let k = 0;
-    for (const r of reizigers) if (r.mens && !r.fat) { const d = Math.hypot(r.pos.x - camera.position.x, r.pos.z - camera.position.z); if (d < 25) k += 1 - d / 25; }
-    spel.zicht += echt * (0.04 + k * 0.09);
-  } else spel.zicht -= echt * 0.08; // gluren over de rand valt nauwelijks op
-  spel.zicht = THREE.MathUtils.clamp(spel.zicht, 0, 1);
-  if (spel.zicht >= 1 && !spel.gezienKoel) {
-    spel.gezienKoel = true;
-    melding("Je bent gezien!", "fout", "Duik weg achter het muurtje");
-    for (const r of reizigers) {
-      const d = Math.hypot(r.pos.x - camera.position.x, r.pos.z - camera.position.z);
-      if ((r.fat && d < 75) || (!r.fat && d < 35)) r.gezien?.(camera.position);
-    }
-    setTimeout(() => (spel.gezienKoel = false), 8000);
-    spel.zicht = 0.6;
-  }
-  $("#oog").style.setProperty("--v", spel.zicht);
-  $("#oog").classList.toggle("gevaar", spel.zicht > 0.7);
 }
 
 // ---------- rondes ----------
@@ -269,12 +250,10 @@ function tekenHud() {
   $("#fouten").innerHTML = Array.from({ length: spel.ri.fouten + 1 }, (_, i) => `<i class="${i < spel.fouten ? "x aan" : "x"}">✕</i>`).join("");
   $("#score").textContent = spel.score + spel.rondeScore;
 }
-function melding(tekst, soort = "goed", sub = "") {
-  const m = document.createElement("div");
-  m.className = `melding ${soort}`;
-  m.innerHTML = `${tekst}${sub ? `<small>${sub}</small>` : ""}`;
-  $("#meldingen").append(m);
-  setTimeout(() => m.remove(), 1900);
+/** Geen tekst in beeld: een kort teken midden in het vizier (geel = raak, oranje = accu, rood = fout). */
+function melding(soort = "goed") {
+  const m = $("#raakteken");
+  m.className = ""; void m.offsetWidth; m.className = `aan ${soort}`;
 }
 
 // ---------- schieten ----------
@@ -286,26 +265,31 @@ function richting() {
 }
 function schiet() {
   if (!spel.bezig || herlaad > 0 || spel.kogels <= 0 || filmCam || wisselt()) return;
-  if (standen[standNr]?.soort === "grond") {
-    // schieten op de grond valt op
-    let k = 0;
-    for (const r of reizigers) if (r.mens && Math.hypot(r.pos.x - camera.position.x, r.pos.z - camera.position.z) < 30) k++;
-    spel.zicht = Math.min(1, spel.zicht + 0.25 + k * 0.08);
-  }
   spel.kogels--; spel.schoten++;
   geluid.schot(); geluid.herladen();
-  const d = richting();
+  // de kogel vertrekt bij je ogen en gaat naar het punt waar het kruisje op staat
+  const d = richtPunt().sub(oog).normalize();
   // de kijker is op NUL_AFSTAND m afgesteld: de kogel gaat iets omhoog zodat hij daar op de draad zit
   const tVal = NUL_AFSTAND / KOGEL_V;
   const v = d.clone().multiplyScalar(KOGEL_V);
   v.y += (0.5 * ZWAARTE * tVal * tVal) / tVal;
-  kogels.push({ p: camera.position.clone().addScaledVector(d, 0.6), v, leeftijd: 0 });
+  kogels.push({ p: oog.clone().addScaledVector(d, 0.6), v, leeftijd: 0 });
   terugslag = 1; herlaad = 1.1;
   $("#flits").classList.remove("aan"); void $("#flits").offsetWidth; $("#flits").classList.add("aan");
   tekenHud();
 }
 
 const ray = new THREE.Raycaster();
+/** Het punt in de wereld waar het kruisje op staat (gebouw, grond, of ver weg). */
+function richtPunt() {
+  const d = richting();
+  ray.set(camera.position, d); ray.far = 600;
+  let afst = 600;
+  const raak = ray.intersectObjects(wereld.botsers, false)[0];
+  if (raak) afst = raak.distance;
+  if (d.y < 0) afst = Math.min(afst, -camera.position.y / d.y);
+  return camera.position.clone().addScaledVector(d, afst);
+}
 const inv = new THREE.Matrix4(), a3 = new THREE.Vector3(), b3 = new THREE.Vector3();
 /** Snijdt het lijnstuk a-b met de raakvlakken van een object. Geeft t (0..1) en het deel. */
 function raakObject(obj, raak, a, b) {
@@ -386,7 +370,7 @@ function treffer(r, p) {
 function fout(tekst, sub) {
   spel.fouten++;
   geluid.fout();
-  melding(tekst, "fout", sub);
+  melding("fout");
   $("#hud").classList.remove("schud"); void $("#hud").offsetWidth; $("#hud").classList.add("schud");
   tekenHud();
   if (spel.fouten > spel.ri.fouten) eindeRonde(false, "Je hebt te vaak iets anders geraakt dan een fatbike.");
@@ -411,7 +395,7 @@ function fatbikeGeraakt(f, deel, p) {
   const punten = { accu: 250, band: 100, frame: 75 }[deel] ?? 75;
   spel.rondeScore += punten;
   geluid.goed();
-  melding(accu ? "ACCU!" : deel === "band" ? "BAND LEK!" : "RAAK!", accu ? "accu" : "goed", `+${punten}`);
+  melding(accu ? "accu" : "goed");
   const vooruit = new THREE.Vector3(Math.sin(f.richting), 0, Math.cos(f.richting));
   const v = vooruit.clone().multiplyScalar(f.snelheid ?? f.v);
   // fiets wordt los object in de wereld
@@ -434,18 +418,20 @@ function fatbikeGeraakt(f, deel, p) {
   }
   // berijders vliegen eraf
   for (const m of f.berijders) {
-    m.updateMatrixWorld();
-    const pos = new THREE.Vector3(); m.getWorldPosition(pos);
+    const o = m.object;
+    o.updateMatrixWorld();
+    const pos = new THREE.Vector3(); o.getWorldPosition(pos);
+    const h = m.zithoogte();
     const spil = new THREE.Group();
-    spil.position.copy(pos).add(new THREE.Vector3(0, 0.95 * m.scale.y, 0));
+    spil.position.copy(pos).add(new THREE.Vector3(0, m.zithoogte(), 0));
     spil.rotation.y = f.richting;
     scene.add(spil);
-    m.position.set(0, -0.95 * m.scale.y, 0);
-    m.rotation.set(0, 0, 0);
-    spil.add(m);
+    o.position.set(0, -h, 0); o.rotation.set(0, 0, 0);
+    spil.add(o);
+    m.zet("klap");
     const kracht = accu ? 1 : 0.75;
     const vm = v.clone().multiplyScalar(kracht).add(new THREE.Vector3(tussen(-1.2, 1.2), accu ? tussen(7, 9.5) : tussen(2.5, 3.8), tussen(-1.2, 1.2)));
-    vallers.push({ obj: spil, mens: m, v: vm, w: new THREE.Vector3(accu ? tussen(-7, 7) : tussen(3, 6), tussen(-2, 2), tussen(-3, 3)), soort: "mens", fase: 0, toestand: "vliegt", t: 0 });
+    vallers.push({ obj: spil, m, h, v: vm, w: new THREE.Vector3(accu ? tussen(-7, 7) : tussen(3, 6), tussen(-2, 2), tussen(-3, 3)), soort: "mens", toestand: "vliegt", t: 0 });
   }
   f.berijders = [];
   reizigers.splice(reizigers.indexOf(f), 1);
@@ -483,42 +469,37 @@ function stapVallers(dt) {
         if (sn < 0.05 && x.kantelT >= 1) { vallers.splice(vallers.indexOf(x), 1); opruimen(o, 25); }
       }
     } else {
-      x.t += dt; x.fase += dt * 6;
-      const m = x.mens;
+      x.t += dt;
+      const m = x.m;
+      m.mixer.update(dt);
       if (x.toestand === "vliegt") {
         x.v.y -= ZWAARTE * dt;
         o.position.addScaledVector(x.v, dt);
         o.rotation.x += x.w.x * dt; o.rotation.z += x.w.z * dt;
-        houding(m, "vliegen", x.fase);
-        if (o.position.y < 0.3 && x.v.y < 0) {
-          if (Math.abs(x.v.y) > 4) { x.v.y *= -0.3; x.v.x *= 0.6; x.v.z *= 0.6; o.position.y = 0.3; x.w.multiplyScalar(0.5); }
-          else { x.toestand = "glijdt"; x.t = 0; x.rx = o.rotation.x; x.rz = o.rotation.z; }
+        if (x.t > 0.35) m.zet("vliegen");
+        if (o.position.y < x.h * 0.5 && x.v.y < 0) {
+          if (Math.abs(x.v.y) > 4) { x.v.y *= -0.3; x.v.x *= 0.6; x.v.z *= 0.6; o.position.y = x.h * 0.5; x.w.multiplyScalar(0.5); }
+          else { x.toestand = "glijdt"; x.t = 0; x.rx = o.rotation.x; x.rz = o.rotation.z; m.zet("liggen", 1, "eind"); }
         }
       } else if (x.toestand === "glijdt") {
+        // de beweging legt hem op de grond; de spil draait terug en zakt naar heuphoogte
         const sn = Math.hypot(x.v.x, x.v.z);
         if (sn > 0) { const n = Math.max(0, sn - 7 * dt) / sn; x.v.x *= n; x.v.z *= n; }
         o.position.x += x.v.x * dt; o.position.z += x.v.z * dt;
-        const k = Math.min(1, x.t * 4);
-        o.rotation.x = THREE.MathUtils.lerp(x.rx, -Math.PI / 2, k); o.rotation.z = THREE.MathUtils.lerp(x.rz, 0, k);
-        o.position.y = THREE.MathUtils.lerp(o.position.y, 0.14, k);
-        houding(m, "liggen", x.fase, 1, 1);
-        if (x.t > 2.2) { x.toestand = "opstaan"; x.t = 0; }
+        const k = Math.min(1, x.t * 5);
+        o.rotation.x = THREE.MathUtils.lerp(x.rx, 0, k); o.rotation.z = THREE.MathUtils.lerp(x.rz, 0, k);
+        o.position.y = THREE.MathUtils.lerp(o.position.y, x.h, k);
+        if (x.t > 2.4) { x.toestand = "opstaan"; x.t = 0; m.zet("opstaan", 1, 0); }
       } else if (x.toestand === "opstaan") {
-        const k = Math.min(1, x.t / 0.9);
-        o.rotation.x = THREE.MathUtils.lerp(-Math.PI / 2, 0, k * k);
-        o.position.y = THREE.MathUtils.lerp(0.14, 0.95 * m.scale.y, k);
         // draai naar de flat
-        const doel = Math.atan2(camera.position.x - o.position.x, camera.position.z - o.position.z);
+        const doel = Math.atan2(oog.x - o.position.x, oog.z - o.position.z);
         let d = doel - o.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d));
-        o.rotation.y += d * Math.min(1, dt * 4);
-        houding(m, "staan", x.fase);
-        if (k >= 1) { x.toestand = "boos"; x.t = 0; }
+        o.rotation.y += d * Math.min(1, dt * 2);
+        if (x.t > 1.3) { x.toestand = "boos"; x.t = 0; m.zet("boos"); }
       } else if (x.toestand === "boos") {
-        houding(m, "boos", x.fase * 1.6);
-        if (x.t > 3.2) { x.toestand = "loopt"; x.t = 0; o.rotation.y += Math.PI + tussen(-0.6, 0.6); }
+        if (x.t > 3.2) { x.toestand = "loopt"; x.t = 0; o.rotation.y += Math.PI + tussen(-0.6, 0.6); m.zet("lopen"); }
       } else if (x.toestand === "loopt") {
-        o.position.x += Math.sin(o.rotation.y) * 1.5 * dt; o.position.z += Math.cos(o.rotation.y) * 1.5 * dt;
-        houding(m, "lopen", x.fase * 0.9);
+        o.position.x += Math.sin(o.rotation.y) * 1.3 * dt; o.position.z += Math.cos(o.rotation.y) * 1.3 * dt;
         if (x.t > 18) { vallers.splice(vallers.indexOf(x), 1); scene.remove(o); }
       }
     }
@@ -532,7 +513,7 @@ const vingers = new Map();
 let knijp = null;
 function fov() { return 55 / kijk.zoom; }
 function zetZoom(z) {
-  kijk.zoom = THREE.MathUtils.clamp(z, 1, 20);
+  kijk.zoom = THREE.MathUtils.clamp(z, 1, 40);
   if (kijk.zoom > 1.5) kijk.scoopZoom = kijk.zoom;
   const scoop = kijk.zoom > 1.5;
   document.body.classList.toggle("scoop", scoop);
@@ -576,11 +557,10 @@ doek.addEventListener("pointercancel", los);
 doek.addEventListener("contextmenu", (e) => e.preventDefault());
 addEventListener("wheel", (e) => { zetZoom(kijk.zoom * Math.exp(-e.deltaY * 0.0015)); }, { passive: true });
 addEventListener("keydown", (e) => {
-  if (e.code === "Space" || e.code === "ShiftLeft") adem.vast = true;
+  if (e.code === "Space") schiet();
   if (e.code === "KeyF" || e.code === "Enter") schiet();
   if (e.code === "KeyQ") zetZoom(kijk.zoom > 1.5 ? 1 : kijk.scoopZoom);
 });
-addEventListener("keyup", (e) => { if (e.code === "Space" || e.code === "ShiftLeft") adem.vast = false; });
 const knop = (sel, neer, op) => {
   const el = $(sel);
   el.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); el.classList.add("in"); neer?.(); });
@@ -588,7 +568,6 @@ const knop = (sel, neer, op) => {
   el.addEventListener("pointerup", uit); el.addEventListener("pointercancel", uit); el.addEventListener("pointerleave", uit);
 };
 knop("#vuur", schiet);
-knop("#adem", () => (adem.vast = true), () => (adem.vast = false));
 knop("#scoopKnop", () => zetZoom(kijk.zoom > 1.5 ? 1 : kijk.scoopZoom));
 knop("#hoger", () => wisselStand(1));
 knop("#lager", () => wisselStand(-1));
@@ -619,6 +598,41 @@ addEventListener("pageshow", (e) => { if (e.persisted) kijkVersie(); });
 $("#volgende").addEventListener("click", () => {
   if (nieuweVersie) return ververs(); $("#einde").hidden = true; $("#start").hidden = false; toonStart(); });
 addEventListener("resize", () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+
+// ---------- detail: dichtbij (of in de kijker) de fijne mens, ver weg de lichte ----------
+const dp = new THREE.Vector3();
+function zetDetail() {
+  const z = kijk.zoom > 1.5 ? kijk.zoom : 1;
+  const zet = (m) => {
+    m.object.getWorldPosition(dp);
+    const d = dp.distanceTo(camera.position);
+    m.detail(d / z < 30 || d < 14, d < 70);
+  };
+  for (const r of reizigers) { if (r.m) zet(r.m); if (r.berijders) r.berijders.forEach(zet); }
+  for (const x of vallers) if (x.m) zet(x.m);
+  if (schutter) zet(schutter);
+}
+
+// ---------- meevolgen ----------
+let volg = null;
+const hoekNaar = (p) => [Math.atan2(p.x - camera.position.x, p.z - camera.position.z), Math.atan2(p.y - camera.position.y, Math.hypot(p.x - camera.position.x, p.z - camera.position.z))];
+function volgDoel() {
+  const grens = 0.35 * (fov() * Math.PI / 180); // binnen ongeveer een derde van het beeld
+  let best = null;
+  for (const r of reizigers) {
+    if (!r.fat || (r.toestand && r.toestand !== "rijden")) continue;
+    const p = r.pos.clone(); p.y = 0.8;
+    const [y, x] = hoekNaar(p);
+    let dy = y - kijk.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+    const d = Math.hypot(dy, x - kijk.pitch);
+    if (d < grens && (!best || d < best.d)) best = { r, d, y, x };
+  }
+  if (best && volg?.r === best.r) {
+    let dy = best.y - volg.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+    kijk.yaw += dy * 0.85; kijk.pitch += (best.x - volg.x) * 0.85;
+  }
+  volg = best ? { r: best.r, y: best.y, x: best.x } : null;
+}
 
 // ---------- lus ----------
 const klok = new THREE.Timer();
@@ -661,22 +675,13 @@ function lus() {
     scene.remove(r.object); reizigers.splice(reizigers.indexOf(r), 1);
     if (r instanceof Boodschapper) nieuweBoodschapper();
   }
-  stapZicht(echt);
   // op de grond: je gluurt over het muurtje, met de kijker kom je omhoog
-  if (standen[standNr]?.soort === "grond" && !filmCam) camera.position.y = THREE.MathUtils.lerp(camera.position.y, kijk.zoom > 1.5 ? 1.5 : 1.22, Math.min(1, echt * 8));
+  if (standen[standNr]?.soort === "grond") oog.y = THREE.MathUtils.lerp(oog.y, kijk.zoom > 1.5 ? 1.5 : 1.22, Math.min(1, echt * 8));
+  zetDetail();
   stapKogels(dt);
   stapVallers(dt);
   fx.stap(dt);
 
-  // adem
-  if (adem.vast && adem.moe <= 0 && adem.voorraad > 0) {
-    adem.voorraad -= echt / 5;
-    if (adem.voorraad <= 0) { adem.voorraad = 0; adem.moe = 2.5; }
-    adem.hart -= echt; if (adem.hart <= 0) { adem.hart = 0.9; geluid.hart(); }
-  } else adem.voorraad = Math.min(1, adem.voorraad + echt / 4);
-  if (adem.moe > 0) adem.moe -= echt;
-  $("#ademBalk").style.setProperty("--v", adem.voorraad);
-  $("#adem").classList.toggle("moe", adem.moe > 0);
   herlaad = Math.max(0, herlaad - echt);
   $("#vuur").classList.toggle("laadt", herlaad > 0);
   terugslag = Math.max(0, terugslag - echt * 3.5);
@@ -695,13 +700,33 @@ function lus() {
     if (filmCam.t > filmCam.duur) { filmCam = null; document.body.classList.remove("film"); }
   }
   const scoop = kijk.zoom > 1.5;
-  const zwaai = scoop ? (adem.vast && adem.moe <= 0 ? 0.12 : 1) * (adem.moe > 0 ? 2.4 : 1) * 0.0045 : 0;
-  const sy = zwaai * (Math.sin(tijd * 0.83) + 0.45 * Math.sin(tijd * 2.13 + 1));
-  const sp = zwaai * (Math.sin(tijd * 1.21 + 2) * 0.8 + 0.35 * Math.sin(tijd * 2.7));
-  // three kijkt langs -z, dus +PI bij de yaw
+  // meevolgen: staat het vizier op een fatbike, dan draait het een beetje met hem mee
+  if (scoop && !filmCam) volgDoel();
+  else volg = null;
+  // stabiel vizier: alleen een rustige ademhaling, iets op en neer
+  const zwaai = scoop ? 0.0009 / Math.sqrt(kijk.zoom) : 0;
+  const sy = zwaai * 0.25 * Math.sin(tijd * 0.37);
+  const sp = zwaai * Math.sin(tijd * 1.6);
   const e = new THREE.Euler(kijk.pitch + sp + terugslag * 0.035 * (scoop ? 1 : 0.5), kijk.yaw + Math.PI + sy, 0, "YXZ");
   camera.quaternion.setFromEuler(e);
   camera.updateProjectionMatrix();
+  // door de kijker kijk je vanuit je eigen ogen; anders sta je in beeld en kijk je over je schouder mee
+  const st = standen[standNr];
+  if (schutter && st) {
+    const fx = Math.sin(kijk.yaw), fz = Math.cos(kijk.yaw);
+    schutter.object.position.set(oog.x, st.soort === "grond" ? 0 : oog.y - 1.6, oog.z);
+    schutter.object.rotation.y = kijk.yaw;
+    schutter.zet(st.soort === "grond" && !scoop ? "hurken" : "richten");
+    schutter.mixer.update(echt);
+    geweer.rotation.x = -kijk.pitch;
+    schutter.object.visible = !scoop;
+    if (scoop) camera.position.copy(oog);
+    else {
+      // over de schouder: per plek een andere afstand en hoogte (op het dak hoger, anders zie je alleen grind)
+      const [ach, rechts, op] = { balkon: [2.9, 0.75, 0.55], dak: [2.1, 0.6, 1.35], grond: [2.4, 0.6, 0.5] }[st.soort];
+      camera.position.set(oog.x - fx * ach - fz * rechts, oog.y + op, oog.z - fz * ach + fx * rechts);
+    }
+  }
   renderer.render(scene, filmCam?.cam ?? camera);
 
   // prestaties: bij een trage telefoon de resolutie omlaag
@@ -714,4 +739,4 @@ function lus() {
 }
 zetZoom(1);
 laad().then(() => requestAnimationFrame(lus)).catch((e) => { $("#laden").textContent = "Laden mislukt: " + e.message; console.error(e); });
-window.__spel = { spel, reizigers, stil, kijk, camera, schiet, begin, zetZoom, draai, scene, adem, renderer };
+window.__spel = { spel, reizigers, stil, kijk, camera, oog, schiet, begin, zetZoom, draai, scene, renderer, stand: () => standen[standNr]?.naam };

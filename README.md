@@ -4,10 +4,10 @@ Een sluipschuttersspel in de browser. Je staat op het balkon van de 4e verdiepin
 
 - Een **band** raken: de band klapt, de fatbike glijdt onderuit en de berijders vliegen eraf. Ze staan op, schudden boos hun vuist naar de flat en lopen weg.
 - De **accu** raken: die ontploft en de fatbike brandt uit.
-- Een **mens** raken: de kogel scheert langs, de persoon schrikt en jij krijgt een fout. Na 3 fouten ben je af.
-- Door de **kijker** zie je 1× tot 14×. Het vizier beweegt mee met je adem, dus houd je adem in voor een stil vizier. Dat gaat maar 5 seconden.
+- Een **mens** raken: de kogel scheert langs, de persoon schrikt en jij krijgt een fout (rood kruisje in het vizier; er staat nergens tekst in beeld). Na 3 fouten ben je af.
+- Je ziet jezelf van achteren op het balkon. Door de **kijker** (tot 40×) kijk je door het vizier; dat is stabiel, met alleen een rustige ademhaling. Staat het vizier op een fatbike, dan draait het een beetje met hem mee.
 - De kogel vliegt echt: hij doet er even over en zakt een beetje. Bij een rijdende fatbike moet je dus voorhouden.
-- Met ▲▼ wissel je van standplaats: de 1e, 4e en 7e verdieping en het dak van Pleinzicht, of op de grond achter een van drie muurtjes. Op de grond gluur je over de rand. Met de kijker kom je omhoog, en blijf je te lang staan, dan word je gezien: mensen wijzen naar je en fatbikes gaan er hard vandoor.
+- Met ▲▼ wissel je van standplaats: de 1e, 4e en 7e verdieping en het dak van Pleinzicht, of op de grond achter een van drie muurtjes. Op de grond zit je gehurkt achter het muurtje; met de kijker kom je omhoog.
 - Elke ronde komen er meer fatbikes en rijden ze harder. Je score en sterren hangen af van tijd, kogels en fouten.
 
 ## De echte plek
@@ -22,7 +22,12 @@ Een sluipschuttersspel in de browser. Je staat op het balkon van de 4e verdiepin
 | Winkelborden | Winkels met hun naam uit OSM, op de dichtstbijzijnde gevel |
 | Wie waar loopt en rijdt | Het netwerk van wegen en paden uit OSM. Fatbikes mogen overal rijden, ook op de stoep. |
 
-Mensen, fietsen, fatbikes en auto's worden in code opgebouwd (`src/figuren.js`). Elke mens is één SkinnedMesh met 12 botten. Geluid wordt met de Web Audio API gemaakt. Er zijn geen bestanden van derden nodig, behalve three.js (MIT) in `lib/`.
+Fietsen, fatbikes en auto's worden in code opgebouwd (`src/figuren.js`).
+
+**Mensen** (`tools/mensen/`, `assets/mensen/`):
+- lijf, kleding, haar en huid uit [MakeHuman](http://www.makehumancommunity.org) (CC0), gebouwd in Blender met `tools/mensen/mens.py` (alleen de gegevens, geen MakeHuman-code); 13 mensen + jij (`mensen.json`), elk met één textuur en een lichte versie voor ver weg;
+- bewegingen uit de [Universal Animation Library](https://quaternius.com) 1 en 2 van Quaternius (CC0): lopen, rennen, fietsen, zitten, bellen, praten, vallen, opstaan …; `bewegingen.py` zet ze op één skelet;
+- `tools/mensen/bouw.sh` bouwt alles opnieuw en maakt het klein met meshopt (decoder: `lib/meshopt_decoder.mjs`, MIT). Geluid wordt met de Web Audio API gemaakt. Er zijn geen bestanden van derden nodig, behalve three.js (MIT) in `lib/`.
 
 ## Werken aan het spel
 

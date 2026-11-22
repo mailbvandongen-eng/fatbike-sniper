@@ -5,7 +5,7 @@ const fs = require("fs"), path = require("path");
 const ROOT = path.resolve(__dirname, "..");
 const UIT = process.argv[2] ?? "/tmp/fbs/shots";
 const TEL = process.argv[3] === "telefoon";
-const TYPE = { ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".svg": "image/svg+xml", ".png": "image/png", ".webmanifest": "application/manifest+json" };
+const TYPE = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json", ".svg": "image/svg+xml", ".png": "image/png", ".glb": "model/gltf-binary", ".webmanifest": "application/manifest+json" };
 
 (async () => {
   fs.mkdirSync(UIT, { recursive: true });
@@ -22,6 +22,7 @@ const TYPE = { ".html": "text/html", ".js": "text/javascript", ".json": "applica
   const fouten = [];
   page.on("pageerror", (e) => fouten.push("pageerror: " + e.message));
   page.on("console", (m) => { if (m.type() === "error" || m.type() === "warning") fouten.push(m.type() + ": " + m.text()); });
+  page.on("request", (r) => { if (/three/.test(r.url())) fouten.push("laadt " + r.url().replace("http://spel.test", "")); });
   const t0 = Date.now();
   await page.goto("http://spel.test/");
   await page.waitForSelector("#start:not([hidden])", { timeout: 120000 });
@@ -47,8 +48,8 @@ const TYPE = { ".html": "text/html", ".js": "text/javascript", ".json": "applica
       const plek = [[4, -14], [-2, -30], [8, -22], [-12, -24], [-15, -20], [20, -5]][i % 6];
       f.wacht = 1e9; f.pos.set(plek[0], 0, plek[1]); f.pad.copy(f.pos); f.richting = 1.3;
       f.groep.position.copy(f.pos); f.groep.rotation.y = f.richting; f.groep.updateMatrixWorld(true);
-      // mik op het achterwiel
-      const c = s.camera.position;
+      // mik op het achterwiel, vanuit je ogen
+      const c = s.oog;
       const p = i % 2 ? f.fiets.localToWorld(f.pos.clone().set(0, 0.6, 0.1)) : f.fiets.userData.wielen[0].getWorldPosition(f.pos.clone());
       // even voorhouden
       
@@ -59,11 +60,11 @@ const TYPE = { ".html": "text/html", ".js": "text/javascript", ".json": "applica
     }, i);
     await page.waitForFunction(() => !document.querySelector("#vuur").classList.contains("laadt"), null, { timeout: 60000 });
     if (i === 0) await page.screenshot({ path: `${UIT}/4-mikken.png` });
-    await page.evaluate(() => { const a = window.__spel.adem; a.voorraad = 1; a.moe = 0; a.vast = true; window.__spel.schiet(); });
+    await page.evaluate(() => { window.__spel.schiet(); });
     await page.waitForTimeout(700);
     if (i < 2) await page.screenshot({ path: `${UIT}/5-raak${i}.png` });
     await page.waitForTimeout(800);
-    console.log(i, r, await page.evaluate(() => JSON.stringify({ geraakt: window.__spel.spel.geraakt, fouten: window.__spel.spel.fouten, kogels: window.__spel.spel.kogels })));
+    console.log(i, r, await page.evaluate(() => JSON.stringify({ geraakt: window.__spel.spel.geraakt, fouten: window.__spel.spel.fouten, kogels: window.__spel.spel.kogels, laatste: window.__spel.spel.laatste })));
   }
   // de laatste fatbike: vertraagd camerashot en het eindscherm
   const nogBezig = await page.evaluate(() => window.__spel.spel.bezig && window.__spel.reizigers.some((r) => r.fat));
@@ -78,14 +79,15 @@ const TYPE = { ".html": "text/html", ".js": "text/javascript", ".json": "applica
       const f = s.reizigers.find((r) => r.fat);
       f.wacht = 1e9; f.pos.set(4, 0, -14); f.pad.copy(f.pos); f.richting = 1.3;
       f.groep.position.copy(f.pos); f.groep.rotation.y = f.richting; f.groep.updateMatrixWorld(true);
-      const c = s.camera.position, p = f.fiets.userData.wielen[1].getWorldPosition(f.pos.clone());
+      s.zetZoom(12);
+      const c = s.oog, p = f.fiets.userData.wielen[1].getWorldPosition(f.pos.clone());
       s.kijk.yaw = Math.atan2(p.x - c.x, p.z - c.z); s.kijk.pitch = Math.atan2(p.y - c.y, Math.hypot(p.x - c.x, p.z - c.z));
     });
     // in swiftshader duurt één beeld soms een seconde: wacht tot de camera echt gedraaid is
     await page.waitForTimeout(3000);
     console.log("richt", await page.evaluate(() => { const s = window.__spel, f = s.reizigers.find((r) => r.fat), d = s.camera.getWorldDirection(f.pos.clone()); return JSON.stringify({ fpos: f.pos.toArray(), wacht: f.wacht, d: d.toArray().map((v) => +v.toFixed(3)), yaw: s.kijk.yaw, pitch: s.kijk.pitch }); }));
     console.log("voor schot", await page.evaluate(() => JSON.stringify({ k: window.__spel.spel.kogels, g: window.__spel.spel.geraakt, b: window.__spel.spel.bezig })));
-    await page.evaluate(() => { const a = window.__spel.adem; a.voorraad = 1; a.moe = 0; a.vast = true; window.__spel.schiet(); });
+    await page.evaluate(() => { window.__spel.schiet(); });
     await page.waitForTimeout(2000);
     console.log("na schot", await page.evaluate(() => JSON.stringify({ k: window.__spel.spel.kogels, g: window.__spel.spel.geraakt, f: window.__spel.spel.fouten, film: document.body.className, laatste: window.__spel.spel.laatste, cam: window.__spel.camera.position.toArray(), pos: window.__spel.reizigers.find((r) => r.fat)?.pos.toArray() })));
     await page.waitForFunction(() => document.body.classList.contains("film"), null, { timeout: 30000 }).catch(() => console.log("geen filmshot"));

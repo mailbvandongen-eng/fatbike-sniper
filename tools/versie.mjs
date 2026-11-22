@@ -9,7 +9,8 @@ import { readFileSync, writeFileSync, readdirSync } from "node:fs";
 const bestanden = [
   ...readdirSync("src").map((f) => `src/${f}`),
   ...readdirSync("data").filter((f) => f.endsWith(".json")).map((f) => `data/${f}`),
-  "lib/three.module.js", "lib/three-addons.js",
+  ...readdirSync("lib").filter((f) => /\.m?js$/.test(f)).map((f) => `lib/${f}`),
+  ...readdirSync("assets/mensen").map((f) => `assets/mensen/${f}`),
 ].sort();
 const h = createHash("sha1");
 for (const f of bestanden) h.update(f).update(readFileSync(f));
@@ -22,7 +23,8 @@ const nu = new Date().toLocaleString("nl-NL", { timeZone: "Europe/Amsterdam", da
 const oud = html.match(/window\.VERSIE = "([^"]+)"/)?.[1];
 if (oud === v) { console.log(`versie ongewijzigd: ${v}`); process.exit(0); }
 
-const imports = { three: `./lib/three.module.js?v=${v}` };
+const imports = { three: `./lib/three.module.js?v=${v}`, "./lib/three.module.js": `./lib/three.module.js?v=${v}` };
+for (const f of readdirSync("lib").filter((f) => /\.m?js$/.test(f) && f !== "three.module.js")) imports[`./lib/${f}`] = `./lib/${f}?v=${v}`;
 for (const f of readdirSync("src")) imports[`./src/${f}`] = `./src/${f}?v=${v}`;
 const blok = `<!-- versie -->
 <script>window.VERSIE = "${v}"; window.VERSIE_DATUM = "${nu}";</script>

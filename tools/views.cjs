@@ -4,7 +4,7 @@ const { chromium } = require("/root/tools/pw/node_modules/playwright-core");
 const fs = require("fs"), path = require("path");
 const ROOT = path.resolve(__dirname, "..");
 const UIT = process.argv[2] ?? "/tmp/fbs/views";
-const TYPE = { ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".svg": "image/svg+xml" };
+const TYPE = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json", ".svg": "image/svg+xml", ".glb": "model/gltf-binary" };
 // [naam, camera x,y,z, doel x,y,z, zoom]
 const VIEWS = [
   ["balkon-zuid", null, [15, 0, 40], 1],

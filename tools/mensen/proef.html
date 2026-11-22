@@ -1,0 +1,44 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#9ab}canvas{display:block}</style></head>
+<body>
+<script type="importmap">{"imports":{"three":"../../lib/three.module.js"}}</script>
+<script type="module">
+// Proefpagina: een paar mensen met verschillende bewegingen naast elkaar.
+import * as THREE from "three";
+import { GLTFLoader, SkeletonUtils } from "../../lib/three-addons.js";
+import { MeshoptDecoder } from "../../lib/meshopt_decoder.mjs";
+const q = new URLSearchParams(location.search);
+const mensen = (q.get("m") ?? "test").split(",");
+const clips = (q.get("c") ?? "Idle_Loop,Walk_Loop,Driving_Loop,Idle_TalkingPhone_Loop,Sitting_Idle_Loop").split(",");
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setSize(innerWidth, innerHeight); document.body.append(r.domElement);
+r.toneMapping = THREE.ACESFilmicToneMapping; r.outputColorSpace = THREE.SRGBColorSpace;
+const sc = new THREE.Scene(); sc.background = new THREE.Color("#a9bccb");
+const cam = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 0.1, 100);
+if (q.get("dicht")) { cam.position.set(0, 1.62, 1.6); cam.lookAt(0, 1.55, 0); } else { cam.position.set(0, 1.3, Number(q.get("afstand") ?? 9)); cam.lookAt(0, 0.95, 0); }
+sc.add(new THREE.HemisphereLight("#dfe9f3", "#6b6359", 1.4));
+const zon = new THREE.DirectionalLight("#fff1dc", 2.4); zon.position.set(3, 6, 5); sc.add(zon);
+const vloer = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshStandardMaterial({ color: "#8a6a60" })); vloer.rotation.x = -Math.PI / 2; sc.add(vloer);
+const L = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+const beweging = await L.loadAsync("../../assets/mensen/bewegingen.glb");
+// alleen draaiingen (en de heup op hoogte): de botten van elke mens staan op zijn eigen gewrichten
+for (const c of beweging.animations) c.tracks = c.tracks.filter((t) => t.name.endsWith(".quaternion") || /DEF-hips\.position$/.test(t.name));
+const mixers = [];
+const n = Math.max(mensen.length, clips.length);
+for (let i = 0; i < n; i++) {
+  const g = await L.loadAsync(`../../assets/mensen/${mensen[i % mensen.length]}.glb`);
+  const m = SkeletonUtils.clone(g.scene);
+  m.traverse((o) => { if (o.isMesh) { console.log("mat", o.material.metalness, o.material.roughness); o.material.metalness = 0; o.material.roughness = 0.85; o.material.depthWrite = true; o.material.side = THREE.FrontSide; if (q.get("norm")) o.geometry.computeVertexNormals(); const nn = o.geometry.attributes.normal; let kort = 0; for (let i = 0; i < nn.count; i++) if (Math.hypot(nn.getX(i), nn.getY(i), nn.getZ(i)) < 0.9) kort++; console.log("mnormalen kort", kort, "van", nn.count); o.material.alphaTest = 0.5; o.material.transparent = false; console.log("mesh", o.name, o.parent?.name, o.geometry.index?.count / 3); if ((o.name + (o.parent?.name ?? "")).includes("Laag")) o.visible = false; if (q.get("vlak")) o.material = new THREE.MeshBasicMaterial({ map: o.material.map, alphaTest: 0.5 }); } });
+  // naar 1,78 m
+  const b = new THREE.Box3().setFromObject(m); const h = b.max.y - b.min.y; m.scale.setScalar(1.78 / h);
+  m.position.x = (i - (n - 1) / 2) * 1.3;
+  sc.add(m);
+  const mx = new THREE.AnimationMixer(m);
+  const clip = beweging.animations.find((a) => a.name === clips[i % clips.length]);
+  if (clip) mx.clipAction(clip).play();
+  mixers.push(mx);
+}
+window.klaar = true;
+const t = new THREE.Clock();
+(function lus() { const dt = t.getDelta(); mixers.forEach((m) => m.update(Math.min(dt, 0.05))); r.render(sc, cam); requestAnimationFrame(lus); })();
+window.namen = beweging.animations.map((a) => a.name);
+</script></body></html>

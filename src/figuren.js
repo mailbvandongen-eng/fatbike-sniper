@@ -369,3 +369,22 @@ export const MAT = {
   auto: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.35, metalness: 0.35 }),
 };
 export { plak, stuk, blok, buis, bol, M, V };
+
+/** Sluipschuttersgeweer, loop langs +z, kolf bij 0. Ongeveer 1,2 m lang. */
+export function maakGeweer() {
+  const bak = [];
+  const zwart = "#3b3f38", grijs = "#5d625a", hout = "#6b5038"; // olijfgrijs, goed te zien tegen donkere kleren
+  blok(bak, 0.06, 0.13, 0.32, V(0, -0.03, 0.05), hout);                       // kolf
+  blok(bak, 0.05, 0.05, 0.12, V(0, 0.03, 0.17), hout);
+  blok(bak, 0.07, 0.09, 0.42, V(0, 0.0, 0.42), zwart);                        // kast
+  blok(bak, 0.04, 0.1, 0.06, V(0, -0.08, 0.36), grijs);                       // magazijn
+  buis(bak, V(0, 0.02, 0.6), V(0, 0.02, 1.22), 0.014, zwart, 0, 8);          // loop
+  buis(bak, V(0, 0.02, 1.16), V(0, 0.02, 1.25), 0.024, grijs, 0, 8);         // demper
+  buis(bak, V(0, 0.105, 0.3), V(0, 0.105, 0.64), 0.024, zwart, 0, 10);       // kijker
+  buis(bak, V(0, 0.105, 0.62), V(0, 0.105, 0.68), 0.034, zwart, 0, 10);
+  stuk(bak, new THREE.CircleGeometry(0.03, 12), "#7aa0c8", M(V(0, 0.105, 0.681)));
+  for (const z of [0.36, 0.56]) blok(bak, 0.03, 0.05, 0.03, V(0, 0.065, z), grijs);
+  const m = new THREE.Mesh(plak(bak), MAT.voertuig);
+  m.castShadow = true;
+  return m;
+}
