@@ -60,3 +60,10 @@ Echte modellen van Sketchfab (CC BY 4.0, naamsvermelding verplicht):
 - winkelwagen: [Shopping Cart](https://sketchfab.com/3d-models/b96f896453b240ae804d0399f1faf027) door adrianxy
 
 `tools/fietsen/bouw.sh` haalt ze op en maakt er spelmodellen van (`fiets.py`): echte maat, losse draaiende wielen, het frame in een vervangbare kleur, minder driehoeken. De afmetingen (wielen, handvatten, zadel) staan in `assets/fietsen/*.json`. Fietsen ver weg in de rekken gebruiken een licht model.
+
+## Levels
+
+- **Julianaplein** (`julianaplein`): rondes, geen klok, beperkt aantal kogels.
+- **Bonus: Van Steelaan** (`steelaan`): portiekflat met verhoogd parterre aan de tramlijn, woonkamer, 1e en 2e verdieping; winter (kale bomen). Zoveel mogelijk fatbikes in 3 minuten; ze rijden kriskras over straat, fietspad en tramrails; een fout kost 10 seconden.
+
+Kiezen op het startscherm (onthouden in de browser) of met `?level=steelaan`. Een nieuw level: zet het in `tools/locaties.mjs` (pand, raam, verdiepingen, kijkpunt, modus, seizoen), draai `haal` en `bouw`, en voeg het toe aan `LEVELS` in `src/main.js` en aan `#levels` in `index.html`. Testen: `node tools/bonus.cjs`.

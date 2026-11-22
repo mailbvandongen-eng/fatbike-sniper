@@ -103,6 +103,10 @@ h1 span{color:var(--geel)}
   h1{font-size:clamp(30px,7vh,44px)}.plek{margin-bottom:10px}.doel{margin-bottom:8px}
   .klein{margin-top:8px}
 }
+#levels{display:flex;gap:8px;justify-content:center;margin:0 0 14px;flex-wrap:wrap}
+#levels button{appearance:none;border:2px solid #fff3;background:#ffffff10;color:var(--ink);border-radius:999px;padding:9px 16px;font:700 15px system-ui;cursor:pointer}
+#levels button.aan{border-color:var(--geel);color:var(--geel);background:#ffc83d18}
+#kogels.krap{color:var(--rood)}
 #eindeSterren{font-size:44px;color:var(--geel);letter-spacing:.1em;margin:6px 0}
 #eindeScore{line-height:1.5;margin:10px 0 22px}
 #draai{position:fixed;inset:0;z-index:20;display:none;place-items:center;text-align:center;padding:30px;background:#111317;font-weight:700;font-size:18px;line-height:1.4}
@@ -157,12 +161,13 @@ h1 span{color:var(--geel)}
       <p class="doel" id="startDoel"></p>
     </div>
     <div class="uitleg">
-      <p>Je staat op het balkon van de 4e verdieping. Onder je ligt de parkeerplaats, met de Jumbo erachter.</p>
+      <p id="uitlegPlek"></p>
       <p><b>Schiet alle fatbikes kapot.</b> Mik op de dikke band of de accu: dan klapt hij of vliegt hij in brand.</p>
-      <p>Raak <b>geen mensen, gewone fietsen of auto's</b>. Na 3 fouten ben je af. Je hebt alle tijd: alleen je kogels zijn op te maken.</p>
+      <p id="uitlegRegel"></p>
       <p>Slepen = kijken · schuif rechts omhoog = inzoomen · ▲▼ linksboven = andere verdieping of de straat op.</p>
     </div>
     <div class="knoppen">
+      <div id="levels"><button data-level="julianaplein">Julianaplein</button><button data-level="steelaan">Bonus: Van Steelaan</button></div>
       <button class="groot" id="begin">Begin</button>
       <p class="klein" id="startBest"></p>
       <p class="klein">Gebouwen: 3D BAG (CC BY 4.0) · Kaart: © OpenStreetMap-bijdragers · Mensen: MakeHuman, Quaternius (CC0) · Fatbike: GokuSSJB, fiets: Fairyflosslord7, winkelwagen: adrianxy (Sketchfab, CC BY 4.0)</p>
@@ -182,9 +187,9 @@ h1 span{color:var(--geel)}
 </div>
 
 <!-- versie -->
-<script>window.VERSIE = "d682c39ecf"; window.VERSIE_DATUM = "22-11, 23:16";</script>
-<script type="importmap">{"imports":{"three":"./lib/three.module.js?v=d682c39ecf","./lib/three.module.js":"./lib/three.module.js?v=d682c39ecf","./lib/meshopt_decoder.mjs":"./lib/meshopt_decoder.mjs?v=d682c39ecf","./lib/three-addons.js":"./lib/three-addons.js?v=d682c39ecf","./src/effecten.js":"./src/effecten.js?v=d682c39ecf","./src/figuren.js":"./src/figuren.js?v=d682c39ecf","./src/geluid.js":"./src/geluid.js?v=d682c39ecf","./src/main.js":"./src/main.js?v=d682c39ecf","./src/mensen.js":"./src/mensen.js?v=d682c39ecf","./src/verkeer.js":"./src/verkeer.js?v=d682c39ecf","./src/wereld.js":"./src/wereld.js?v=d682c39ecf"}}</script>
-<script type="module" src="./src/main.js?v=d682c39ecf"></script>
+<script>window.VERSIE = "74b8ab06fe"; window.VERSIE_DATUM = "22-11, 23:26";</script>
+<script type="importmap">{"imports":{"three":"./lib/three.module.js?v=74b8ab06fe","./lib/three.module.js":"./lib/three.module.js?v=74b8ab06fe","./lib/meshopt_decoder.mjs":"./lib/meshopt_decoder.mjs?v=74b8ab06fe","./lib/three-addons.js":"./lib/three-addons.js?v=74b8ab06fe","./src/effecten.js":"./src/effecten.js?v=74b8ab06fe","./src/figuren.js":"./src/figuren.js?v=74b8ab06fe","./src/geluid.js":"./src/geluid.js?v=74b8ab06fe","./src/main.js":"./src/main.js?v=74b8ab06fe","./src/mensen.js":"./src/mensen.js?v=74b8ab06fe","./src/verkeer.js":"./src/verkeer.js?v=74b8ab06fe","./src/wereld.js":"./src/wereld.js?v=74b8ab06fe"}}</script>
+<script type="module" src="./src/main.js?v=74b8ab06fe"></script>
 <!-- /versie -->
 </body>
 </html>

@@ -8,7 +8,11 @@ import { Effecten } from "./effecten.js";
 import { Geluid } from "./geluid.js";
 
 const $ = (s) => document.querySelector(s);
-const LOCATIE = "julianaplein";
+// het level: uit het adres (?level=), anders de laatste keuze, anders het Julianaplein
+const LEVELS = { julianaplein: "Julianaplein", steelaan: "Van Steelaan" };
+const gevraagd = new URLSearchParams(location.search).get("level") ?? localStorage.getItem("fbs-level");
+const LOCATIE = LEVELS[gevraagd] ? gevraagd : "julianaplein";
+localStorage.setItem("fbs-level", LOCATIE);
 const KOGEL_V = 850, ZWAARTE = 9.81, NUL_AFSTAND = 75;
 
 // ---------- renderer en scène ----------
@@ -64,6 +68,15 @@ zon.shadow.bias = -0.0004; zon.shadow.normalBias = 0.04;
 scene.add(zon, zon.target);
 scene.add(new THREE.HemisphereLight("#cfe0f0", "#6b6359", 1.05));
 
+// ---------- winter: grijze lucht, lage zon, kale bomen ----------
+function winter() {
+  const lucht = new THREE.Color("#c9ced3");
+  scene.fog.color.copy(lucht); scene.fog.near = 90; scene.fog.far = 420;
+  scene.traverse((o) => { if (o.material?.uniforms?.boven) { o.material.uniforms.boven.value.set("#9aa7b3"); o.material.uniforms.onder.value.copy(lucht); } });
+  zon.color.set("#ffe2c4"); zon.intensity = 1.5; zon.position.set(-60, 45, 90);
+  scene.traverse((o) => { if (o.isHemisphereLight) { o.color.set("#d5dde4"); o.groundColor.set("#5d5650"); o.intensity = 1.25; } });
+}
+
 // ---------- staat ----------
 const fx = new Effecten(scene);
 const geluid = new Geluid();
@@ -86,6 +99,20 @@ let terugslag = 0, herlaad = 0;
 async function laad() {
   data = await (await fetch(`data/${LOCATIE}.json?v=${window.VERSIE ?? ""}`)).json();
   $("#plek").textContent = data.naam;
+  spel.modus = data.modus;
+  if (data.seizoen === "winter") winter();
+  // bonus: fatbikes rijden vrij rond, ook over de tramrails; punten op straat, rails en fietspaden dicht bij je
+  if (data.modus === "bonus") {
+    const p = (spel.vrijPunten = []);
+    const [sx, , sz] = data.sluipschutter.pos;
+    for (const l of data.lijnen) if (["tram", "weg", "fietspad"].includes(l.s)) for (let i = 0; i < l.p.length - 1; i++) {
+      const [a, b] = [l.p[i], l.p[i + 1]], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      for (let t = 0; t < L; t += 5) {
+        const x = a[0] + ((b[0] - a[0]) * t) / L, z = a[1] + ((b[1] - a[1]) * t) / L;
+        if (Math.hypot(x - sx, z - sz) < 75) p.push([x, z]);
+      }
+    }
+  }
   wereld = bouwWereld(data, scene);
   await Promise.all([laadMensen((v) => $("#laden").style.setProperty("--v", v)), laadFietsen()]);
   graaf = new Graaf(data.graaf);
@@ -160,8 +187,10 @@ function bouwDecor(st) {
     g.add(rand, kap, vloer);
     return g;
   }
-  g.position.set(st.pos[0] - nx * 0.9, st.pos[1] - 1.6, st.pos[2] - nz * 0.9);
+  const diep = st.soort === "diep" ? 1.6 : 0.9;
+  g.position.set(st.pos[0] - nx * diep, st.pos[1] - 1.6, st.pos[2] - nz * diep);
   g.rotation.y = Math.atan2(nx, nz);
+  if (diep > 1) g.scale.z = diep / 0.9;
   const glas = new THREE.MeshStandardMaterial({ color: "#9fb3bd", transparent: true, opacity: 0.25, roughness: 0.1 });
   const vloer = new THREE.Mesh(new THREE.BoxGeometry(5, 0.2, 1.2), beton);
   vloer.position.set(0, -0.1, 0.6);
@@ -189,20 +218,31 @@ function wisselStand(richting) {
 
 // ---------- rondes ----------
 function rondeInstellingen(r) {
+  // bonus: zoveel mogelijk fatbikes in de tijd; kogels en fatbikes onbeperkt, een fout kost tijd
+  if (data?.modus === "bonus") return { fatbikes: Infinity, kogels: Infinity, tegelijk: 7, fouten: Infinity, tijd: data.tijd ?? 180 };
   // geen klok: je hebt alle tijd. Wel een beperkt aantal kogels.
   return { fatbikes: 6 + r * 2, kogels: 6 + r * 2 + 6, tegelijk: Math.min(3 + r, 8), fouten: 2 };
 }
 function toonStart() {
   const best = +(localStorage.getItem("fbs-best") ?? 0);
   const ri = rondeInstellingen(spel.ronde);
-  $("#startRonde").textContent = `Ronde ${spel.ronde}`;
-  $("#startDoel").textContent = `${ri.fatbikes} fatbikes · ${ri.kogels} kogels · geen haast`;
-  $("#startBest").textContent = best ? `Beste score: ${best}` : "";
+  const bonus = data?.modus === "bonus";
+  const bestBonus = +(localStorage.getItem("fbs-best-bonus") ?? 0);
+  $("#startRonde").textContent = bonus ? "Bonuslevel" : `Ronde ${spel.ronde}`;
+  $("#startDoel").textContent = bonus ? `Zoveel mogelijk fatbikes in ${Math.round(ri.tijd / 60)} minuten` : `${ri.fatbikes} fatbikes · ${ri.kogels} kogels · geen haast`;
+  $("#startBest").textContent = bonus ? (bestBonus ? `Record: ${bestBonus} fatbikes` : "") : best ? `Beste score: ${best}` : "";
+  $("#uitlegPlek").textContent = bonus
+    ? "Je staat bij het raam van de woonkamer, een halve trap boven de straat. Voor je ligt de tramlijn. Het is winter."
+    : "Je staat op het balkon van de 4e verdieping. Onder je ligt de parkeerplaats, met de Jumbo erachter.";
+  $("#uitlegRegel").innerHTML = bonus
+    ? "Raak <b>geen mensen, gewone fietsen of auto's</b>: dat kost 10 seconden. Kogels genoeg."
+    : "Raak <b>geen mensen, gewone fietsen of auto's</b>. Na 3 fouten ben je af. Je hebt alle tijd: alleen je kogels zijn op te maken.";
+  for (const b of document.querySelectorAll("#levels button")) b.classList.toggle("aan", b.dataset.level === LOCATIE);
 }
 function begin() {
   geluid.start();
   const ri = (spel.ri = rondeInstellingen(spel.ronde));
-  Object.assign(spel, { bezig: true, kogels: ri.kogels, fouten: 0, geraakt: 0, gespawnd: 0, rondeScore: 0, schoten: 0 });
+  Object.assign(spel, { bezig: true, kogels: ri.kogels, fouten: 0, geraakt: 0, gespawnd: 0, rondeScore: 0, schoten: 0, tijd: ri.tijd });
   for (const r of reizigers.filter((r) => r.fat)) weg(r);
   for (let i = 0; i < ri.tegelijk; i++) nieuweFatbike(i === 0);
   $("#start").hidden = $("#einde").hidden = true;
@@ -232,8 +272,24 @@ function nieuweFatbike(stil = false) {
   } else f.van = graaf.startKnoop(8, 75, 40); // komt van de rand van het plein binnen rijden
   const v = graaf.volgende(-1, f.van, 8, 2);
   if (v) { f.naar = v.n; f.breed = v.breed; f.t = stil ? 0.5 : 0; f.plaats(true); }
+  if (spel.vrijPunten?.length) {
+    // bonus: vrij rondrijden; begin op een willekeurig punt
+    const p = kies(spel.vrijPunten);
+    f.vrij = spel.vrijPunten; f.wacht = 0; f.pad.set(p[0], 0, p[1]); f.pos.copy(f.pad);
+  }
   reizigers.push(f);
   spel.gespawnd++;
+}
+function eindeBonus() {
+  spel.bezig = false;
+  const oud = +(localStorage.getItem("fbs-best-bonus") ?? 0), record = spel.geraakt > oud;
+  if (record) localStorage.setItem("fbs-best-bonus", spel.geraakt);
+  $("#eindeKop").textContent = "Tijd om!";
+  $("#eindeReden").textContent = record ? "Nieuw record!" : oud ? `Record: ${oud}` : "";
+  $("#eindeSterren").textContent = spel.geraakt >= 25 ? "★★★" : spel.geraakt >= 15 ? "★★☆" : spel.geraakt >= 6 ? "★☆☆" : "☆☆☆";
+  $("#eindeScore").innerHTML = `<b>${spel.geraakt} fatbikes</b><br>${spel.fouten} keer mis (−${spel.fouten * 10} s)`;
+  $("#volgende").textContent = "Nog een keer";
+  setTimeout(() => { $("#einde").hidden = false; $("#hud").hidden = true; zetZoom(1); }, 900);
 }
 function eindeRonde(gewonnen, reden) {
   spel.bezig = false;
@@ -258,6 +314,16 @@ function eindeRonde(gewonnen, reden) {
 // ---------- HUD ----------
 function tekenHud() {
   if (!spel.ri) return;
+  if (spel.modus === "bonus") {
+    // bonus: geteld wat je raakt, en de klok
+    const t = Math.max(0, Math.ceil(spel.tijd));
+    $("#doelen").innerHTML = `<i class="fb"></i><span>${spel.geraakt}</span>`;
+    $("#kogels").innerHTML = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
+    $("#kogels").classList.toggle("krap", t <= 15);
+    $("#fouten").hidden = true;
+    $("#score").hidden = true;
+    return;
+  }
   const over = spel.ri.fatbikes - spel.geraakt;
   $("#doelen").innerHTML = `<i class="fb"></i><span>${over}</span>`;
   $("#kogels").innerHTML = `<i class="kogel"></i>${spel.kogels}`;
@@ -383,6 +449,7 @@ function treffer(r, p) {
 }
 function fout(tekst, sub) {
   spel.fouten++;
+  if (spel.modus === "bonus") spel.tijd -= 10;
   geluid.fout();
   melding("fout");
   $("#hud").classList.remove("schud"); void $("#hud").offsetWidth; $("#hud").classList.add("schud");
@@ -598,6 +665,12 @@ $("#zoomSchuif").addEventListener("input", (e) => zetZoom(schuifNaarZoom(+e.targ
 const zetSchuifLengte = () => $("#zoomSchuif").style.setProperty("--l", `${$("#zoom").clientHeight}px`);
 addEventListener("resize", zetSchuifLengte); setTimeout(zetSchuifLengte, 0);
 $("#begin").addEventListener("click", begin);
+// level kiezen: een ander level laadt een andere wereld, dus de pagina opnieuw
+for (const b of document.querySelectorAll("#levels button")) b.addEventListener("click", () => {
+  if (b.dataset.level === LOCATIE) return;
+  localStorage.setItem("fbs-level", b.dataset.level);
+  location.replace(`./?level=${b.dataset.level}&v=${window.VERSIE ?? ""}`);
+});
 
 // ---------- nieuwe versie? ----------
 // Een app op het beginscherm van de iPhone blijft vaak de oude pagina tonen. Daarom vragen we bij het openen
@@ -613,7 +686,7 @@ async function kijkVersie() {
 }
 function ververs() {
   if (!nieuweVersie || spel.bezig) return;
-  location.replace(`./?v=${nieuweVersie}`);
+  location.replace(`./?v=${nieuweVersie}&level=${LOCATIE}`);
 }
 $("#versie").textContent = window.VERSIE_DATUM ? `Versie van ${window.VERSIE_DATUM}` : "";
 kijkVersie();
@@ -671,12 +744,17 @@ function lus() {
 
   // spel
   if (spel.bezig && !filmCam) {
+    if (spel.modus === "bonus") {
+      spel.tijd -= echt;
+      if (Math.floor(spel.tijd) !== spel.klokTik) { spel.klokTik = Math.floor(spel.tijd); tekenHud(); }
+      if (spel.tijd <= 0) eindeBonus();
+    }
     // kogels op en er rijden nog fatbikes rond
     if (spel.kogels <= 0 && !kogels.length && spel.geraakt < spel.ri.fatbikes) eindeRonde(false, "Je kogels zijn op.");
     const actief = reizigers.filter((r) => r.fat).length;
     if (actief < spel.ri.tegelijk && spel.gespawnd < spel.ri.fatbikes && Math.random() < echt * 0.6) nieuweFatbike();
     // staat er niets op het plein, dan komt er een aanrijden
-    const dichtbij = reizigers.some((r) => r.fat && Math.hypot(r.pos.x, r.pos.z) < 60);
+    const dichtbij = spel.modus === "bonus" || reizigers.some((r) => r.fat && Math.hypot(r.pos.x, r.pos.z) < 60);
     spel.leeg = dichtbij ? 0 : (spel.leeg ?? 0) + echt;
     if (spel.leeg > 6) {
       spel.leeg = 0;
@@ -760,7 +838,7 @@ function lus() {
     if (scoop) camera.position.copy(oog);
     else {
       // over de schouder: per plek een andere afstand en hoogte (op het dak hoger, anders zie je alleen grind)
-      const [ach, rechts, op] = { balkon: [2.9, 0.75, 0.55], dak: [2.1, 0.6, 1.35], grond: [2.4, 0.6, 0.5] }[st.soort];
+      const [ach, rechts, op] = { balkon: [2.9, 0.75, 0.55], diep: [1.35, 0.55, 0.45], dak: [2.1, 0.6, 1.35], grond: [2.4, 0.6, 0.5] }[st.soort];
       camera.position.set(oog.x - fx * ach - fz * rechts, oog.y + op, oog.z - fz * ach + fx * rechts);
     }
   }

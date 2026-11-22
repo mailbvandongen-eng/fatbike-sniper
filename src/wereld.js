@@ -9,6 +9,8 @@ const GEVEL = {
   jaren50: { b: 2.9, h: 2.8, steen: ["#7a3b22", "#84442a", "#6d341f", "#8a4a30"], voeg: "#b8a89a", raam: [1.35, 1.45], kozijn: "#f1ede4", latei: "#cfc8bb" },
   // donkerbruine baksteen met brede witte raambanden (Google 3D, rond het plein)
   bruinwit: { b: 3.0, h: 2.8, bruinwit: true },
+  // portiekflat uit de jaren 50: licht beige metselwerk, witte balkonplaten, verticale lichte penanten
+  portiek: { b: 3.2, h: 2.8, portiek: true },
   // crèmegeel met gele betonnen penanten (westkant)
   geel: { b: 3.0, h: 2.8, geel: true },
   // licht metselwerk met blauw-witte zonneschermen (oostkant, boven de winkels)
@@ -66,6 +68,12 @@ function gevelTextuur(st) {
       x.fillStyle = "#f2f0ea"; x.fillRect(0, H * 0.2, W, H * 0.06);
       ruit(x, 0.18 * PX, H * 0.28, W - 0.36 * PX, H * 0.46, "#f4f2ed", Math.random() < 0.3);
       x.fillStyle = "#f4f2ed"; x.fillRect(0, H * 0.74, W, 4);
+    } else if (st.portiek) {
+      stenen(x, W, H, ["#d9cdb6", "#d2c5ad", "#ded3be", "#cbbfa7"], "#e8e0d0");
+      ruit(x, 0.35 * PX, H * 0.18, W - 0.7 * PX, H * 0.5, "#f5f3ee", Math.random() < 0.3);
+      x.fillStyle = "#f6f4ef"; x.fillRect(0, H - 0.5 * PX, W, 0.5 * PX); // balkonplaat
+      x.fillStyle = "#c9c2b5"; x.fillRect(0, H - 0.52 * PX, W, 3);
+      x.fillStyle = "#e9e3d7"; x.fillRect(0, 0, 0.14 * PX, H); // penant
     } else if (st.geel) {
       x.fillStyle = "#cdb36b"; x.fillRect(0, 0, W, H);
       ruit(x, 0.45 * PX, H * 0.26, W - 0.9 * PX, H * 0.5, "#f1ede2", Math.random() < 0.3);
@@ -282,7 +290,19 @@ function tekenGrond(d, midden, maat, px) {
     else if (soort === "dambord") for (let u = -1.5, i = 0; u < 1.5; u += 0.5, i++) for (let v = -half, j = 0; v < half; v += 0.5, j++) vak(u, v, 0.5, 0.5, (i + j) % 2 ? "#f1efe8" : "#2b2b2b");
     else for (const u of [-1.1, 1.1]) for (let v = -half; v < half; v += 0.75) vak(u - 0.15, v, 0.3, 0.3, "#f1efe8");
   }
-  for (const l of d.lijnen) if (l.s === "tram") { lijn(l, GRONDKLEUR.tram, 2.2); lijn(l, "#9b9890", 0.1); }
+  // trambaan: een strook gras met per spoor twee stalen rails
+  for (const l of d.lijnen) if (l.s === "tram") lijn(l, GRONDKLEUR.gras, 4.2);
+  for (const l of d.lijnen) if (l.s === "tram") {
+    for (const k of [-0.72, 0.72]) {
+      x.strokeStyle = "#5d5a55"; x.lineWidth = Math.max(1, 0.09 * s); x.beginPath();
+      l.p.forEach((p, i) => {
+        const q = l.p[Math.min(i + 1, l.p.length - 1)], r = l.p[Math.max(i - 1, 0)];
+        const dx = q[0] - r[0], dz = q[1] - r[1], L = Math.hypot(dx, dz) || 1;
+        x[i ? "lineTo" : "moveTo"](...P([p[0] - (dz / L) * k, p[1] + (dx / L) * k]));
+      });
+      x.stroke();
+    }
+  }
   // parkeervakken: witte lijnen links en rechts van elke haakse plek
   for (const v of d.vlakken) if (v.s === "vak" || v.s === "strook") vlak(v.r, GRONDKLEUR.parkeer);
   // de vakken zelf zijn van grijze stenen, met lichte strepen ertussen
@@ -301,6 +321,24 @@ function tekenGrond(d, midden, maat, px) {
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
   return t;
+}
+
+/** Een kale boom (winter): stam met takken in twee lagen, als één geometrie van 1 m hoog. */
+function kaleBoom() {
+  const bak = [];
+  const tak = (a, b, r) => buis(bak, a, b, r, "#3f362e", 0, 4);
+  tak(V(0, 0, 0), V(0, 0.55, 0), 0.03);
+  for (let i = 0; i < 6; i++) {
+    const h = 0.4 + i * 0.07, hoek = i * 2.4 + Math.random() * 0.5, uit = 0.18 + Math.random() * 0.1;
+    const a = V(0, h, 0), b = V(Math.cos(hoek) * uit, h + 0.25 + Math.random() * 0.12, Math.sin(hoek) * uit);
+    tak(a, b, 0.012);
+    for (let j = 0; j < 3; j++) {
+      const h2 = hoek + (j - 1) * 0.7;
+      tak(b, b.clone().add(V(Math.cos(h2) * 0.1, 0.1 + Math.random() * 0.1, Math.sin(h2) * 0.1)), 0.005);
+    }
+  }
+  tak(V(0, 0.55, 0), V(0.02, 0.95, 0.01), 0.012);
+  return plak(bak);
 }
 
 export function bouwWereld(d, scene) {
@@ -327,6 +365,7 @@ export function bouwWereld(d, scene) {
   }
   // grond: groot (680 m) en fijn (170 m rond de parkeerplaats)
   // de verre grond grof (1024), het plein zelf fijn (2048)
+  if (d.seizoen === "winter") Object.assign(GRONDKLEUR, { gras: "#7c7650", struik: "#4c5236", basis: "#aaa49a" });
   for (const [maat, px, y] of [[680, 1024, -0.02], [170, 2048, 0]]) {
     const t = tekenGrond(d, [0, 0], maat, px);
     const g = new THREE.PlaneGeometry(maat, maat);
@@ -345,6 +384,19 @@ export function bouwWereld(d, scene) {
 
   // bomen (instanced): stam + twee kruinen
   const bomen = d.bomen.filter((b) => Math.hypot(b[0], b[1]) < 300);
+  if (d.seizoen === "winter") {
+    // kale bomen: één geometrie, per boom geschaald en gedraaid
+    const kaal = new THREE.InstancedMesh(kaleBoom(), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 }), bomen.length);
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
+    bomen.forEach(([x, z, h], i) => {
+      h = Math.max(6, Math.min(h, 14));
+      q.setFromEuler(new THREE.Euler(0, Math.random() * 6.3, 0));
+      kaal.setMatrixAt(i, m4.compose(V(x, 0, z), q, V(h * (0.8 + Math.random() * 0.4), h, h * (0.8 + Math.random() * 0.4))));
+    });
+    kaal.castShadow = true;
+    scene.add(kaal);
+    wereld.bomen = bomen;
+  } else {
   const stam = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.12, 0.2, 1, 6).translate(0, 0.5, 0), new THREE.MeshStandardMaterial({ color: "#4e3d2e", roughness: 1 }), bomen.length);
   const kruinGeo = new THREE.IcosahedronGeometry(1, 1);
   const p = kruinGeo.attributes.position;
@@ -366,6 +418,7 @@ export function bouwWereld(d, scene) {
   stam.castShadow = kruin.castShadow = true;
   scene.add(stam, kruin);
   wereld.bomen = bomen;
+  }
 
   // heggen en perken
   const hegBak = [];

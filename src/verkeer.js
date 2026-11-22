@@ -318,7 +318,8 @@ export class Fietser extends Reiziger {
       // en stoppen af en toe om op hun telefoon te kijken
       else if (Math.random() < dt / 22) this.wacht = tussen(4, 14);
     }
-    super.stap(dt);
+    if (this.vrij) this.vrijRijden(dt);
+    else super.stap(dt);
     for (const w of this.fiets.userData.wielen) w.rotation.x += (this.snelheid * dt) / this.fiets.userData.rW;
     const rijdt = this.snelheid > 0.4;
     this.berijders.forEach((m, i) => { m.zet(i ? "achterop" : rijdt ? "fietsen" : "zittenPraten"); m.mixer.update(dt); });
@@ -349,6 +350,23 @@ export class Fietser extends Reiziger {
         m.arm(i ? "R" : "L", this.fiets.localToWorld(h.clone()), terug.clone().add(opzij));
       });
     }
+  }
+  verAf() { return this.vrij ? false : super.verAf(); }
+  /** Bonus: rechtstreeks van punt naar punt, dwars over straat, fietspad en tramrails. */
+  vrijRijden(dt) {
+    if (this.wacht > 0) this.wacht -= dt;
+    else {
+      if (!this.doel || Math.hypot(this.doel[0] - this.pad.x, this.doel[1] - this.pad.z) < 1) {
+        // een nieuw punt, liefst ergens anders heen (niet terug)
+        let p, i = 0;
+        do p = kies(this.vrij); while (++i < 8 && Math.hypot(p[0] - this.pad.x, p[1] - this.pad.z) < 15);
+        this.doel = p;
+        if (Math.random() < 0.15) this.wacht = tussen(2, 7); // even stoppen voor de telefoon
+      }
+      const dx = this.doel[0] - this.pad.x, dz = this.doel[1] - this.pad.z, d = Math.hypot(dx, dz), st = Math.min(d, this.v * dt);
+      this.pad.x += (dx / d) * st; this.pad.z += (dz / d) * st;
+    }
+    this.glad(dt);
   }
   schrikken() { if (this.fat) { this.vlucht = 8; this.wacht = 0; } }
   get object() { return this.groep; }

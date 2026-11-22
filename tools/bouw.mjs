@@ -65,7 +65,7 @@ const maaivelden = [];
 //   jaren50 roodbruine baksteen · jaren60 gele baksteen · galerij beton met witte schotten (hoogbouw 1960-1980)
 //   kop rode kopgevel van die galerijflats · winkel glazen pui met lichte luifelband · huis rijtjeshuis
 //   modern licht metselwerk (1990-2010) · nieuw donker metselwerk (na 2010)
-const stijlen = ["jaren50", "bruinwit", "geel", "creme", "zeilschip", "galerij", "kop", "winkel", "huis", "modern", "nieuw"];
+const stijlen = ["jaren50", "bruinwit", "portiek", "geel", "creme", "zeilschip", "galerij", "kop", "winkel", "huis", "modern", "nieuw"];
 const muren = Object.fromEntries(stijlen.map((s) => [s, { pos: [], uv: [] }]));
 const daken = { plat: { pos: [] }, pannen: { pos: [] } };
 const voetafdrukken = [];
@@ -98,6 +98,7 @@ for (const f of panden) {
     else if (jaar >= 1990) stijl = "modern";
     else if (lagen >= 8 && jaar >= 1960) stijl = "galerij";
     else if (jaar >= 1955) stijl = "bruinwit"; // donkerbruine baksteen met witte raambanden, zoals rond het plein
+    if (stijl === "bruinwit" && L.standaardStijl) stijl = L.standaardStijl;
     const eigen = L.stijlPerPand?.[f.id.replace("NL.IMBAG.Pand.", "")];
     if (eigen) stijl = eigen;
     // lange as van het gebouw: de korte gevels van galerijflats zijn de rode kopgevels
@@ -107,7 +108,8 @@ for (const f of panden) {
       if (l > langst) { langst = l; as = [(grond[i + 1][0] - grond[i][0]) / l, (grond[i + 1][1] - grond[i][1]) / l]; }
     }
     voetafdrukken.push({ ring: grond.map((p) => p.map(r1)), h: r1(a.b3_h_dak_70p ?? 6), naam: og?.t.name });
-    if (og?.t.name === L.flat && !sluip) sluip = { grond, h0: a.b3_h_maaiveld ?? 0, lagen, dak: a.b3_h_dak_70p ?? 28 };
+    const isFlat = L.flatPand ? f.id.endsWith(L.flatPand) : og?.t.name === L.flat;
+    if (isFlat && !sluip) sluip = { grond, h0: a.b3_h_maaiveld ?? 0, lagen, dak: a.b3_h_dak_70p ?? 28 };
     const pannen = a.b3_dak_type === "slanted" && (stijl === "huis" || stijl === "jaren50");
     vlakken.forEach((vlak, k) => {
       const soort = sem.surfaces[sem.values[0][k]].type;
@@ -137,8 +139,8 @@ for (const s of stijlen) { muren[s].pos = rond(muren[s].pos, true); muren[s].uv 
 for (const d of Object.values(daken)) d.pos = rond(d.pos, true);
 
 // ---------- de plek van de sluipschutter ----------
-if (!sluip) throw new Error(`flat ${L.flat} niet gevonden`);
-const [jx, jy] = L.jumbo, J = [jx - OX, -(jy - OY)];
+if (!sluip) throw new Error(`flat ${L.flat ?? L.flatPand} niet gevonden`);
+const [jx, jy] = L.kijkpunt, J = [jx - OX, -(jy - OY)];
 // De gevel die het meest naar de parkeerplaats kijkt; daarop het stuk dat er het dichtst bij ligt.
 const g = sluip.grond, kandidaten = [];
 for (let i = 0; i < g.length; i++) {
@@ -148,14 +150,22 @@ for (let i = 0; i < g.length; i++) {
   let nrm = [(b[1] - a[1]) / len, -(b[0] - a[0]) / len];
   const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
   if (binnen([m[0] + nrm[0], m[1] + nrm[1]], g)) nrm = nrm.map((v) => -v); // naar buiten
-  const naarP = N([-m[0], -m[1]]);
+  const naarP = N([J[0] - m[0], J[1] - m[1]]);
   kandidaten.push({ dot: nrm[0] * naarP[0] + nrm[1] * naarP[1], m, nrm, len, afst: Math.hypot(...m) });
 }
 const maxDot = Math.max(...kandidaten.map((k) => k.dot));
 const beste = kandidaten.filter((k) => k.dot > maxDot - 0.12).sort((a, b) => a.afst - b.afst)[0];
+// een vast raam (RD): de plek op die gevel die het dichtst bij dat punt ligt
+if (L.raam) {
+  const rp = [L.raam[0] - OX, -(L.raam[1] - OY)];
+  const t = (rp[0] - beste.m[0]) * -beste.nrm[1] + (rp[1] - beste.m[1]) * beste.nrm[0];
+  const tt = Math.max(-beste.len / 2 + 1, Math.min(beste.len / 2 - 1, t));
+  beste.m = [beste.m[0] - beste.nrm[1] * tt, beste.m[1] + beste.nrm[0] * tt];
+}
 // buiten de muur, op de galerij of het balkon van de 4e verdieping
-const verdiepingHoogte = (v) => sluip.h0 - H0 + 3.4 + (v - 1) * 2.8 + 1.45;
-const ooghoogte = verdiepingHoogte(L.verdieping);
+// vloer van de eerste woonlaag (standaard 3,4 m, bij een verhoogd parterre ~1,2 m), daarna 2,8 m per laag
+const verdiepingHoogte = (v) => sluip.h0 - H0 + (L.parterre ?? 3.4) + (v - 1) * 2.8 + 1.45;
+const ooghoogte = verdiepingHoogte(L.verdieping ?? 1);
 const sluipschutter = {
   pos: [r1(beste.m[0] + beste.nrm[0] * 0.9), r1(ooghoogte), r1(beste.m[1] + beste.nrm[1] * 0.9)],
   muur: { normaal: beste.nrm.map(r1), breedte: r1(beste.len) },
@@ -331,8 +341,9 @@ for (const w of wegen) {
 // Op Pleinzicht (1e, 4e, 7e verdieping en het dak) en op de grond achter drie muurtjes rond de parkeerplaats.
 const standplaatsen = [];
 const [gx, gz] = [beste.m[0], beste.m[1]], [gnx, gnz] = beste.nrm;
-for (const v of [1, 4, 7]) standplaatsen.push({ naam: `Pleinzicht, ${v}e verdieping`, soort: "balkon", pos: [r1(gx + gnx * 0.9), r1(verdiepingHoogte(v)), r1(gz + gnz * 0.9)], normaal: [r1(gnx), r1(gnz)], kijk: sluipschutter.kijk });
-standplaatsen.push({ naam: "Pleinzicht, dak", soort: "dak", pos: [r1(gx - gnx * 0.45), r1(sluip.dak - H0 + 1.6), r1(gz - gnz * 0.45)], normaal: [r1(gnx), r1(gnz)], kijk: sluipschutter.kijk });
+const uitGevel = L.uit ?? 0.9; // hoe ver je voor de gevel staat (balkondiepte)
+for (const [v, naam] of L.verdiepingen ?? [[1, "1e verdieping"], [4, "4e verdieping"], [7, "7e verdieping"]]) standplaatsen.push({ naam: `${L.flat ?? ""}${L.flat ? ", " : ""}${naam}`, soort: L.uit ? "diep" : "balkon", pos: [r1(gx + gnx * uitGevel), r1(verdiepingHoogte(v)), r1(gz + gnz * uitGevel)], normaal: [r1(gnx), r1(gnz)], kijk: sluipschutter.kijk });
+if (L.dak !== false) standplaatsen.push({ naam: `${L.flat}, dak`, soort: "dak", pos: [r1(gx - gnx * 0.45), r1(sluip.dak - H0 + 1.6), r1(gz - gnz * 0.45)], normaal: [r1(gnx), r1(gnz)], kijk: sluipschutter.kijk });
 const opMuur = (doel, naam) => {
   let best = null;
   for (const m of muurtjes) for (let i = 0; i < m.length - 1; i++) {
@@ -354,11 +365,9 @@ const opMuur = (doel, naam) => {
   const { q, n } = best;
   standplaatsen.push({ naam, soort: "grond", pos: [r1(q[0] + n[0] * 0.65), 1.45, r1(q[1] + n[1] * 0.65)], muur: [r1(q[0]), r1(q[1])], normaal: [r1(-n[0]), r1(-n[1])], kijk: [0, 0.8, 0] });
 };
-opMuur([-36, -12], "Achter het muurtje bij Bon Appetit");
-opMuur([24, 44], "Achter het muurtje bij de Jumbo");
-opMuur([44, -3], "Achter de muur aan de oostkant");
-// standaard: de 4e verdieping
-const startStand = standplaatsen.findIndex((x) => x.naam.includes(`${L.verdieping}e`));
+for (const [x, z, naam] of L.muurplekken ?? []) opMuur([x, z], naam);
+// de startplek: de verdieping uit de locatie
+const startStand = Math.max(0, standplaatsen.findIndex((x) => x.pos[1] === r1(verdiepingHoogte(L.verdieping ?? 1))));
 
 // ---------- haagbogen over het middenpad en het boogje op Bon Appetit ----------
 const terrein = vlakken.filter((v) => v.s === "parkeer").sort((a, b) => Math.hypot(...a.r[0]) - Math.hypot(...b.r[0]))[0];
@@ -387,7 +396,7 @@ for (const w of winkels) if (["Jumbo", "Bon Appetit", "Albert Heijn", "HEMA", "A
 for (const [s2, x, z] of dingen) if (s2 === "rek" && Math.hypot(x, z) < 70) hangplekken.push([x, z]);
 
 const uit = {
-  naam: L.naam, bron: "3D BAG (CC BY 4.0), © OpenStreetMap-bijdragers (ODbL)",
+  naam: L.naam, kort: L.kort, modus: L.modus ?? "rondes", seizoen: L.seizoen ?? "zomer", tijd: L.tijd, bron: "3D BAG (CC BY 4.0), © OpenStreetMap-bijdragers (ODbL)",
   sluipschutter, muren, daken, voetafdrukken: voetafdrukken.filter((v) => Math.hypot(...v.ring[0]) < 260),
   vlakken, lijnen, bomen, heggen, dingen, plekken, winkels, oversteken, muurtjes, standplaatsen, startStand, bogen, dakboog, hangplekken, graaf: { knopen, kanten },
 };
