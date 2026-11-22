@@ -1,0 +1,269 @@
+// Bouwt uit de ruwe gegevens de wereld van een locatie: data/<locatie>.json
+//   node tools/bouw.mjs julianaplein
+// Assen in het spel: x = oost, y = omhoog, z = zuid (meters, oorsprong = midden van de locatie).
+import { readFileSync, writeFileSync } from "node:fs";
+import { ShapeUtils, Vector2 } from "../lib/three.module.js";
+import { LOCATIES } from "./locaties.mjs";
+import { naarRD } from "./rd.mjs";
+
+const id = process.argv[2] ?? "julianaplein";
+const L = LOCATIES[id];
+const [OX, OY] = L.midden;
+const panden = JSON.parse(readFileSync(`data/ruw/${id}/3dbag.json`));
+const osm = JSON.parse(readFileSync(`data/ruw/${id}/osm.json`)).elements;
+
+const r1 = (v) => Math.round(v * 100) / 100;
+const lokaal = (lat, lon) => { const [x, y] = naarRD(lat, lon); return [x - OX, -(y - OY)]; };
+
+// ---------- OSM ----------
+const knoop = new Map();
+for (const e of osm) if (e.type === "node") knoop.set(e.id, e);
+const wegen = osm.filter((e) => e.type === "way" && e.tags);
+const punten = (w) => w.nodes.map((n) => knoop.get(n)).filter(Boolean).map((n) => lokaal(n.lat, n.lon));
+const binnen = (p, ring) => {
+  let in_ = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, zi] = ring[i], [xj, zj] = ring[j];
+    if (zi > p[1] !== zj > p[1] && p[0] < ((xj - xi) * (p[1] - zi)) / (zj - zi) + xi) in_ = !in_;
+  }
+  return in_;
+};
+const osmGebouwen = wegen.filter((w) => w.tags.building).map((w) => ({ t: w.tags, ring: punten(w) }));
+
+// ---------- gebouwen uit 3D BAG ----------
+const N = (a) => { const l = Math.hypot(...a) || 1; return a.map((v) => v / l); };
+function newell(pts) {
+  const n = [0, 0, 0];
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i], b = pts[(i + 1) % pts.length];
+    n[0] += (a[1] - b[1]) * (a[2] + b[2]); n[1] += (a[2] - b[2]) * (a[0] + b[0]); n[2] += (a[0] - b[0]) * (a[1] + b[1]);
+  }
+  return N(n);
+}
+function driehoeken(ringen) {
+  // ringen[0] = buitenrand, rest = gaten; punten in [x,y,z]
+  const n = newell(ringen[0]);
+  const ax = Math.abs(n[0]) > Math.abs(n[1]) ? (Math.abs(n[0]) > Math.abs(n[2]) ? 0 : 2) : Math.abs(n[1]) > Math.abs(n[2]) ? 1 : 2;
+  const [i, j] = [[1, 2], [2, 0], [0, 1]][ax];
+  const v2 = (r) => r.map((p) => new Vector2(p[i], p[j]));
+  const alle = ringen.flat();
+  const tris = ShapeUtils.triangulateShape(v2(ringen[0]), ringen.slice(1).map(v2));
+  // triangulateShape draait de omloop om naar tegen de klok in (in 2D); zet elke driehoek weer met de normaal mee
+  return {
+    n,
+    tris: tris.map((t) => {
+      const [a, b, c] = t.map((k) => alle[k]);
+      const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], w = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+      const tn = [u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0]];
+      return tn[0] * n[0] + tn[1] * n[1] + tn[2] * n[2] < 0 ? [a, c, b] : [a, b, c];
+    }),
+  };
+}
+
+const maaivelden = [];
+const stijlen = ["baksteen", "flat", "winkel", "huis", "beton"];
+const muren = Object.fromEntries(stijlen.map((s) => [s, { pos: [], uv: [] }]));
+const daken = { plat: { pos: [] }, pannen: { pos: [] } };
+const voetafdrukken = [];
+let sluip = null;
+
+for (const f of panden) {
+  const t = f.transform;
+  const V = f.vertices.map((v) => [v[0] * t.scale[0] + t.translate[0] - OX, v[2] * t.scale[2] + t.translate[2], -(v[1] * t.scale[1] + t.translate[1] - OY)]);
+  const gebouw = Object.values(f.CityObjects).find((o) => o.type === "Building");
+  const a = gebouw?.attributes ?? {};
+  maaivelden.push(a.b3_h_maaiveld ?? 0);
+  for (const deel of Object.values(f.CityObjects).filter((o) => o.type === "BuildingPart")) {
+    const ver = Math.hypot(...V[deel.geometry[0].boundaries[0][0][0][0]].filter((_, k) => k !== 1));
+    const lod = ver < 230 ? "2.2" : "1.2";
+    const g = deel.geometry.find((x) => x.lod === lod) ?? deel.geometry.at(-1);
+    const sem = g.semantics;
+    const vlakken = g.boundaries[0];
+    // voetafdruk en stijl
+    const grondIdx = vlakken.findIndex((_, k) => sem.surfaces[sem.values[0][k]].type === "GroundSurface");
+    const grond = grondIdx >= 0 ? vlakken[grondIdx][0].map((k) => [V[k][0], V[k][2]]) : null;
+    if (!grond) continue;
+    const mid = grond.reduce((s, p) => [s[0] + p[0] / grond.length, s[1] + p[1] / grond.length], [0, 0]);
+    const og = osmGebouwen.find((o) => o.ring.length > 2 && binnen(mid, o.ring));
+    const lagen = +(og?.t["building:levels"] ?? a.b3_bouwlagen ?? 2);
+    let stijl = "baksteen";
+    if (og?.t.building === "retail" || og?.t.building === "commercial" || og?.t.building === "industrial") stijl = "winkel";
+    else if (og?.t.building === "house" || (!og && lagen <= 3 && a.b3_dak_type === "slanted")) stijl = "huis";
+    else if (lagen >= 9) stijl = "beton";
+    else if (lagen >= 5) stijl = "flat";
+    voetafdrukken.push({ ring: grond.map((p) => p.map(r1)), h: r1(a.b3_h_dak_70p ?? 6), naam: og?.t.name });
+    if (og?.t.name === L.flat && !sluip) sluip = { grond, h0: a.b3_h_maaiveld ?? 0, lagen };
+    const pannen = a.b3_dak_type === "slanted" && stijl === "huis";
+    vlakken.forEach((vlak, k) => {
+      const soort = sem.surfaces[sem.values[0][k]].type;
+      if (soort === "GroundSurface") return;
+      const ringen = vlak.map((ring) => ring.map((i) => V[i]));
+      const { n, tris } = driehoeken(ringen);
+      if (soort === "WallSurface") {
+        const tan = N([-n[2], 0, n[0]]);
+        const m = muren[stijl];
+        for (const tri of tris) for (const p of tri) { m.pos.push(...p); m.uv.push(p[0] * tan[0] + p[2] * tan[2], p[1]); }
+      } else {
+        const d = pannen && Math.abs(n[1]) < 0.97 ? daken.pannen : daken.plat;
+        // zorg dat daken naar boven wijzen
+        for (const tri of tris) (n[1] < 0 ? [...tri].reverse() : tri).forEach((p) => d.pos.push(...p));
+      }
+    });
+  }
+}
+maaivelden.sort((a, b) => a - b);
+const H0 = maaivelden[maaivelden.length >> 1];
+const rond = (arr, isY) => arr.map((v, i) => r1(i % 3 === 1 && isY ? v - H0 : v));
+for (const s of stijlen) { muren[s].pos = rond(muren[s].pos, true); muren[s].uv = muren[s].uv.map((v, i) => r1(i % 2 ? v - H0 : v)); }
+for (const d of Object.values(daken)) d.pos = rond(d.pos, true);
+
+// ---------- de plek van de sluipschutter ----------
+if (!sluip) throw new Error(`flat ${L.flat} niet gevonden`);
+const [jx, jy] = L.jumbo, J = [jx - OX, -(jy - OY)];
+// De gevel die het meest naar de parkeerplaats kijkt; daarop het stuk dat er het dichtst bij ligt.
+const g = sluip.grond, kandidaten = [];
+for (let i = 0; i < g.length; i++) {
+  const a = g[i], b = g[(i + 1) % g.length];
+  const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  if (len < 3) continue;
+  let nrm = [(b[1] - a[1]) / len, -(b[0] - a[0]) / len];
+  const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+  if (binnen([m[0] + nrm[0], m[1] + nrm[1]], g)) nrm = nrm.map((v) => -v); // naar buiten
+  const naarP = N([-m[0], -m[1]]);
+  kandidaten.push({ dot: nrm[0] * naarP[0] + nrm[1] * naarP[1], m, nrm, len, afst: Math.hypot(...m) });
+}
+const maxDot = Math.max(...kandidaten.map((k) => k.dot));
+const beste = kandidaten.filter((k) => k.dot > maxDot - 0.12).sort((a, b) => a.afst - b.afst)[0];
+// buiten de muur, op de galerij of het balkon van de 4e verdieping
+const ooghoogte = sluip.h0 - H0 + 3.4 + (L.verdieping - 1) * 2.8 + 1.45;
+const sluipschutter = {
+  pos: [r1(beste.m[0] + beste.nrm[0] * 0.9), r1(ooghoogte), r1(beste.m[1] + beste.nrm[1] * 0.9)],
+  muur: { normaal: beste.nrm.map(r1), breedte: r1(beste.len) },
+  kijk: [r1(J[0]), 1, r1(J[1])],
+};
+
+// ---------- grond, straten, groen ----------
+const vlakken = [], lijnen = [], bomen = [], heggen = [], dingen = [];
+const isDicht = (w) => w.nodes.length > 3 && w.nodes[0] === w.nodes.at(-1);
+const BREED = { secondary: 8, tertiary: 7, residential: 5.5, unclassified: 5, service: 4, living_street: 5, cycleway: 2.4, footway: 2.2, pedestrian: 5, path: 1.8, steps: 2 };
+for (const w of wegen) {
+  const t = w.tags, p = punten(w).map((q) => q.map(r1));
+  if (p.length < 2) continue;
+  if (isDicht(w) && !t.highway) {
+    let soort = null;
+    if (t.amenity === "parking" && t.parking === "street_side") soort = "strook";
+    else if (t.amenity === "parking" && t.parking !== "underground") soort = "parkeer";
+    else if (t.amenity === "parking_space") soort = "vak";
+    else if (t.landuse === "grass" || t.leisure === "garden" || t.landuse === "forest" || t.leisure === "park") soort = "gras";
+    else if (t.natural === "shrubbery" || t.man_made === "planter") soort = "struik";
+    else if (t["area:highway"] === "traffic_island") soort = "eiland";
+    else if (t.leisure === "playground") soort = "speel";
+    else if (t.amenity === "bicycle_parking") soort = "fietsvlak";
+    if (soort) vlakken.push({ s: soort, r: p });
+    if (soort === "struik") heggen.push({ r: p, h: 0.9 });
+  }
+  if (t.highway && t.area === "yes" && isDicht(w)) vlakken.push({ s: "plein", r: p });
+  else if (t.highway && BREED[t.highway]) {
+    let b = BREED[t.highway];
+    if (t.service === "parking_aisle") b = 5.5;
+    if (t.width && +t.width) b = +t.width;
+    lijnen.push({ s: t.highway === "cycleway" ? "fietspad" : ["footway", "pedestrian", "path", "steps"].includes(t.highway) ? "stoep" : "weg", b, p, ...(t.service === "parking_aisle" ? { gang: 1 } : {}) });
+  }
+  if (t.railway === "tram") lijnen.push({ s: "tram", b: 1.6, p });
+  if (t.barrier === "hedge") heggen.push({ l: p, h: 1.2 });
+  if (t.natural === "tree_row") for (let i = 0; i < p.length - 1; i++) {
+    const [a, b] = [p[i], p[i + 1]], d = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    for (let s = 0; s < d; s += 8) bomen.push([r1(a[0] + ((b[0] - a[0]) * s) / d), r1(a[1] + ((b[1] - a[1]) * s) / d), 9]);
+  }
+}
+for (const n of knoop.values()) {
+  const t = n.tags; if (!t) continue;
+  const [x, z] = lokaal(n.lat, n.lon).map(r1);
+  if (t.natural === "tree") bomen.push([x, z, +(t.height ?? 0) || 8 + ((n.id % 7) - 3)]);
+  else if (t.amenity === "bench") dingen.push(["bank", x, z]);
+  else if (t.amenity === "waste_basket") dingen.push(["bak", x, z]);
+  else if (t.barrier === "bollard") dingen.push(["paal", x, z]);
+  else if (t.amenity === "bicycle_parking") dingen.push(["rek", x, z, +(t.capacity ?? 0) || 8]);
+  else if (t.amenity === "recycling") dingen.push(["container", x, z]);
+  else if (t.railway === "tram_stop") dingen.push(["halte", x, z]);
+  else if (t.highway === "street_lamp") dingen.push(["lamp", x, z]);
+}
+
+// ---------- parkeerplekken ----------
+// [x, z, hoek, haaks(1)/langs(0)]: uit parkeervakken, uit stroken langs de straat en langs de gangen van de parkeerplaats.
+const plekken = [];
+function rijVakken(ring) {
+  let best = 0, a, b;
+  for (let i = 0; i < ring.length - 1; i++) {
+    const l = Math.hypot(ring[i + 1][0] - ring[i][0], ring[i + 1][1] - ring[i][1]);
+    if (l > best) { best = l; a = ring[i]; b = ring[i + 1]; }
+  }
+  const dx = (b[0] - a[0]) / best, dz = (b[1] - a[1]) / best;
+  let diep = 0;
+  for (const p of ring) { const d = (p[0] - a[0]) * -dz + (p[1] - a[1]) * dx; if (Math.abs(d) > Math.abs(diep)) diep = d; }
+  const n = [-dz * Math.sign(diep), dx * Math.sign(diep)];
+  diep = Math.abs(diep);
+  if (diep < 1.6) return;
+  const haaks = diep > 4, stap = haaks ? 2.5 : 5.6;
+  for (let s = stap / 2; s < best - stap / 2 + 0.3; s += stap)
+    plekken.push([r1(a[0] + dx * s + (n[0] * diep) / 2), r1(a[1] + dz * s + (n[1] * diep) / 2), r1(haaks ? Math.atan2(n[0], n[1]) : Math.atan2(dx, dz)), haaks ? 1 : 0]);
+}
+for (const v of vlakken) if ((v.s === "vak" || v.s === "strook") && Math.hypot(...v.r[0]) < 200) rijVakken(v.r);
+const terreinen = vlakken.filter((v) => v.s === "parkeer");
+const gangen = lijnen.filter((l) => l.gang);
+const afstLijn = (p, l) => {
+  let m = 1e9;
+  for (let i = 0; i < l.p.length - 1; i++) {
+    const [a, b] = [l.p[i], l.p[i + 1]], dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz || 1;
+    const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dz) / L2));
+    m = Math.min(m, Math.hypot(p[0] - a[0] - dx * t, p[1] - a[1] - dz * t));
+  }
+  return m;
+};
+const autoWegen = lijnen.filter((l) => l.s === "weg" || l.s === "stoep");
+for (const g of gangen) for (let i = 0; i < g.p.length - 1; i++) {
+  const [a, b] = [g.p[i], g.p[i + 1]], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  const dx = (b[0] - a[0]) / L, dz = (b[1] - a[1]) / L;
+  for (const kant of [1, -1]) for (let s = 3.5; s < L - 3; s += 2.5) {
+    const n = [-dz * kant, dx * kant], off = g.b / 2 + 2.5;
+    const p = [a[0] + dx * s + n[0] * off, a[1] + dz * s + n[1] * off];
+    const hoek = [p[0] + n[0] * 2.3, p[1] + n[1] * 2.3];
+    if (!terreinen.some((t) => binnen(p, t.r) && binnen(hoek, t.r))) continue;
+    if (autoWegen.some((w) => w !== g && afstLijn(p, w) < w.b / 2 + (w.s === "stoep" ? 1.4 : 2.3))) continue;
+    if (bomen.some(([x, z]) => Math.hypot(x - p[0], z - p[1]) < 1.6)) continue;
+    if (plekken.some(([x, z]) => Math.hypot(x - p[0], z - p[1]) < 2.2)) continue;
+    plekken.push([r1(p[0]), r1(p[1]), r1(Math.atan2(n[0], n[1])), 1]);
+  }
+}
+
+// ---------- looproutes: het netwerk voor auto's, fietsen en voetgangers ----------
+// Bits: 1 = auto, 2 = fiets, 4 = voetganger, 8 = fatbike
+const AUTO = new Set(["secondary", "tertiary", "residential", "unclassified", "service", "living_street"]);
+const graafKnoop = new Map(), knopen = [], kanten = [];
+const kIdx = (nid) => {
+  if (!graafKnoop.has(nid)) { const n = knoop.get(nid); graafKnoop.set(nid, knopen.length); knopen.push(lokaal(n.lat, n.lon).map(r1)); }
+  return graafKnoop.get(nid);
+};
+for (const w of wegen) {
+  const h = w.tags.highway;
+  if (!h || w.tags.area === "yes" || !BREED[h] || h === "steps") continue;
+  if (w.tags.access === "private" && !AUTO.has(h)) continue;
+  let bits = 8;
+  if (AUTO.has(h)) bits |= 1 | 2 | 4;
+  if (h === "cycleway") bits |= 2;
+  if (h === "footway" || h === "pedestrian" || h === "path") bits |= 4;
+  if (h === "pedestrian" || (h === "footway" && w.tags.bicycle === "yes")) bits |= 2;
+  const ns = w.nodes.filter((n) => knoop.has(n));
+  const een = w.tags.oneway === "yes" ? 1 : 0;
+  for (let i = 0; i < ns.length - 1; i++) kanten.push([kIdx(ns[i]), kIdx(ns[i + 1]), bits, r1(BREED[h]), een]);
+}
+
+const uit = {
+  naam: L.naam, bron: "3D BAG (CC BY 4.0), © OpenStreetMap-bijdragers (ODbL)",
+  sluipschutter, muren, daken, voetafdrukken: voetafdrukken.filter((v) => Math.hypot(...v.ring[0]) < 260),
+  vlakken, lijnen, bomen, heggen, dingen, plekken, graaf: { knopen, kanten },
+};
+writeFileSync(`data/${id}.json`, JSON.stringify(uit));
+const tri = Object.values(muren).reduce((s, m) => s + m.pos.length / 9, 0) + Object.values(daken).reduce((s, m) => s + m.pos.length / 9, 0);
+console.log(`${id}: ${plekken.length} parkeerplekken, ${voetafdrukken.length} gebouwen, ${Math.round(tri)} driehoeken, ${bomen.length} bomen, ${knopen.length} knopen, ${kanten.length} kanten`);
+console.log("sluipschutter", JSON.stringify(sluipschutter));
