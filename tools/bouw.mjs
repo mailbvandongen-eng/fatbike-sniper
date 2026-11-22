@@ -61,7 +61,11 @@ function driehoeken(ringen) {
 }
 
 const maaivelden = [];
-const stijlen = ["baksteen", "flat", "winkel", "huis", "beton"];
+// Gevelstijlen, gekozen op functie, hoogte en bouwjaar (BAG):
+//   jaren50 roodbruine baksteen · jaren60 gele baksteen · galerij beton met witte schotten (hoogbouw 1960-1980)
+//   kop rode kopgevel van die galerijflats · winkel glazen pui met lichte luifelband · huis rijtjeshuis
+//   modern licht metselwerk (1990-2010) · nieuw donker metselwerk (na 2010)
+const stijlen = ["jaren50", "jaren60", "galerij", "kop", "winkel", "huis", "modern", "nieuw"];
 const muren = Object.fromEntries(stijlen.map((s) => [s, { pos: [], uv: [] }]));
 const daken = { plat: { pos: [] }, pannen: { pos: [] } };
 const voetafdrukken = [];
@@ -86,11 +90,20 @@ for (const f of panden) {
     const mid = grond.reduce((s, p) => [s[0] + p[0] / grond.length, s[1] + p[1] / grond.length], [0, 0]);
     const og = osmGebouwen.find((o) => o.ring.length > 2 && binnen(mid, o.ring));
     const lagen = +(og?.t["building:levels"] ?? a.b3_bouwlagen ?? 2);
-    let stijl = "baksteen";
-    if (og?.t.building === "retail" || og?.t.building === "commercial" || og?.t.building === "industrial") stijl = "winkel";
-    else if (og?.t.building === "house" || (!og && lagen <= 3 && a.b3_dak_type === "slanted")) stijl = "huis";
-    else if (lagen >= 9) stijl = "beton";
-    else if (lagen >= 5) stijl = "flat";
+    const jaar = +(a.oorspronkelijkbouwjaar ?? og?.t.start_date?.slice(0, 4) ?? 1958);
+    let stijl = "jaren50";
+    if (["retail", "commercial", "industrial"].includes(og?.t.building) || (lagen <= 2 && jaar >= 1960 && jaar < 1990 && a.b3_dak_type !== "slanted")) stijl = "winkel";
+    else if (og?.t.building === "house" || (lagen <= 3 && a.b3_dak_type === "slanted" && jaar >= 1960)) stijl = "huis";
+    else if (jaar >= 2010) stijl = "nieuw";
+    else if (jaar >= 1990) stijl = "modern";
+    else if (lagen >= 8 && jaar >= 1960) stijl = "galerij";
+    else if (jaar >= 1960) stijl = "jaren60";
+    // lange as van het gebouw: de korte gevels van galerijflats zijn de rode kopgevels
+    let as = [1, 0], langst = 0;
+    for (let i = 0; i < grond.length - 1; i++) {
+      const l = Math.hypot(grond[i + 1][0] - grond[i][0], grond[i + 1][1] - grond[i][1]);
+      if (l > langst) { langst = l; as = [(grond[i + 1][0] - grond[i][0]) / l, (grond[i + 1][1] - grond[i][1]) / l]; }
+    }
     voetafdrukken.push({ ring: grond.map((p) => p.map(r1)), h: r1(a.b3_h_dak_70p ?? 6), naam: og?.t.name });
     if (og?.t.name === L.flat && !sluip) sluip = { grond, h0: a.b3_h_maaiveld ?? 0, lagen };
     const pannen = a.b3_dak_type === "slanted" && stijl === "huis";
@@ -101,7 +114,11 @@ for (const f of panden) {
       const { n, tris } = driehoeken(ringen);
       if (soort === "WallSurface") {
         const tan = N([-n[2], 0, n[0]]);
-        const m = muren[stijl];
+        // kopgevel: een brede muur haaks op de lange as (smalle schotten tussen balkons blijven wit/beton)
+        let breedte = 0;
+        if (stijl === "galerij") { const r0 = ringen[0]; for (const p of r0) for (const q of r0) breedte = Math.max(breedte, Math.hypot(p[0] - q[0], p[2] - q[2])); }
+        const kop = stijl === "galerij" && Math.abs(n[0] * as[0] + n[2] * as[1]) > 0.7 && breedte > 6;
+        const m = muren[kop ? "kop" : stijl];
         for (const tri of tris) for (const p of tri) { m.pos.push(...p); m.uv.push(p[0] * tan[0] + p[2] * tan[2], p[1]); }
       } else {
         const d = pannen && Math.abs(n[1]) < 0.97 ? daken.pannen : daken.plat;
@@ -167,7 +184,8 @@ for (const w of wegen) {
     let b = BREED[t.highway];
     if (t.service === "parking_aisle") b = 5.5;
     if (t.width && +t.width) b = +t.width;
-    lijnen.push({ s: t.highway === "cycleway" ? "fietspad" : ["footway", "pedestrian", "path", "steps"].includes(t.highway) ? "stoep" : "weg", b, p, ...(t.service === "parking_aisle" ? { gang: 1 } : {}) });
+    lijnen.push({ s: t.highway === "cycleway" ? "fietspad" : ["footway", "pedestrian", "path", "steps"].includes(t.highway) ? "stoep" : "weg", b, p, ...(t.service === "parking_aisle" ? { gang: 1 } : {}), ...(t.surface === "asphalt" ? { asfalt: 1 } : {}) });
+    if (t.covered === "yes") lijnen.push({ s: "overkapping", b: Math.max(b, 6), p });
   }
   if (t.railway === "tram") lijnen.push({ s: "tram", b: 1.6, p });
   if (t.barrier === "hedge") heggen.push({ l: p, h: 1.2 });
@@ -187,6 +205,34 @@ for (const n of knoop.values()) {
   else if (t.amenity === "recycling") dingen.push(["container", x, z]);
   else if (t.railway === "tram_stop") dingen.push(["halte", x, z]);
   else if (t.highway === "street_lamp") dingen.push(["lamp", x, z]);
+}
+
+// ---------- winkelborden: elke winkel met een naam op de dichtstbijzijnde gevel ----------
+const winkels = [];
+for (const n of knoop.values()) {
+  const t = n.tags;
+  if (!t?.name || !(t.shop || ["fast_food", "restaurant", "cafe", "bank", "pharmacy", "ice_cream"].includes(t.amenity))) continue;
+  const p = lokaal(n.lat, n.lon);
+  if (Math.hypot(...p) > 170) continue;
+  let best = null;
+  for (const v of voetafdrukken) {
+    const r = v.ring;
+    for (let i = 0; i < r.length - 1; i++) {
+      const [a, b] = [r[i], r[i + 1]], dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz;
+      if (L2 < 9) continue;
+      const u = Math.max(0.15, Math.min(0.85, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dz) / L2));
+      const q = [a[0] + dx * u, a[1] + dz * u], d = Math.hypot(p[0] - q[0], p[1] - q[1]);
+      if (d < 30 && (!best || d < best.d)) {
+        const L = Math.sqrt(L2);
+        let nrm = [dz / L, -dx / L];
+        if (binnen([q[0] + nrm[0] * 0.5, q[1] + nrm[1] * 0.5], r)) nrm = [-nrm[0], -nrm[1]];
+        best = { d, q, nrm, h: v.h };
+      }
+    }
+  }
+  if (!best) continue;
+  const h = Math.min(3.6, Math.max(2.6, best.h - 0.9));
+  winkels.push([t.name, r1(best.q[0] + best.nrm[0] * 0.12), r1(best.q[1] + best.nrm[1] * 0.12), r1(Math.atan2(best.nrm[0], best.nrm[1])), r1(h)]);
 }
 
 // ---------- parkeerplekken ----------
@@ -261,7 +307,7 @@ for (const w of wegen) {
 const uit = {
   naam: L.naam, bron: "3D BAG (CC BY 4.0), © OpenStreetMap-bijdragers (ODbL)",
   sluipschutter, muren, daken, voetafdrukken: voetafdrukken.filter((v) => Math.hypot(...v.ring[0]) < 260),
-  vlakken, lijnen, bomen, heggen, dingen, plekken, graaf: { knopen, kanten },
+  vlakken, lijnen, bomen, heggen, dingen, plekken, winkels, graaf: { knopen, kanten },
 };
 writeFileSync(`data/${id}.json`, JSON.stringify(uit));
 const tri = Object.values(muren).reduce((s, m) => s + m.pos.length / 9, 0) + Object.values(daken).reduce((s, m) => s + m.pos.length / 9, 0);

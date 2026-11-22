@@ -16,6 +16,9 @@ Een sluipschuttersspel in de browser. Je staat op het balkon van de 4e verdiepin
 | Gebouwen, met echte hoogtes en daken | [3D BAG](https://3dbag.nl) (CC BY 4.0), LOD 2.2 tot 230 m, daarbuiten LOD 1.2 |
 | Straten, fietspaden, stoepen, bomen, heggen, bankjes, fietsenrekken | [OpenStreetMap](https://www.openstreetmap.org) (ODbL) |
 | Parkeerplekken | Berekend uit de parkeergangen en -vakken in OSM |
+| Gevelstijl | Gekozen op bouwjaar (BAG), hoogte en functie |
+| Kleuren | Afgekeken van de PDOK-luchtfoto (klinkers, glazen overkappingen) en van foto's van De Julianabaan op Wikimedia Commons (galerijflat met rode kopgevels, winkelpuien). De foto's zelf zitten niet in het spel. |
+| Winkelborden | Winkels met hun naam uit OSM, op de dichtstbijzijnde gevel |
 | Wie waar loopt en rijdt | Het netwerk van wegen en paden uit OSM. Fatbikes mogen overal rijden, ook op de stoep. |
 
 Mensen, fietsen, fatbikes en auto's worden in code opgebouwd (`src/figuren.js`). Elke mens is één SkinnedMesh met 12 botten. Geluid wordt met de Web Audio API gemaakt. Er zijn geen bestanden van derden nodig, behalve three.js (MIT) in `lib/`.
@@ -27,6 +30,7 @@ node tools/haal.mjs julianaplein    # ruwe gegevens ophalen naar data/ruw/ (niet
 node tools/bouw.mjs julianaplein    # wereld bouwen naar data/julianaplein.json
 node tools/kijk.cjs /tmp/shots [telefoon]   # spel testen in Chromium en foto's maken
 node tools/close.cjs /tmp/close     # figuren van dichtbij bekijken
+node tools/views.cjs /tmp/views     # vaste standpunten: Jumbo, Pleinzicht, winkels, overkapping
 ```
 
 De testscripts openen het spel zonder webserver: de bestanden komen rechtstreeks van schijf. Ze gebruiken playwright-core uit `/root/tools/pw` en `/usr/bin/chromium` met swiftshader. Dat draait op ongeveer 1 beeld per seconde, dus de scripts wachten op toestanden en niet op vaste tijden.

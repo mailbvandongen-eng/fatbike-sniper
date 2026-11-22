@@ -2,52 +2,170 @@
 import * as THREE from "three";
 import { maakAuto, maakFiets, kies, tussen, plak, stuk, blok, buis, bol, M, V } from "./figuren.js";
 
-// ---------- gevels: per stijl een tegel van 1 verdieping hoog ----------
+// ---------- gevels ----------
+// Eén textuur per stijl, 4 traveeën breed en 3 verdiepingen hoog, zodat niet elk raam hetzelfde is.
+// Kleuren naar de foto's van De Julianabaan (Wikimedia Commons, 2016 en 2024) en de luchtfoto van PDOK.
 const GEVEL = {
-  baksteen: { b: 3.0, h: 2.8, steen: ["#8a4b36", "#7d4331", "#94553d"], raam: [1.5, 1.45], kozijn: "#efeae0", voeg: "#b9a89a" },
-  flat: { b: 3.2, h: 2.8, steen: ["#a49a8a", "#b8afa0"], raam: [2.2, 1.5], kozijn: "#dcdcdc", voeg: "#8d8478", balkon: "#c9c6bf" },
-  beton: { b: 3.3, h: 2.8, steen: ["#c8c3b8", "#bfb9ad"], raam: [2.4, 1.55], kozijn: "#5b5f63", voeg: "#a19b90", balkon: "#e4e1da" },
-  winkel: { b: 4.0, h: 4.2, steen: ["#6c6660", "#7a6f63"], raam: [3.4, 2.6], kozijn: "#2b2b2b", voeg: "#5a544e", winkel: true },
-  huis: { b: 2.6, h: 2.7, steen: ["#9a5a40", "#8b4a35", "#a46a4e"], raam: [1.3, 1.4], kozijn: "#f5f3ee", voeg: "#c2b2a2" },
+  jaren50: { b: 2.9, h: 2.8, steen: ["#7a3b22", "#84442a", "#6d341f", "#8a4a30"], voeg: "#b8a89a", raam: [1.35, 1.45], kozijn: "#f1ede4", latei: "#cfc8bb" },
+  jaren60: { b: 3.2, h: 2.8, steen: ["#a8875a", "#9a7a50", "#b39468", "#a07f55"], voeg: "#d6cbb5", raam: [2.0, 1.4], kozijn: "#efe9dc", latei: "#8a8278" },
+  galerij: { b: 3.6, h: 2.8, galerij: true },
+  kop: { b: 3.0, h: 2.8, kop: true },
+  winkel: { b: 5.0, h: 3.7, winkel: true },
+  huis: { b: 2.7, h: 2.7, steen: ["#8e4630", "#9a5238", "#7f3d29"], voeg: "#c9b9a8", raam: [1.3, 1.35], kozijn: "#f5f3ee", latei: "#d8d2c6" },
+  modern: { b: 3.4, h: 2.9, steen: ["#cbb999", "#d6c6a6", "#c2b08f"], voeg: "#e6dcc8", raam: [1.9, 1.7], kozijn: "#4a4d50", latei: "#bfb3a0" },
+  nieuw: { b: 3.0, h: 3.0, steen: ["#4d423c", "#5a4b44", "#463c37"], voeg: "#6d625b", raam: [1.3, 2.1], kozijn: "#2b2b2b", latei: "#3a3330" },
 };
-function gevelTextuur(st) {
-  const P = 64, c = document.createElement("canvas");
-  c.width = st.b * P; c.height = st.h * P;
-  const x = c.getContext("2d");
-  x.fillStyle = st.steen[0]; x.fillRect(0, 0, c.width, c.height);
-  // stenen
-  for (let y = 0; y < c.height; y += 5) for (let i = (y / 5) % 2 ? -8 : 0; i < c.width; i += 16) {
-    x.fillStyle = st.steen[(Math.random() * st.steen.length) | 0];
-    x.globalAlpha = 0.55; x.fillRect(i + 1, y + 1, 14, 3.5);
+const KOL = 4, LAAG = 3, PX = 48;
+const toeval = (a) => a[(Math.random() * a.length) | 0];
+function stenen(x, w, h, kleuren, voeg) {
+  x.fillStyle = voeg; x.fillRect(0, 0, w, h);
+  const sh = 0.065 * PX, sw = 0.21 * PX;
+  for (let y = 0, r = 0; y < h; y += sh, r++) for (let i = r % 2 ? -sw / 2 : 0; i < w; i += sw) {
+    x.fillStyle = toeval(kleuren); x.fillRect(i + 0.6, y + 0.6, sw - 1.2, sh - 1.2);
   }
-  x.globalAlpha = 1;
-  const [rb, rh] = st.raam, rx = ((st.b - rb) / 2) * P, ry = st.winkel ? 0.35 * P : ((st.h - rh) / 2 - 0.1) * P;
-  if (st.balkon) { x.fillStyle = st.balkon; x.fillRect(0, c.height - 0.18 * P, c.width, 0.18 * P); }
-  x.fillStyle = st.kozijn; x.fillRect(rx - 5, ry - 5, rb * P + 10, rh * P + 10);
-  const lucht = x.createLinearGradient(0, ry, 0, ry + rh * P);
-  lucht.addColorStop(0, "#9fb4c6"); lucht.addColorStop(0.5, "#40505f"); lucht.addColorStop(1, "#262d35");
-  x.fillStyle = lucht; x.fillRect(rx, ry, rb * P, rh * P);
-  x.fillStyle = st.kozijn;
-  x.fillRect(rx + (rb * P) / 2 - 3, ry, 6, rh * P);
-  if (!st.winkel) x.fillRect(rx, ry + rh * P * 0.3, rb * P, 5);
-  // gordijn of lamp
-  x.globalAlpha = 0.5; x.fillStyle = ["#d9cdb6", "#9a8f80", "#c46a50", "#e6e0d0"][(Math.random() * 4) | 0];
-  x.fillRect(rx + 2, ry + 2, rb * P * 0.18, rh * P - 4);
-  x.globalAlpha = 1;
-  if (st.balkon) { x.fillStyle = "#00000030"; x.fillRect(0, c.height - 0.5 * P, c.width, 0.32 * P); x.fillStyle = st.balkon; x.fillRect(0, c.height - 0.55 * P, c.width, 0.06 * P); }
-  if (st.winkel) { x.fillStyle = "#3d3d3d"; x.fillRect(0, (st.h - 0.9) * P - 2, c.width, 0.9 * P); }
+}
+function ruit(x, rx, ry, rw, rh, kozijn, licht) {
+  x.fillStyle = kozijn; x.fillRect(rx - 3, ry - 3, rw + 6, rh + 6);
+  const g = x.createLinearGradient(0, ry, 0, ry + rh);
+  g.addColorStop(0, licht ? "#c9d6df" : "#a9bccb"); g.addColorStop(0.45, "#4c5c6a"); g.addColorStop(1, "#27303a");
+  x.fillStyle = g; x.fillRect(rx, ry, rw, rh);
+  // gordijn, lamp of plant
+  const r = Math.random();
+  if (r < 0.45) { x.globalAlpha = 0.55; x.fillStyle = toeval(["#e2d6bf", "#b8a58a", "#c96a50", "#efe9dd", "#8a9bb0"]); x.fillRect(rx, ry, rw * (0.15 + Math.random() * 0.3), rh); x.globalAlpha = 1; }
+  else if (r < 0.55) { x.fillStyle = "#f3d58a88"; x.fillRect(rx + 2, ry + 2, rw - 4, rh - 4); }
+  x.fillStyle = kozijn; x.fillRect(rx + rw / 2 - 2, ry, 4, rh); x.fillRect(rx, ry + rh * 0.32, rw, 3);
+}
+function gevelTextuur(st) {
+  const c = document.createElement("canvas");
+  const W = st.b * PX, H = st.h * PX;
+  c.width = W * KOL; c.height = H * LAAG;
+  const x = c.getContext("2d");
+  for (let l = 0; l < LAAG; l++) for (let k = 0; k < KOL; k++) {
+    x.save(); x.translate(k * W, l * H);
+    if (st.galerij) {
+      // galerijflat: ruw grijs beton, witte schotten, donkere ramen achter de galerij
+      // canvas-boven = plafond, canvas-onder = vloer van de galerij
+      x.fillStyle = "#5b636a"; x.fillRect(0, 0, W, H);
+      ruit(x, 0.4 * PX, 0.16 * H, W * 0.5, 0.42 * H, "#ecebe7", Math.random() < 0.35);
+      x.fillStyle = "#dcdad4"; x.fillRect(W * 0.7, 0.12 * H, 0.75 * PX, 0.62 * H); // voordeur
+      x.fillStyle = "#b9b5ac"; x.fillRect(0, H - 1.1 * PX, W, 1.1 * PX); // borstwering van grindbeton
+      for (let i = 0; i < 300; i++) { x.fillStyle = Math.random() < 0.5 ? "#a39f96" : "#cbc7be"; x.fillRect(Math.random() * W, H - Math.random() * 1.1 * PX, 1.6, 1.6); }
+      x.fillStyle = "#d7d4cd"; x.fillRect(0, H - 1.14 * PX, W, 0.07 * PX);
+      x.fillStyle = "#c9c6bf"; x.fillRect(0, 0, W, 0.1 * PX); // vloerrand van de galerij erboven
+      x.fillStyle = "#f4f3f0"; x.fillRect(0, 0, 0.22 * PX, H); // wit schot
+    } else if (st.kop) {
+      // rode kopgevel van geprofileerde platen
+      for (let i = 0; i < W; i += 6) { x.fillStyle = i % 12 ? "#8e2b22" : "#7a231c"; x.fillRect(i, 0, 6, H); }
+      if ((k + l) % 3 === 0) ruit(x, W / 2 - 0.5 * PX, 0.3 * H, 1.0 * PX, 0.75 * PX, "#f1ede4", false);
+    } else if (st.winkel) {
+      // glazen winkelpui met lichte luifelband erboven
+      const band = 1.15 * PX;
+      x.fillStyle = "#e6dcc6"; x.fillRect(0, 0, W, band);
+      x.fillStyle = "#cbbfa6"; x.fillRect(0, band - 6, W, 6);
+      const g = x.createLinearGradient(0, band, 0, H);
+      g.addColorStop(0, "#5e6d77"); g.addColorStop(0.6, "#8796a0"); g.addColorStop(1, "#aab6bd");
+      x.fillStyle = g; x.fillRect(0, band, W, H - band);
+      for (let i = 0; i < 9; i++) { x.fillStyle = toeval(["#c0392b", "#f0e6d2", "#2c6e9b", "#e9b949", "#7a9a5a", "#d26b8f", "#ffffff"]); x.globalAlpha = 0.55; x.fillRect(Math.random() * W, H - (0.5 + Math.random() * 1.6) * PX, 0.3 * PX, (0.3 + Math.random()) * PX); }
+      x.globalAlpha = 1;
+      x.fillStyle = "#2f3236"; for (const f of [0, 0.33, 0.66]) x.fillRect(f * W, band, 4, H - band);
+      x.fillRect(0, H - 0.12 * PX, W, 0.12 * PX);
+    } else {
+      stenen(x, W, H, st.steen, st.voeg);
+      const [rb, rh] = st.raam, rx = (st.b - rb) / 2 * PX, ry = (st.h - rh) / 2 * PX - 0.1 * PX;
+      x.fillStyle = st.latei; x.fillRect(rx - 6, ry - 0.16 * PX, rb * PX + 12, 0.12 * PX);
+      ruit(x, rx, ry, rb * PX, rh * PX, st.kozijn, Math.random() < 0.3);
+      x.fillStyle = st.latei; x.fillRect(rx - 4, ry + rh * PX + 3, rb * PX + 8, 0.06 * PX);
+    }
+    x.restore();
+  }
   const t = new THREE.CanvasTexture(c);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  t.repeat.set(1 / st.b, -1 / st.h);
+  // v = hoogte in meters; canvas-onderkant = straatniveau
+  t.repeat.set(1 / (st.b * KOL), 1 / (st.h * LAAG));
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 4;
   return t;
 }
 
+// ---------- winkelborden ----------
+// Kleuren in de stijl van de echte borden (alleen de naam, geen logo's).
+const BORD = {
+  "Jumbo": ["#ffd200", "#111"], "Albert Heijn": ["#00a0e2", "#fff"], "HEMA": ["#ffffff", "#e3001b"], "Action": ["#0a4ea2", "#fff"],
+  "Kruidvat": ["#e2001a", "#fff"], "Etos": ["#ffffff", "#d4021d"], "Blokker": ["#e30613", "#fff"], "Zeeman": ["#0094d9", "#fff"],
+  "Bruna": ["#ffd200", "#00337f"], "Gall & Gall": ["#5c1631", "#fff"], "Pearle": ["#002d72", "#fff"], "Intertoys": ["#e30613", "#ffe600"],
+  "Shoeby": ["#111111", "#fff"], "Street One": ["#ffffff", "#b5121b"], "Eye Wish": ["#111111", "#fff"], "Sport 2000": ["#e30613", "#fff"],
+  "Pets Place": ["#00843d", "#fff"], "Bakker van Maanen": ["#6b3e1f", "#f5e6c8"], "McDonald's": ["#da291c", "#ffc72c"],
+};
+function maakBorden(winkels, scene) {
+  const per = 2, rijen = Math.ceil(winkels.length / per), BW = 512, BH = 72;
+  const c = document.createElement("canvas");
+  c.width = BW * per; c.height = BH * rijen;
+  const x = c.getContext("2d");
+  const pos = [], uv = [], nor = [];
+  winkels.forEach(([naam, px, pz, hoek, h], i) => { // h = hoogte onderkant bord
+    const [bg, fg] = BORD[naam] ?? [toeval(["#2b2f36", "#f2efe8", "#1f3b5a", "#5a1f2b", "#264d36"]), null];
+    const ux = (i % per) * BW, uy = Math.floor(i / per) * BH;
+    x.fillStyle = bg; x.fillRect(ux, uy, BW, BH);
+    x.fillStyle = fg ?? (["#f2efe8"].includes(bg) ? "#222" : "#fff");
+    x.font = `800 ${BH * 0.62}px system-ui, -apple-system, "Segoe UI", Arial, sans-serif`;
+    x.textAlign = "center"; x.textBaseline = "middle";
+    const tw = Math.min(x.measureText(naam).width, BW - 24);
+    x.fillText(naam, ux + BW / 2, uy + BH * 0.54, BW - 24);
+    // plaatje op de gevel: breedte naar de lengte van de naam
+    const groot = ["Jumbo", "Albert Heijn", "HEMA", "Action", "Kruidvat", "Blokker", "Zeeman"].includes(naam);
+    const hoog = groot ? 1.05 : 0.75, breed = THREE.MathUtils.clamp((tw / BH) * hoog * 0.95, 1.6, groot ? 7 : 6.5);
+    if (groot) h += 0.35;
+    const u0 = (ux + BW / 2 - tw / 2 - 14) / c.width, u1 = (ux + BW / 2 + tw / 2 + 14) / c.width;
+    const v0 = 1 - (uy + BH) / c.height, v1 = 1 - uy / c.height;
+    const sx = Math.cos(hoek), sz = -Math.sin(hoek), nx = Math.sin(hoek), nz = Math.cos(hoek);
+    const hw = breed / 2;
+    const P = (a, b) => [px + sx * a, h + b, pz + sz * a];
+    const hoeken = [P(-hw, 0), P(hw, 0), P(hw, hoog), P(-hw, 0), P(hw, hoog), P(-hw, hoog)];
+    const uvs = [[u0, v0], [u1, v0], [u1, v1], [u0, v0], [u1, v1], [u0, v1]];
+    hoeken.forEach((q, k) => { pos.push(...q); uv.push(...uvs[k]); nor.push(nx, 0, nz); });
+  });
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+  g.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3));
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: t, roughness: 0.5, emissive: "#ffffff", emissiveMap: t, emissiveIntensity: 0.15, polygonOffset: true, polygonOffsetFactor: -2 }));
+  scene.add(m);
+}
+
+// ---------- glazen overkappingen boven de winkelstraten ----------
+function maakOverkappingen(lijnen, scene) {
+  const glas = [], staal = [];
+  for (const l of lijnen) {
+    if (l.s !== "overkapping") continue;
+    for (let i = 0; i < l.p.length - 1; i++) {
+      const [a, b] = [l.p[i], l.p[i + 1]], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (L < 0.5) continue;
+      const hoek = Math.atan2(b[0] - a[0], b[1] - a[1]);
+      const g = new THREE.CylinderGeometry(l.b / 2, l.b / 2, L, 10, 1, true, -Math.PI / 2, Math.PI);
+      g.rotateX(-Math.PI / 2); g.scale(1, 0.35, 1); // halve buis: as langs z, boog naar boven
+      g.rotateY(hoek); g.translate((a[0] + b[0]) / 2, 4.4, (a[1] + b[1]) / 2);
+      stuk(glas, g, "#ffffff");
+      for (let s = 0; s <= L; s += 5) {
+        const px = a[0] + ((b[0] - a[0]) * s) / L, pz = a[1] + ((b[1] - a[1]) * s) / L;
+        stuk(staal, new THREE.TorusGeometry(l.b / 2, 0.06, 4, 12, Math.PI), "#f4f4f2", M(V(px, 4.4, pz), [0, hoek, 0], [1, 0.35, 1]));
+        for (const k of [-1, 1]) buis(staal, V(px + Math.cos(hoek) * k * l.b / 2, 0, pz - Math.sin(hoek) * k * l.b / 2), V(px + Math.cos(hoek) * k * l.b / 2, 4.4, pz - Math.sin(hoek) * k * l.b / 2), 0.07, "#f4f4f2", 0, 6);
+      }
+    }
+  }
+  if (!glas.length) return;
+  const dak = new THREE.Mesh(plak(glas), new THREE.MeshStandardMaterial({ color: "#dbe7ec", transparent: true, opacity: 0.32, roughness: 0.1, metalness: 0.1, side: THREE.DoubleSide, depthWrite: false }));
+  const frame = new THREE.Mesh(plak(staal), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, metalness: 0.3 }));
+  frame.castShadow = true;
+  scene.add(dak, frame);
+}
+
 // ---------- grond ----------
 const GRONDKLEUR = {
-  basis: "#a7a39b", plein: "#b5aea3", stoep: "#bdb5a8", weg: "#4b4c50", parkeer: "#56575c", fietspad: "#9c4a3e", gras: "#5f7f42", struik: "#3f5f2f",
-  eiland: "#9d988e", speel: "#c4ad7f", fietsvlak: "#a9a196", tram: "#6d6a63", gebouw: "#3c3a37",
+  // naar de luchtfoto: straten en parkeerplaats van roodbruine klinkers, stoepen beige, fietspad rood asfalt
+  basis: "#b0a48e", plein: "#c2b08e", stoep: "#c0ad8a", weg: "#7a5a53", asfalt: "#4d4e52", parkeer: "#785850", vak: "#6c6a69", fietspad: "#9a463a",
+  gras: "#5f7f42", struik: "#3f5f2f", eiland: "#a59f93", speel: "#c4ad7f", fietsvlak: "#a9a196", tram: "#6d6a63", gebouw: "#3c3a37",
 };
 function tekenGrond(d, midden, maat, px) {
   const c = document.createElement("canvas");
@@ -63,31 +181,29 @@ function tekenGrond(d, midden, maat, px) {
   for (const v of d.vlakken) if (["gras", "speel", "plein"].includes(v.s)) vlak(v.r, GRONDKLEUR[v.s]);
   x.lineCap = x.lineJoin = "round";
   const lijn = (l, kl, b) => { x.strokeStyle = kl; x.lineWidth = b * s; x.beginPath(); l.p.forEach((p, i) => x[i ? "lineTo" : "moveTo"](...P(p))); x.stroke(); };
-  for (const soort of ["stoep", "weg", "fietspad"]) for (const l of d.lijnen) if (l.s === soort) lijn(l, GRONDKLEUR[soort], l.b + (soort === "weg" ? 3.2 : 0));
+  const wegKleur = (l) => (l.asfalt ? GRONDKLEUR.asfalt : GRONDKLEUR.weg);
+  for (const soort of ["stoep", "weg", "fietspad"]) for (const l of d.lijnen) if (l.s === soort) lijn(l, soort === "weg" ? GRONDKLEUR.stoep : GRONDKLEUR[soort], l.b + (soort === "weg" ? 3.2 : 0));
   // stoepen langs wegen eerst breder, dan de weg erover
-  for (const l of d.lijnen) if (l.s === "weg") lijn(l, GRONDKLEUR.weg, l.b);
+  for (const l of d.lijnen) if (l.s === "weg") lijn(l, wegKleur(l), l.b);
   for (const v of d.vlakken) if (["parkeer", "eiland", "fietsvlak"].includes(v.s)) vlak(v.r, GRONDKLEUR[v.s]);
-  for (const l of d.lijnen) if (l.gang) lijn(l, GRONDKLEUR.weg, l.b);
+  for (const l of d.lijnen) if (l.gang) lijn(l, GRONDKLEUR.parkeer, l.b);
   for (const v of d.vlakken) if (v.s === "struik") vlak(v.r, GRONDKLEUR.struik);
-  for (const l of d.lijnen) if (l.s === "fietspad") lijn(l, GRONDKLEUR.fietspad, l.b);
+  for (const l of d.lijnen) if (l.s === "fietspad") lijn(l, l.asfalt ? GRONDKLEUR.fietspad : "#9a5446", l.b);
   // middenstrepen
   x.setLineDash([3 * s, 4 * s]);
-  for (const l of d.lijnen) if (l.s === "weg" && l.b >= 6) lijn(l, "#d8d6cc", 0.12);
+  for (const l of d.lijnen) if (l.s === "weg" && l.asfalt && l.b >= 6) lijn(l, "#d8d6cc", 0.12);
   x.setLineDash([]);
   for (const l of d.lijnen) if (l.s === "tram") { lijn(l, GRONDKLEUR.tram, 2.2); lijn(l, "#9b9890", 0.1); }
   // parkeervakken: witte lijnen links en rechts van elke haakse plek
   for (const v of d.vlakken) if (v.s === "vak" || v.s === "strook") vlak(v.r, GRONDKLEUR.parkeer);
-  x.strokeStyle = "#e4e2da"; x.lineWidth = Math.max(1, 0.12 * s);
-  x.beginPath();
+  // de vakken zelf zijn van grijze stenen, met lichte strepen ertussen
+  x.strokeStyle = "#cfc9c0"; x.lineWidth = Math.max(1, 0.1 * s);
   for (const [px, pz, h, haaks] of d.plekken) {
-    if (!haaks) continue;
     const fx = Math.sin(h), fz = Math.cos(h), zx = fz, zz = -fx;
-    for (const k of [-1.25, 1.25]) {
-      x.moveTo(...P([px + zx * k - fx * 2.5, pz + zz * k - fz * 2.5]));
-      x.lineTo(...P([px + zx * k + fx * 2.3, pz + zz * k + fz * 2.3]));
-    }
+    const lw = haaks ? 1.22 : 1.05, ll = haaks ? 2.45 : 2.75;
+    const q = [[-lw, -ll], [lw, -ll], [lw, ll], [-lw, ll]].map(([a, b]) => P([px + zx * a + fx * b, pz + zz * a + fz * b]));
+    x.fillStyle = GRONDKLEUR.vak; x.beginPath(); q.forEach((p, i) => x[i ? "lineTo" : "moveTo"](...p)); x.closePath(); x.fill(); x.stroke();
   }
-  x.stroke();
   for (const v of d.voetafdrukken) vlak(v.ring, GRONDKLEUR.gebouw);
   // ruis erover
   const r2 = document.createElement("canvas"); r2.width = r2.height = px; r2.getContext("2d").putImageData(ruis, 0, 0);
@@ -132,6 +248,9 @@ export function bouwWereld(d, scene) {
     if (y === 0) wereld.grond = mesh;
   }
   // stoepranden: lage randen langs wegen in het speelgebied zijn te duur; we laten ze weg.
+
+  maakBorden(d.winkels ?? [], scene);
+  maakOverkappingen(d.lijnen, scene);
 
   // bomen (instanced): stam + twee kruinen
   const bomen = d.bomen.filter((b) => Math.hypot(b[0], b[1]) < 300);
