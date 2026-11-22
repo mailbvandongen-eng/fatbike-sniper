@@ -110,21 +110,22 @@ function bouwBalkon() {
 
 // ---------- rondes ----------
 function rondeInstellingen(r) {
-  return { fatbikes: 4 + r * 2, tijd: 110 + r * 10, kogels: 4 + r * 2 + 4, tegelijk: Math.min(2 + r, 7), fouten: 2 };
+  // geen klok: je hebt alle tijd. Wel een beperkt aantal kogels.
+  return { fatbikes: 3 + r, kogels: 3 + r + 5, tegelijk: Math.min(1 + r, 5), fouten: 2 };
 }
 function toonStart() {
   const best = +(localStorage.getItem("fbs-best") ?? 0);
   const ri = rondeInstellingen(spel.ronde);
   $("#startRonde").textContent = `Ronde ${spel.ronde}`;
-  $("#startDoel").textContent = `${ri.fatbikes} fatbikes · ${ri.kogels} kogels · ${Math.floor(ri.tijd / 60)}:${String(ri.tijd % 60).padStart(2, "0")} minuten`;
+  $("#startDoel").textContent = `${ri.fatbikes} fatbikes · ${ri.kogels} kogels · geen haast`;
   $("#startBest").textContent = best ? `Beste score: ${best}` : "";
 }
 function begin() {
   geluid.start();
   const ri = (spel.ri = rondeInstellingen(spel.ronde));
-  Object.assign(spel, { bezig: true, tijd: ri.tijd, kogels: ri.kogels, fouten: 0, geraakt: 0, gespawnd: 0, rondeScore: 0, schoten: 0 });
+  Object.assign(spel, { bezig: true, kogels: ri.kogels, fouten: 0, geraakt: 0, gespawnd: 0, rondeScore: 0, schoten: 0 });
   for (const r of reizigers.filter((r) => r.fat)) weg(r);
-  for (let i = 0; i < Math.min(3, ri.tegelijk); i++) nieuweFatbike();
+  for (let i = 0; i < ri.tegelijk; i++) nieuweFatbike(i === 0);
   $("#start").hidden = $("#einde").hidden = true;
   $("#hud").hidden = false;
   tekenHud();
@@ -133,12 +134,15 @@ function weg(r) {
   scene.remove(r.object);
   reizigers.splice(reizigers.indexOf(r), 1);
 }
-function nieuweFatbike() {
+function nieuweFatbike(stil = false) {
   const f = new Fietser(graaf, scene, "fatbike", spel.ronde);
-  // begin aan de rand van het speelgebied, zodat ze binnen komen rijden
-  f.van = graaf.startKnoop(8, 115, 60);
+  if (stil || Math.random() < 0.35) {
+    // staat al op het plein, op zijn telefoon te kijken
+    f.van = graaf.startKnoop(8, 55, 10);
+    f.wacht = tussen(10, 30);
+  } else f.van = graaf.startKnoop(8, 115, 60); // komt van de rand binnen rijden
   const v = graaf.volgende(-1, f.van, 8, 2);
-  if (v) { f.naar = v.n; f.breed = v.breed; f.t = 0; f.plaats(true); }
+  if (v) { f.naar = v.n; f.breed = v.breed; f.t = stil ? 0.5 : 0; f.plaats(true); }
   reizigers.push(f);
   spel.gespawnd++;
 }
@@ -146,7 +150,7 @@ function eindeRonde(gewonnen, reden) {
   spel.bezig = false;
   const ri = spel.ri;
   let bonus = 0;
-  if (gewonnen) bonus = Math.round(spel.tijd) * 10 + spel.kogels * 50 + (spel.fouten === 0 ? 300 : 0);
+  if (gewonnen) bonus = spel.kogels * 100 + (spel.fouten === 0 ? 300 : 0);
   spel.rondeScore += bonus;
   spel.score += spel.rondeScore;
   const sterren = !gewonnen ? 0 : 1 + (spel.fouten === 0 ? 1 : 0) + (spel.schoten <= ri.fatbikes + 1 ? 1 : 0);
@@ -167,9 +171,6 @@ function tekenHud() {
   if (!spel.ri) return;
   const over = spel.ri.fatbikes - spel.geraakt;
   $("#doelen").innerHTML = Array.from({ length: spel.ri.fatbikes }, (_, i) => `<i class="fb${i < spel.geraakt ? " weg" : ""}"></i>`).join("") + `<span>${over}</span>`;
-  const t = Math.max(0, Math.ceil(spel.tijd));
-  $("#klok").textContent = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
-  $("#klok").classList.toggle("krap", t <= 15);
   $("#kogels").innerHTML = `<i class="kogel"></i>${spel.kogels}`;
   $("#fouten").innerHTML = Array.from({ length: spel.ri.fouten + 1 }, (_, i) => `<i class="${i < spel.fouten ? "x aan" : "x"}">✕</i>`).join("");
   $("#score").textContent = spel.score + spel.rondeScore;
@@ -312,7 +313,7 @@ function fatbikeGeraakt(f, deel, p) {
   geluid.goed();
   melding(accu ? "ACCU!" : deel === "band" ? "BAND LEK!" : "RAAK!", accu ? "accu" : "goed", `+${punten}`);
   const vooruit = new THREE.Vector3(Math.sin(f.richting), 0, Math.cos(f.richting));
-  const v = vooruit.clone().multiplyScalar(f.v);
+  const v = vooruit.clone().multiplyScalar(f.snelheid ?? f.v);
   // fiets wordt los object in de wereld
   const fiets = f.fiets;
   fiets.updateMatrixWorld();
@@ -431,7 +432,7 @@ const vingers = new Map();
 let knijp = null;
 function fov() { return 55 / kijk.zoom; }
 function zetZoom(z) {
-  kijk.zoom = THREE.MathUtils.clamp(z, 1, 14);
+  kijk.zoom = THREE.MathUtils.clamp(z, 1, 20);
   if (kijk.zoom > 1.5) kijk.scoopZoom = kijk.zoom;
   const scoop = kijk.zoom > 1.5;
   document.body.classList.toggle("scoop", scoop);
@@ -505,11 +506,10 @@ function lus() {
 
   // spel
   if (spel.bezig && !filmCam) {
-    spel.tijd -= echt;
-    if (spel.tijd <= 0) { spel.tijd = 0; eindeRonde(false, "De tijd is op."); }
+    // kogels op en er rijden nog fatbikes rond
+    if (spel.kogels <= 0 && !kogels.length && spel.geraakt < spel.ri.fatbikes) eindeRonde(false, "Je kogels zijn op.");
     const actief = reizigers.filter((r) => r.fat).length;
-    if (actief < spel.ri.tegelijk && spel.gespawnd < spel.ri.fatbikes && Math.random() < echt * 0.7) nieuweFatbike();
-    if (Math.floor(spel.tijd * 4) !== spel.hudTik) { spel.hudTik = Math.floor(spel.tijd * 4); tekenHud(); }
+    if (actief < spel.ri.tegelijk && spel.gespawnd < spel.ri.fatbikes && Math.random() < echt * 0.25) nieuweFatbike();
   }
   for (const r of reizigers) {
     r.stap(dt, spel);

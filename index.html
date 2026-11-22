@@ -44,8 +44,7 @@ body.film::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:4
 #doelen i.fb{width:19px;height:13px;background:var(--geel);-webkit-mask:url(icon-fatbike.svg) center/contain no-repeat;mask:url(icon-fatbike.svg) center/contain no-repeat}
 #doelen i.fb.weg{background:#fff3;}
 #doelen span{margin-left:6px;color:var(--geel)}
-#klok{font-variant-numeric:tabular-nums;margin-left:auto}
-#klok.krap{color:var(--rood);animation:knipper 1s infinite}
+#kogels{margin-left:auto}
 @keyframes knipper{50%{opacity:.5}}
 #kogels i.kogel{width:6px;height:16px;border-radius:3px 3px 1px 1px;background:linear-gradient(#e8c46a 0 40%,#b07a3a 40%)}
 #fouten{gap:2px}
@@ -132,7 +131,6 @@ h1 span{color:var(--geel)}
 <div id="hud" hidden>
   <div class="bovenbalk">
     <div class="pil" id="doelen"></div>
-    <div class="pil" id="klok">2:00</div>
     <div class="pil" id="kogels"></div>
     <div class="pil" id="fouten"></div>
     <div class="pil" id="score">0</div>
@@ -141,7 +139,7 @@ h1 span{color:var(--geel)}
   <div class="knop" id="scoopKnop" aria-label="Kijker"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/></svg></div>
   <div class="knop" id="adem" aria-label="Adem inhouden"><div id="ademBalk"></div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 4v7M12 11c-2 0-6 2-6 7 0 1.5 1 2 2 2 3 0 4-4 4-9zM12 11c2 0 6 2 6 7 0 1.5-1 2-2 2-3 0-4-4-4-9z"/></svg></div>
   <div class="knop" id="vuur" aria-label="Schiet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2" fill="currentColor"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/></svg></div>
-  <div id="zoom"><input id="zoomSchuif" type="range" min="1" max="14" step="0.1" value="1" aria-label="Inzoomen"></div>
+  <div id="zoom"><input id="zoomSchuif" type="range" min="1" max="20" step="0.1" value="1" aria-label="Inzoomen"></div>
 </div>
 
 <div class="scherm" id="start" hidden>
@@ -155,7 +153,7 @@ h1 span{color:var(--geel)}
     <div class="uitleg">
       <p>Je staat op het balkon van de 4e verdieping. Onder je ligt de parkeerplaats, met de Jumbo erachter.</p>
       <p><b>Schiet alle fatbikes kapot.</b> Mik op de dikke band of de accu: dan klapt hij of vliegt hij in brand.</p>
-      <p>Raak <b>geen mensen, gewone fietsen of auto's</b>. Na 3 fouten ben je af.</p>
+      <p>Raak <b>geen mensen, gewone fietsen of auto's</b>. Na 3 fouten ben je af. Je hebt alle tijd: alleen je kogels zijn op te maken.</p>
       <p>Slepen = kijken · kijker = inzoomen · adem inhouden = stil vizier.</p>
     </div>
     <div class="knoppen">

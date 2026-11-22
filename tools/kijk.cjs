@@ -45,7 +45,7 @@ const TYPE = { ".html": "text/html", ".js": "text/javascript", ".json": "applica
       if (!f) return "geen fatbike";
       // zet hem stil op een vrije plek op de parkeerplaats, dwars op de kijklijn
       const plek = [[4, -14], [-2, -30], [8, -22], [-12, -24], [-15, -20], [20, -5]][i % 6];
-      f.wacht = 1e9; f.pos.set(plek[0], 0, plek[1]); f.richting = 1.3;
+      f.wacht = 1e9; f.pos.set(plek[0], 0, plek[1]); f.pad.copy(f.pos); f.richting = 1.3;
       f.groep.position.copy(f.pos); f.groep.rotation.y = f.richting; f.groep.updateMatrixWorld(true);
       // mik op het achterwiel
       const c = s.camera.position;
@@ -54,7 +54,7 @@ const TYPE = { ".html": "text/html", ".js": "text/javascript", ".json": "applica
       
       s.kijk.yaw = Math.atan2(p.x - c.x, p.z - c.z);
       s.kijk.pitch = Math.atan2(p.y - c.y, Math.hypot(p.x - c.x, p.z - c.z));
-      s.zetZoom(8);
+      s.zetZoom(12);
       return `fatbike op ${Math.round(Math.hypot(p.x - c.x, p.z - c.z))} m`;
     }, i);
     await page.waitForFunction(() => !document.querySelector("#vuur").classList.contains("laadt"), null, { timeout: 60000 });
@@ -66,7 +66,7 @@ const TYPE = { ".html": "text/html", ".js": "text/javascript", ".json": "applica
     console.log(i, r, await page.evaluate(() => JSON.stringify({ geraakt: window.__spel.spel.geraakt, fouten: window.__spel.spel.fouten, kogels: window.__spel.spel.kogels })));
   }
   // de laatste fatbike: vertraagd camerashot en het eindscherm
-  const nogBezig = await page.evaluate(() => window.__spel.spel.bezig);
+  const nogBezig = await page.evaluate(() => window.__spel.spel.bezig && window.__spel.reizigers.some((r) => r.fat));
   if (nogBezig) {
     await page.waitForFunction(() => !document.querySelector("#vuur").classList.contains("laadt") && !document.body.classList.contains("film"), null, { timeout: 60000 });
     await page.evaluate(() => {
@@ -74,9 +74,9 @@ const TYPE = { ".html": "text/html", ".js": "text/javascript", ".json": "applica
       s.spel.geraakt = s.spel.ri.fatbikes - 1; s.spel.fouten = 0;
       // vrij schootsveld: geparkeerde auto's en anderen tellen even niet mee
       s.stil.length = 0;
-      for (const r of s.reizigers) if (!r.fat) { r.wacht = 1e9; r.pos.set(500, 0, 500); }
+      for (const r of s.reizigers) if (!r.fat) { r.wacht = 1e9; r.pos.set(500, 0, 500); r.pad.copy(r.pos); }
       const f = s.reizigers.find((r) => r.fat);
-      f.wacht = 1e9; f.pos.set(4, 0, -14); f.richting = 1.3;
+      f.wacht = 1e9; f.pos.set(4, 0, -14); f.pad.copy(f.pos); f.richting = 1.3;
       f.groep.position.copy(f.pos); f.groep.rotation.y = f.richting; f.groep.updateMatrixWorld(true);
       const c = s.camera.position, p = f.fiets.userData.wielen[1].getWorldPosition(f.pos.clone());
       s.kijk.yaw = Math.atan2(p.x - c.x, p.z - c.z); s.kijk.pitch = Math.atan2(p.y - c.y, Math.hypot(p.x - c.x, p.z - c.z));

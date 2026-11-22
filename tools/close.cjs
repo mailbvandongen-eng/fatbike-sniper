@@ -29,7 +29,7 @@ const TYPE = { ".html": "text/html", ".js": "text/javascript", ".json": "applica
     const fiets = s.reizigers.find((r) => r.soort === "fiets");
     const loper = s.reizigers.find((r) => r.soort === "voetganger");
     const rij = [...fat.slice(0, 2), fiets, loper];
-    rij.forEach((r, i) => { r.wacht = 1e9; r.pos.set(-6 + i * 2.2, 0, -30); r.richting = Math.PI / 2; });
+    rij.forEach((r, i) => { r.wacht = 1e9; r.pos.set(-6 + i * 2.2, 0, -30); r.pad.copy(r.pos); r.richting = Math.PI / 2; });
     s.camera.position.set(-2.7, 1.5, -25.5);
     s.kijk.basisYaw = Math.PI; s.kijk.yaw = Math.PI; s.kijk.pitch = -0.08;
   });
