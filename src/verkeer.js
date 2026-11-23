@@ -90,7 +90,7 @@ class Reiziger {
     const off = this.zij(this.breed);
     this.pad.set(a[0] + dx * this.t - (dz / l) * off, 0, a[1] + dz * this.t + (dx / l) * off);
     // niet tegen of in een gevel: dan over het midden van het pad
-    if (off && this.g.blok?.(this.pad.x, this.pad.z, 0.3)) this.pad.set(a[0] + dx * this.t, 0, a[1] + dz * this.t);
+    if (off && (this.g.blok?.(this.pad.x, this.pad.z, 0.3) || this.g.heg?.(this.pad.x, this.pad.z, 0.1))) this.pad.set(a[0] + dx * this.t, 0, a[1] + dz * this.t);
     this.richtingDoel = Math.atan2(dx, dz);
     if (direct) { this.pos.copy(this.pad); this.richting = this.richtingDoel; }
     this.lengte = l;

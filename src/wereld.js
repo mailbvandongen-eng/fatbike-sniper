@@ -238,7 +238,7 @@ function maakOverkappingen(lijnen, scene) {
 // ---------- grond ----------
 const GRONDKLEUR = {
   // naar de luchtfoto: straten en parkeerplaats van roodbruine klinkers, stoepen beige, fietspad rood asfalt
-  basis: "#b5a88f", plein: "#cdb98e", stoep: "#d2be8f", weg: "#86645e", asfalt: "#4d4e52", parkeer: "#84625c", vak: "#5f5d5d", fietspad: "#a04a3f",
+  basis: "#b5a88f", plein: "#cdb98e", stoep: "#d2be8f", weg: "#86645e", asfalt: "#4d4e52", parkeer: "#84625c", vak: "#5f5d5d", fietspad: "#b06a62",
   gras: "#5f7f42", struik: "#3f5f2f", eiland: "#a59f93", speel: "#c4ad7f", fietsvlak: "#a9a196", tram: "#6d6a63", gebouw: "#3c3a37",
 };
 export function tekenGrond(d, midden, maat, px) {
@@ -262,7 +262,7 @@ export function tekenGrond(d, midden, maat, px) {
   for (const v of d.vlakken) if (["parkeer", "eiland", "fietsvlak"].includes(v.s)) vlak(v.r, GRONDKLEUR[v.s]);
   for (const l of d.lijnen) if (l.gang) lijn(l, GRONDKLEUR.parkeer, l.b);
   for (const v of d.vlakken) if (v.s === "struik") vlak(v.r, GRONDKLEUR.struik);
-  for (const l of d.lijnen) if (l.s === "fietspad") lijn(l, l.asfalt ? GRONDKLEUR.fietspad : "#9a5446", l.b);
+  for (const l of d.lijnen) if (l.s === "fietspad") lijn(l, l.asfalt ? GRONDKLEUR.fietspad : "#a4665c", l.b);
   // middenstrepen
   x.setLineDash([3 * s, 4 * s]);
   for (const l of d.lijnen) if (l.s === "weg" && l.asfalt && l.b >= 6) lijn(l, "#d8d6cc", 0.12);
@@ -399,13 +399,51 @@ function steenPatroon(mat) {
         vec3 g0 = diffuseColor.rgb; float mx = max(g0.r, max(g0.g, g0.b)); float lum = dot(g0, vec3(0.3, 0.59, 0.11));
         float gras = step(g0.b * 1.25, g0.g) * step(g0.r * 0.86, g0.g);
         float asfalt = 1.0 - smoothstep(0.085, 0.105, mx);
-        float rood = smoothstep(0.6, 0.75, (g0.r - g0.g) / max(g0.r, 0.001));
+        float rood = smoothstep(0.52, 0.62, (g0.r - g0.g) / max(g0.r, 0.001));
         float steen = texture2D(steenKaart, vGrondXZ / 0.84).r;
         float tegel = texture2D(steenKaart, vGrondXZ / 0.9).g;
         float vlek = texture2D(steenKaart, vGrondXZ / 11.0).b;
         float d = mix(steen, tegel, smoothstep(0.3, 0.4, lum));
         float s = (1.0 - gras) * (1.0 - asfalt) * (1.0 - rood);
-        diffuseColor.rgb *= mix(1.0, d * 2.0, s) * (0.84 + 0.32 * vlek);
+        // asfalt en fietspad: geen stenen, wel korrel
+        float korrel = texture2D(steenKaart, vGrondXZ / 0.37).b;
+        diffuseColor.rgb *= mix(1.0, d * 2.0, s) * (0.84 + 0.32 * vlek) * mix(1.0, 0.86 + 0.28 * korrel, max(asfalt, rood) * (1.0 - gras));
+      }`);
+  };
+  return mat;
+}
+
+// ---------- blad op de heggen: lichte en donkere vlekjes in plaats van één egale kleur ----------
+let bladKaart = null;
+function bladPatroon(mat) {
+  if (!bladKaart) {
+    const N = 128, c = document.createElement("canvas"); c.width = c.height = N;
+    const x = c.getContext("2d");
+    x.fillStyle = "#7a7a7a"; x.fillRect(0, 0, N, N);
+    // veel kleine blaadjes: donkere gaten en lichte toppen (herhalend over de rand)
+    for (let i = 0; i < 900; i++) {
+      const px = Math.random() * N, py = Math.random() * N, r = 1.6 + Math.random() * 3.4, v = Math.random();
+      x.fillStyle = v < 0.45 ? `rgba(20,20,20,${0.35 + Math.random() * 0.4})` : `rgba(235,235,235,${0.25 + Math.random() * 0.4})`;
+      for (const ox of [0, N, -N]) for (const oy of [0, N, -N]) { x.beginPath(); x.ellipse(px + ox, py + oy, r, r * 0.6, Math.random() * 3, 0, 6.3); x.fill(); }
+    }
+    bladKaart = new THREE.CanvasTexture(c);
+    bladKaart.wrapS = bladKaart.wrapT = THREE.RepeatWrapping; bladKaart.colorSpace = THREE.NoColorSpace;
+  }
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.bladKaart = { value: bladKaart };
+    sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nvarying vec3 vBladPos;")
+      .replace("#include <begin_vertex>", "#include <begin_vertex>\nvBladPos = (modelMatrix * vec4(transformed, 1.0)).xyz;");
+    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nuniform sampler2D bladKaart;\nvarying vec3 vBladPos;")
+      .replace("#include <color_fragment>", `#include <color_fragment>
+      {
+        // drie richtingen door elkaar, zodat zijkanten en bovenkant allemaal blad hebben
+        float b1 = texture2D(bladKaart, vBladPos.xz / 2.3).r, b2 = texture2D(bladKaart, vec2(vBladPos.x + vBladPos.z, vBladPos.y * 1.3) / 2.3).r;
+        float b3 = texture2D(bladKaart, vBladPos.xz / 9.0).r, b4 = texture2D(bladKaart, vec2(vBladPos.x - vBladPos.z, vBladPos.y) / 6.0).r;
+        float blad = b1 * 0.5 + b2 * 0.5;
+        diffuseColor.rgb *= (0.3 + 1.5 * blad) * (0.55 + 0.9 * b3 * b4 * 2.0);
+        // lichtere, gelere toppen en bruine, kale plekken
+        diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.35, 1.25, 0.7), smoothstep(0.5, 0.75, blad) * 0.7);
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.09, 0.06, 0.035), smoothstep(0.42, 0.25, blad) * 0.55);
       }`);
   };
   return mat;
@@ -504,7 +542,7 @@ export function bouwWereld(d, scene) {
     }
   }
   if (hegBak.length) {
-    const heg = new THREE.Mesh(plak(hegBak), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 }));
+    const heg = new THREE.Mesh(plak(hegBak), bladPatroon(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 })));
     heg.castShadow = heg.receiveShadow = true;
     scene.add(heg);
   }

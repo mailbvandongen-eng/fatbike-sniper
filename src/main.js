@@ -119,6 +119,10 @@ async function laad() {
   graaf = new Graaf(data.graaf);
   blokken = data.voetafdrukken.map((v) => ({ r: v.ring, x0: Math.min(...v.ring.map((p) => p[0])), x1: Math.max(...v.ring.map((p) => p[0])), z0: Math.min(...v.ring.map((p) => p[1])), z1: Math.max(...v.ring.map((p) => p[1])) }));
   graaf.blok = inGebouw; // niemand rijdt of loopt door een muur
+  // heggen en perken: vlakken (met omhullende rechthoek) en lijnen
+  hegVlak = data.heggen.filter((h) => h.r).map((h) => ({ r: h.r, x0: Math.min(...h.r.map((p) => p[0])), x1: Math.max(...h.r.map((p) => p[0])), z0: Math.min(...h.r.map((p) => p[1])), z1: Math.max(...h.r.map((p) => p[1])) }));
+  hegLijn = data.heggen.filter((h) => h.l).map((h) => h.l);
+  graaf.heg = inHeg; // voetgangers en fietsers wijken er niet in uit
   // jij: de schutter met het geweer
   schutter = maakMens("schutter");
   geweer = maakGeweer();
@@ -247,6 +251,11 @@ function zetLopen(aan) {
       // begin op het dichtstbijzijnde voetpad bij je standplaats
       const st = standen[standNr], n = graaf.dichtbij(st.pos[0], st.pos[2], 4);
       loop.pos.set(graaf.k[n][0], 0, graaf.k[n][1]);
+      // sta je toevallig klem (heg, muur, auto), schuif dan naar de dichtstbijzijnde vrije plek
+      for (let r = 0.5; r < 8 && geblokkeerd(loop.pos.x, loop.pos.z); r += 0.5) for (let h = 0; h < 6.3; h += 0.5) {
+        const x = graaf.k[n][0] + Math.cos(h) * r, z = graaf.k[n][1] + Math.sin(h) * r;
+        if (!geblokkeerd(x, z)) { loop.pos.set(x, 0, z); break; }
+      }
       loop.richting = kijk.yaw; kijk.pitch = -0.12;
       Object.assign(loop, { slag: 0, neer: 0, richt: 0, snelheid: 0 });
     } else zetStand(standNr);
@@ -276,8 +285,21 @@ function inGebouw(x, z, r = 0) {
   }
   return false;
 }
+let hegVlak = [], hegLijn = [];
+/** Staat dit punt in een heg of perk (of binnen r meter ervan)? */
+function inHeg(x, z, r = 0) {
+  for (const b of hegVlak) if (x > b.x0 - r && x < b.x1 + r && z > b.z0 - r && z < b.z1 + r && inRing(x, z, b.r)) return true;
+  for (const l of hegLijn) for (let i = 0; i < l.length - 1; i++) {
+    const [a, b] = [l[i], l[i + 1]], dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz || 1;
+    const t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / L2));
+    if ((x - a[0] - dx * t) ** 2 + (z - a[1] - dz * t) ** 2 < (0.45 + r) ** 2) return true;
+  }
+  return false;
+}
 function geblokkeerd(x, z) {
   if (inGebouw(x, z, 0.45)) return true; // je bent zelf ook breed: niet half de muur in
+  if (inHeg(x, z, 0.15)) return true; // door een heg loop je niet heen
+  for (const [bx, bz] of wereld.bomen) if ((x - bx) ** 2 + (z - bz) ** 2 < 0.3) return true; // boomstammen
   for (const m of data.muurtjes ?? []) for (let i = 0; i < m.length - 1; i++) {
     const [a, b] = [m[i], m[i + 1]], dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz || 1;
     const t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / L2));
