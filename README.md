@@ -95,3 +95,7 @@ Met het loop-icoon linksboven ga je de straat op (derde persoon, geen kijker), z
 - Loop je tegen iemand op, dan krijg je ruzie; soms haalt hij uit en ga je even neer. Gebouwen, muurtjes en geparkeerde auto's houden je tegen. Rijdende auto's remmen voor je; schiet je op een rijdende auto of sla je ertegen, dan komt de bestuurder op je af en rijdt hij je omver. Er raakt niemand gewond: iedereen staat weer op.
 
 Alle aanraakbediening loopt via touch-events per vinger (`sleepbaar` in `src/main.js`), zodat lopen, kijken en schieten tegelijk kunnen. Testen: `node tools/loop.cjs`.
+
+## Lichte weergave
+
+Valt het beeld weg (`webglcontextlost`: de telefoon pakt het grafisch geheugen af), dan onthoudt het spel dat en start het daarna licht: lagere resolutie, geen schaduwen, minder mensen. Op het startscherm staat dan "lichte weergave" en hoe vaak het beeld is weggevallen. Zelf aan- of uitzetten: `?licht=1` of `?licht=0`. Los daarvan krijgt alleen een handvol mensen dichtbij de zware versie (`zetDetail`).

@@ -20,10 +20,19 @@ const KOGEL_V = 850, ZWAARTE = 9.81, NUL_AFSTAND = 75;
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
 const telefoon = matchMedia("(pointer: coarse)").matches;
 // vaste resolutie: steeds bijstellen maakt het beeld even zwart
-const pr = Math.min(devicePixelRatio, telefoon ? 1.5 : 2);
+// lichte weergave: gaat vanzelf aan als het beeld een keer is weggevallen (te weinig grafisch geheugen), of met ?licht=1
+const urlLicht = new URLSearchParams(location.search).get("licht");
+if (urlLicht !== null) localStorage.setItem("fbs-licht", urlLicht === "0" ? "0" : "1");
+const licht = localStorage.getItem("fbs-licht") === "1";
+const pr = licht ? 1 : Math.min(devicePixelRatio, telefoon ? 1.5 : 2);
 renderer.setPixelRatio(pr);
 renderer.setSize(innerWidth, innerHeight);
-renderer.shadowMap.enabled = true;
+renderer.shadowMap.enabled = !licht;
+// valt het beeld weg (de telefoon pakt het grafisch geheugen af), dan de volgende keer licht starten
+renderer.domElement.addEventListener("webglcontextlost", () => {
+  localStorage.setItem("fbs-licht", "1");
+  localStorage.setItem("fbs-beeldweg", String(+(localStorage.getItem("fbs-beeldweg") ?? 0) + 1));
+});
 renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
@@ -141,8 +150,8 @@ async function laad() {
   zetFietsenInRekken(wereld, scene, (f) => stil.push({ object: f, raak: f.userData.raak, soort: "fiets" }));
   bevries(stil.filter((s) => s.soort === "fiets").map((s) => s.object), scene); // de auto's zijn al in één keer getekend
   // druk plein: veel mensen dicht bij de parkeerplaats, boodschappers, groepjes en mensen op bankjes
-  for (let i = 0; i < (telefoon ? 55 : 75); i++) reizigers.push(new Voetganger(graaf, scene));
-  for (let i = 0; i < (telefoon ? 12 : 16); i++) nieuweBoodschapper();
+  for (let i = 0; i < (licht ? 30 : telefoon ? 55 : 75); i++) reizigers.push(new Voetganger(graaf, scene));
+  for (let i = 0; i < (licht ? 6 : telefoon ? 12 : 16); i++) nieuweBoodschapper();
   for (const h of spel.hangplekken.slice(0, 4)) {
     const n = 2 + ((Math.random() * 2) | 0);
     for (let k = 0; k < n; k++) {
@@ -945,7 +954,7 @@ function ververs() {
   if (!nieuweVersie || spel.bezig) return;
   location.replace(`./?v=${nieuweVersie}&level=${LOCATIE}`);
 }
-$("#versie").textContent = window.VERSIE_DATUM ? `Versie van ${window.VERSIE_DATUM}` : "";
+$("#versie").textContent = (window.VERSIE_DATUM ? `Versie van ${window.VERSIE_DATUM}` : "") + (licht ? " · lichte weergave" : "") + (localStorage.getItem("fbs-beeldweg") ? ` · beeld weg: ${localStorage.getItem("fbs-beeldweg")}×` : "");
 kijkVersie();
 document.addEventListener("visibilitychange", () => { if (!document.hidden) kijkVersie(); });
 addEventListener("pageshow", (e) => { if (e.persisted) kijkVersie(); });
@@ -957,14 +966,16 @@ addEventListener("resize", () => { camera.aspect = innerWidth / innerHeight; cam
 const dp = new THREE.Vector3();
 function zetDetail() {
   const z = kijk.zoom > 1.5 ? kijk.zoom : 1;
-  const zet = (m) => {
-    m.object.getWorldPosition(dp);
-    const d = dp.distanceTo(camera.position);
-    m.detail(d / z < 30 || d < 14, d < 70);
-  };
-  for (const r of reizigers) { if (r.m) zet(r.m); if (r.berijders) r.berijders.forEach(zet); }
-  for (const x of vallers) if (x.m) zet(x.m);
-  if (schutter) zet(schutter);
+  const alle = [];
+  const meet = (m) => { m.object.getWorldPosition(dp); alle.push([dp.distanceTo(camera.position), m]); };
+  for (const r of reizigers) { if (r.m) meet(r.m); if (r.berijders) r.berijders.forEach(meet); }
+  for (const x of vallers) if (x.m) meet(x.m);
+  // de zware versie alleen voor wie dichtbij is (of groot in de kijker), en nooit meer dan een handvol tegelijk:
+  // op straat staan er anders tientallen mensen om je heen in volle kwaliteit
+  alle.sort((a, b) => a[0] - b[0]);
+  const max = licht ? 6 : telefoon ? 10 : 24;
+  alle.forEach(([d, m], i) => m.detail(i < max && (d / z < 30 || d < 14), !licht && d < 70));
+  if (schutter) schutter.detail(true, !licht);
 }
 
 // ---------- meevolgen ----------
