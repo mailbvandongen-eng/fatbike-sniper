@@ -378,13 +378,15 @@ for (const [x, z, naam] of L.muurplekken ?? []) opMuur([x, z], naam);
 const startStand = Math.max(0, standplaatsen.findIndex((x) => x.pos[1] === r1(verdiepingHoogte(L.verdieping ?? 1))));
 
 // ---------- haagbogen over het middenpad en het boogje op Bon Appetit ----------
-const terrein = vlakken.filter((v) => v.s === "parkeer").sort((a, b) => Math.hypot(...a.r[0]) - Math.hypot(...b.r[0]))[0];
+const B = GEDEELD.bogen, bb = [B.bij[0] - OX, -(B.bij[1] - OY)], bn = [B.nietBij[0] - OX, -(B.nietBij[1] - OY)];
+const terrein = vlakken.filter((v) => v.s === "parkeer").sort((a, b) => Math.hypot(a.r[0][0] - bb[0], a.r[0][1] - bb[1]) - Math.hypot(b.r[0][0] - bb[0], b.r[0][1] - bb[1]))[0];
 const bogen = [];
 for (const l of lijnen) if (l.s === "stoep" && terrein) for (let i = 0; i < l.p.length - 1; i++) {
   const [a, b] = [l.p[i], l.p[i + 1]], len = Math.hypot(b[0] - a[0], b[1] - a[1]);
   for (let t = 2; t < len - 1; t += 3.2) {
     const p = [a[0] + ((b[0] - a[0]) * t) / len, a[1] + ((b[1] - a[1]) * t) / len];
-    if (!binnen(p, terrein.r) || Math.hypot(...p) > 45) continue;
+    if (!binnen(p, terrein.r) || Math.hypot(p[0] - bb[0], p[1] - bb[1]) > B.straal) continue;
+    if (Math.hypot(p[0] - bn[0], p[1] - bn[1]) < B.nietStraal) continue; // niet op het pad vlak voor de flat: daar staat er in het echt geen
     if (bomen.some(([x, z]) => Math.hypot(x - p[0], z - p[1]) < 2.2)) continue;
     if (bogen.some(([x, z]) => Math.hypot(x - p[0], z - p[1]) < 3)) continue;
     bogen.push([r1(p[0]), r1(p[1]), r1(Math.atan2(b[0] - a[0], b[1] - a[1])), r1(Math.max(2.2, l.b))]);

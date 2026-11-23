@@ -12,6 +12,8 @@ export const GEDEELD = {
   },
   // Rond de Van Steelaan: lichte portiekflats met witte balkons in plaats van bruin met wit
   stijlGebieden: [{ midden: [84298, 454812], straal: 140, van: "bruinwit", naar: "portiek" }],
+  // Haagbogen over het middenpad van de parkeerplaats op het Julianaplein; niet op het pad vlak voor flat Pleinzicht
+  bogen: { bij: [84420, 454690], straal: 45, nietBij: [84415.9, 454737.4], nietStraal: 32 },
   // Vaste auto's op de vrije parkeerplekken het dichtst bij een punt (op verzoek van Bob: voor de deur aan de Van Steelaan)
   vasteAutos: [{ soort: "rav4", kleur: "#08080a", bij: [84276.85, 454838.53] }, { soort: "colt", kleur: "#a3151a", bij: [84276.85, 454838.53] }],
 };
