@@ -75,6 +75,14 @@ body.film::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:4
 .knop.klein{width:42px;height:42px;top:calc(max(10px,var(--sat)) + 52px)}
 #lager{left:max(12px,var(--sal))}
 #hoger{left:calc(max(12px,var(--sal)) + 50px)}
+#loopKnop{left:calc(max(12px,var(--sal)) + 100px)}
+body.loopt #loopKnop{left:max(12px,var(--sal));border-color:var(--geel);color:var(--geel)}
+/* lopen: stuurknuppel links, slaan naast de vuurknop; geen kijker en geen verdiepingen */
+#stick{position:absolute;left:max(26px,calc(var(--sal) + 18px));bottom:max(30px,calc(var(--sab) + 20px));width:124px;height:124px;border-radius:50%;background:var(--glas);border:2px solid #fff3;pointer-events:auto;touch-action:none;display:none}
+#stickDuim{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px;border-radius:50%;background:#d8f5d0;border:3px solid #111;box-shadow:0 2px 8px #0008}
+#slaan{right:max(132px,calc(var(--sar) + 124px));bottom:max(36px,calc(var(--sab) + 26px));width:72px;height:72px;display:none}
+body.loopt #stick{display:block}body.loopt #slaan{display:grid}
+body.loopt #zoom,body.loopt #hoger,body.loopt #lager{display:none}
 .knop.uit{opacity:.25;pointer-events:none}
 #wissel{position:fixed;inset:0;z-index:6;display:grid;place-items:center;background:#0b0c0f;opacity:0;pointer-events:none;transition:opacity .6s;text-align:center}
 #wissel.aan{opacity:1;transition:opacity .35s}
@@ -145,6 +153,9 @@ h1 span{color:var(--geel)}
   </div>
   <div id="raakteken"></div>
   <div class="knop klein" id="hoger" aria-label="Hoger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg></div>
+  <div class="knop klein" id="loopKnop" aria-label="Lopen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4.5" r="1.8" fill="currentColor"/><path d="M13 8l-3 4 3 3-1 6M10 12l-3 1M13 10l4 2M13 15l3 5"/></svg></div>
+  <div id="stick"><div id="stickDuim"></div></div>
+  <div class="knop" id="slaan" aria-label="Slaan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 11V8a1.5 1.5 0 013 0v-1a1.5 1.5 0 013 0v1a1.5 1.5 0 013 0v1a1.5 1.5 0 013 0v5c0 4-3 6-6.5 6S5 19 5 15v-2a1.5 1.5 0 011-2z"/></svg></div>
   <div class="knop klein" id="lager" aria-label="Lager"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></div>
   <div class="knop" id="vuur" aria-label="Schiet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2" fill="currentColor"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/></svg></div>
   <div id="zoom" role="slider" aria-label="Inzoomen"><div id="zoomDuim"></div></div>
@@ -162,7 +173,8 @@ h1 span{color:var(--geel)}
       <p id="uitlegPlek"></p>
       <p><b>Schiet alle fatbikes kapot.</b> Mik op de dikke band of de accu: dan klapt hij of vliegt hij in brand.</p>
       <p id="uitlegRegel"></p>
-      <p>Slepen = kijken · schuif rechts omhoog = inzoomen · ▲▼ linksboven = andere verdieping of de straat op.</p>
+      <p>Slepen = kijken · schuif rechts omhoog = inzoomen · ▲▼ linksboven = andere verdieping.</p>
+      <p>Het <b>loop-icoon</b> linksboven brengt je de straat op: links sturen, vuist = een fatbiker van zijn fiets slaan. Loop je tegen iemand op, dan krijg je ruzie.</p>
     </div>
     <div class="knoppen">
       <div id="levels"><button data-level="julianaplein">Julianaplein</button><button data-level="steelaan">Bonus: Van Steelaan</button></div>
@@ -185,9 +197,9 @@ h1 span{color:var(--geel)}
 </div>
 
 <!-- versie -->
-<script>window.VERSIE = "50864d6bbf"; window.VERSIE_DATUM = "23-11, 19:31";</script>
-<script type="importmap">{"imports":{"three":"./lib/three.module.js?v=50864d6bbf","./lib/three.module.js":"./lib/three.module.js?v=50864d6bbf","./lib/meshopt_decoder.mjs":"./lib/meshopt_decoder.mjs?v=50864d6bbf","./lib/three-addons.js":"./lib/three-addons.js?v=50864d6bbf","./src/autos.js":"./src/autos.js?v=50864d6bbf","./src/effecten.js":"./src/effecten.js?v=50864d6bbf","./src/figuren.js":"./src/figuren.js?v=50864d6bbf","./src/geluid.js":"./src/geluid.js?v=50864d6bbf","./src/main.js":"./src/main.js?v=50864d6bbf","./src/mensen.js":"./src/mensen.js?v=50864d6bbf","./src/verkeer.js":"./src/verkeer.js?v=50864d6bbf","./src/wereld.js":"./src/wereld.js?v=50864d6bbf"}}</script>
-<script type="module" src="./src/main.js?v=50864d6bbf"></script>
+<script>window.VERSIE = "69f9d081fc"; window.VERSIE_DATUM = "23-11, 19:44";</script>
+<script type="importmap">{"imports":{"three":"./lib/three.module.js?v=69f9d081fc","./lib/three.module.js":"./lib/three.module.js?v=69f9d081fc","./lib/meshopt_decoder.mjs":"./lib/meshopt_decoder.mjs?v=69f9d081fc","./lib/three-addons.js":"./lib/three-addons.js?v=69f9d081fc","./src/autos.js":"./src/autos.js?v=69f9d081fc","./src/effecten.js":"./src/effecten.js?v=69f9d081fc","./src/figuren.js":"./src/figuren.js?v=69f9d081fc","./src/geluid.js":"./src/geluid.js?v=69f9d081fc","./src/main.js":"./src/main.js?v=69f9d081fc","./src/mensen.js":"./src/mensen.js?v=69f9d081fc","./src/verkeer.js":"./src/verkeer.js?v=69f9d081fc","./src/wereld.js":"./src/wereld.js?v=69f9d081fc"}}</script>
+<script type="module" src="./src/main.js?v=69f9d081fc"></script>
 <!-- /versie -->
 </body>
 </html>

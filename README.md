@@ -76,3 +76,7 @@ Echte modellen van Sketchfab (CC BY 4.0), verwerkt met `tools/autos/bouw.sh` (`a
 - bestelbus: [Van](https://sketchfab.com/3d-models/5e8a68c6585c4cf3b764ef7e82ef9a78) door VertexVendingMac
 
 Geparkeerde auto's zijn kopieën van hetzelfde model (`InstancedMesh`, `src/autos.js`), elk met een eigen lakkleur. Rijdende auto's hebben draaiende wielen en een bestuurder.
+
+## Lopen
+
+Met het loop-icoon linksboven ga je de straat op (derde persoon, geen kijker): stuurknuppel links (of WASD), slepen = rondkijken, vuurknop = schieten vanaf de heup, vuist (of V) = slaan. Een fatbiker die je raakt gaat van zijn fiets en rent weg. Loop je tegen iemand op, dan krijg je ruzie; soms haalt hij uit en ga je even neer. Gebouwen, muurtjes en geparkeerde auto's houden je tegen. Er raakt niemand gewond: iedereen staat weer op. Testen: `node tools/loop.cjs`.

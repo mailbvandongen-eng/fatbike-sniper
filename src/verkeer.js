@@ -133,6 +133,37 @@ class Reiziger {
   verAf() { return Math.hypot(this.pos.x, this.pos.z) > this.straal * 1.35; }
 }
 
+// ---------- ruzie: iemand tegen wie je oploopt (of die je een duw geeft) ----------
+/** Begin een ruzie. slaat = hij haalt aan het eind uit; klap() = wat er dan met jou gebeurt; geraakt = hij kreeg zelf een tik. */
+function beginRuzie(wie, naar, slaat, klap, geraakt = false) {
+  if (wie.ruzieT > 0 || wie.ruzieKoel > 0 || wie.schrik > 0 || wie.groep.visible === false) return false;
+  wie.ruzieT = tussen(2.2, 3.4); wie.ruzieNaar = naar; wie.ruzieSlaat = slaat; wie.ruzieKlap = klap; wie.ruzieGegeven = false;
+  wie.m.zet(geraakt ? "schrik" : "boos", 1, 0);
+  wie.ruzieStart = geraakt ? 0.7 : 0;
+  return true;
+}
+/** Eén stap van de ruzie; geeft true zolang hij duurt. */
+function stapRuzie(wie, dt) {
+  if (wie.ruzieKoel > 0) wie.ruzieKoel -= dt;
+  if (!(wie.ruzieT > 0)) return false;
+  wie.ruzieT -= dt; wie.ruzieStart -= dt;
+  // naar je toe draaien
+  const doel = Math.atan2(wie.ruzieNaar.x - wie.pos.x, wie.ruzieNaar.z - wie.pos.z);
+  let d = doel - wie.richting; d = Math.atan2(Math.sin(d), Math.cos(d));
+  wie.richting += d * Math.min(1, dt * 7);
+  if (wie.ruzieSlaat && wie.ruzieT < 0.75) {
+    wie.m.zet("stomp");
+    if (wie.ruzieT < 0.4 && !wie.ruzieGegeven) {
+      wie.ruzieGegeven = true;
+      if (Math.hypot(wie.ruzieNaar.x - wie.pos.x, wie.ruzieNaar.z - wie.pos.z) < 1.8) wie.ruzieKlap?.();
+    }
+  } else if (wie.ruzieStart <= 0) wie.m.zet("boos");
+  wie.m.mixer.update(dt);
+  wie.groep.position.copy(wie.pos); wie.groep.rotation.y = wie.richting;
+  if (wie.ruzieT <= 0) { wie.ruzieKoel = 20; wie.wacht = 0; }
+  return true;
+}
+
 // ---------- voetgangers ----------
 /** Afspeelsnelheid van de loopbeweging bij een bepaalde vaart (de beweging zelf is gemaakt voor ~1,3 m/s). */
 const loopTempo = (v) => THREE.MathUtils.clamp(v / 1.3, 0.6, 1.6);
@@ -174,7 +205,9 @@ export class Voetganger extends Reiziger {
       this.m.arm(k, doel, omlaag.clone().add(new THREE.Vector3(Math.sign(x) * 0.4, 0, -0.4).applyQuaternion(this.groep.quaternion)));
     }
   }
+  ruzie(naar, slaat, klap, geraakt) { return beginRuzie(this, naar, slaat, klap, geraakt); }
   stap(dt) {
+    if (stapRuzie(this, dt)) return;
     if (this.schrik > 0) {
       this.schrik -= dt;
       this.v = this.schrik > 4.4 ? 0 : 3.4;
@@ -205,6 +238,7 @@ export class Boodschapper extends Voetganger {
     return [van, ...r.map((n) => this.g.k[n]), naar];
   }
   stap(dt) {
+    if (stapRuzie(this, dt)) return;
     if (this.schrik > 0) { this.schrik -= dt; if (this.schrik <= 0) this.klaar = true; }
     if (this.fase2 === "binnen") {
       this.binnen -= dt;
@@ -259,7 +293,9 @@ export class Staander {
     this.raak = [{ deel: "mens", min: new THREE.Vector3(-0.25, 0, -0.25), max: new THREE.Vector3(0.25, zit ? 1.35 : 1.8, 0.25) }];
     scene.add(this.groep);
   }
+  ruzie(naar, slaat, klap, geraakt) { return this.zit ? false : beginRuzie(this, naar, slaat, klap, geraakt); }
   stap(dt) {
+    if (stapRuzie(this, dt)) return;
     if (this.schrik > 0) {
       // weg van het geluid
       this.schrik -= dt;

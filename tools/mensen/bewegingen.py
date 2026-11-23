@@ -10,7 +10,7 @@ UAL1 = '/tmp/fbs/ual1/UAL1.glb'
 UAL2 = '/root/tools/homo-assets/dl-ual2/UAL2_Standard.glb'
 DEEL1 = ['Idle_Loop', 'Idle_Talking_Loop', 'Walk_Loop', 'Walk_Formal_Loop', 'Jog_Fwd_Loop', 'Sprint_Loop', 'Sitting_Idle_Loop',
          'Sitting_Talking_Loop', 'Driving_Loop', 'Push_Loop', 'Death01', 'Hit_Chest', 'Crouch_Idle_Loop', 'Pistol_Aim_Neutral',
-         'Pistol_Idle_Loop', 'Jump_Loop', 'Fixing_Kneeling']
+         'Pistol_Idle_Loop', 'Jump_Loop', 'Fixing_Kneeling', 'Punch_Jab', 'Punch_Cross', 'Hit_Head']
 DEEL2 = ['Idle_TalkingPhone_Loop', 'LayToIdle', 'Hit_Knockback', 'Idle_No_Loop', 'Walk_Carry_Loop', 'Idle_FoldArms_Loop']
 
 for o in list(bpy.data.objects): bpy.data.objects.remove(o)
