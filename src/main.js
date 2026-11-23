@@ -440,8 +440,9 @@ function begin() {
 }
 // boodschappers: uit een geparkeerde auto naar een winkel en terug
 function nieuweBoodschapper() {
-  const autos = wereld.geparkeerd.filter((a) => Math.hypot(a.position.x, a.position.z) < 70);
-  const winkels = data.winkels.filter((w) => ["Jumbo", "Jumbo", "Jumbo", "Albert Heijn", "HEMA", "Action", "Kruidvat", "Etos", "Bruna", "Blokker", "Bon Appetit"].includes(w[0]) && Math.hypot(w[1], w[2]) < 120);
+  const [cx, cz] = graaf.c;
+  const autos = wereld.geparkeerd.filter((a) => Math.hypot(a.position.x - cx, a.position.z - cz) < 70);
+  const winkels = data.winkels.filter((w) => ["Jumbo", "Jumbo", "Jumbo", "Albert Heijn", "HEMA", "Action", "Kruidvat", "Etos", "Bruna", "Blokker", "Bon Appetit"].includes(w[0]) && Math.hypot(w[1] - cx, w[2] - cz) < 120);
   if (!autos.length || !winkels.length) return;
   const w = kies(winkels.concat(winkels.filter((x) => x[0] === "Jumbo")));
   // de deur: iets voor het bord, op straatniveau
@@ -1022,7 +1023,7 @@ function lus() {
     const actief = reizigers.filter((r) => r.fat).length;
     if (actief < spel.ri.tegelijk && spel.gespawnd < spel.ri.fatbikes && Math.random() < echt * 0.6) nieuweFatbike();
     // staat er niets op het plein, dan komt er een aanrijden
-    const dichtbij = spel.modus === "bonus" || reizigers.some((r) => r.fat && Math.hypot(r.pos.x, r.pos.z) < 60);
+    const dichtbij = spel.modus === "bonus" || reizigers.some((r) => r.fat && Math.hypot(r.pos.x - graaf.c[0], r.pos.z - graaf.c[1]) < 60);
     spel.leeg = dichtbij ? 0 : (spel.leeg ?? 0) + echt;
     if (spel.leeg > 6) {
       spel.leeg = 0;
@@ -1049,6 +1050,9 @@ function lus() {
   // op de grond: je gluurt over het muurtje, met de kijker kom je omhoog
   if (loop.aan) stapLopen(echt);
   spel.speler = loop.aan ? loop.pos : null; spel.aangereden = klapKrijgen;
+  // de wereld schuift met je mee als je loopt: scherpe grond, geparkeerde auto's en de drukte op straat
+  if (loop.aan) { wereld.bij(loop.pos.x, loop.pos.z); graaf.c[0] = loop.pos.x; graaf.c[1] = loop.pos.z; }
+  else if (graaf.c[0] || graaf.c[1]) { graaf.c[0] = graaf.c[1] = 0; wereld.bij(0, 0, true); }
   zetDetail();
   stapKogels(dt);
   stapVallers(dt);

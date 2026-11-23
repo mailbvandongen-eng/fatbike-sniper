@@ -10,6 +10,7 @@ const SPEELSTRAAL = 120; // hier gebeurt het; verder weg keert men terug of verd
 export class Graaf {
   constructor({ knopen, kanten }) {
     this.k = knopen;
+    this.c = [0, 0]; // het midden van de drukte: het plein, of waar jij loopt
     this.buren = knopen.map(() => []);
     for (const [a, b, bits, breed, een] of kanten) {
       this.buren[a].push({ n: b, bits, breed });
@@ -19,7 +20,7 @@ export class Graaf {
   /** Een willekeurige knoop met een buur van dit soort, binnen r meter van het midden. */
   startKnoop(bit, r = SPEELSTRAAL, rMin = 0) {
     for (let i = 0; i < 400; i++) {
-      const n = (Math.random() * this.k.length) | 0, d = Math.hypot(...this.k[n]);
+      const n = (Math.random() * this.k.length) | 0, d = Math.hypot(this.k[n][0] - this.c[0], this.k[n][1] - this.c[1]);
       if (d < r && d >= rMin && this.buren[n].some((b) => b.bits & bit)) return n;
     }
     return 0;
@@ -55,7 +56,7 @@ export class Graaf {
     const terug = opties.length > 1 ? opties.filter((b) => b.n !== van) : opties;
     // weeg naar het speelgebied toe
     const gew = terug.map((b) => {
-      const d = Math.hypot(...this.k[b.n]);
+      const d = Math.hypot(this.k[b.n][0] - this.c[0], this.k[b.n][1] - this.c[1]);
       return d < straal * 0.7 ? 3 * trek : d < straal ? 1.5 : 0.3 / trek;
     });
     let r = Math.random() * gew.reduce((a, b) => a + b, 0);
@@ -134,7 +135,7 @@ class Reiziger {
     const w = dt > 0 ? Math.atan2(Math.sin(this.richting - oud), Math.cos(this.richting - oud)) / dt : 0;
     this.draaiing += (w - this.draaiing) * Math.min(1, dt * 4);
   }
-  verAf() { return Math.hypot(this.pos.x, this.pos.z) > this.straal * 1.35; }
+  verAf() { return Math.hypot(this.pos.x - this.g.c[0], this.pos.z - this.g.c[1]) > this.straal * 1.35; }
 }
 
 // ---------- ruzie: iemand tegen wie je oploopt (of die je een duw geeft) ----------
@@ -466,7 +467,7 @@ export class Auto extends Reiziger {
         const dx = sp.x - this.pos.x, dz = sp.z - this.pos.z, voor = dx * fx + dz * fz, zij = Math.abs(dx * fz - dz * fx);
         if (voor > 0 && voor < 12 && zij < 1.8) rem = Math.min(rem, (voor - 4.6) / 6); // stopt ruim een meter voor je
       }
-      this.v = this.vBasis * THREE.MathUtils.clamp(rem, 0, 1) * (Math.hypot(this.pos.x, this.pos.z) < 45 ? 0.6 : 1);
+      this.v = this.vBasis * THREE.MathUtils.clamp(rem, 0, 1) * (Math.hypot(this.pos.x - this.g.c[0], this.pos.z - this.g.c[1]) < 45 ? 0.6 : 1);
       super.stap(dt);
     }
     this.auto.position.copy(this.pos);

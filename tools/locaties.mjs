@@ -1,4 +1,20 @@
 // De locaties van het spel. Coördinaten in Rijksdriehoek (RD New, meters).
+// Het is één doorlopende wereld: je kunt van het ene level naar het andere lopen. Wat er in de wereld staat
+// (gevels, vaste auto's) is daarom voor alle levels hetzelfde en staat in GEDEELD.
+export const GEDEELD = {
+  // Gevels die afwijken van de regel "stijl op bouwjaar", naar Google 3D-beelden van Bob (22-11-2026). Sleutel = BAG-pand.
+  stijlPerPand: {
+    "1916100000102052": "bruinwit", // blok achter de parkeerplaats, boven de Jumbo
+    "1916100000098418": "geel", // blok aan de westkant
+    "1916100000101520": "creme", // blok aan de oostkant, met zonneschermen
+    "1916100000099002": "zeilschip", // 't Zeilschip
+    "1916100000115288": "zeilschip",
+  },
+  // Rond de Van Steelaan: lichte portiekflats met witte balkons in plaats van bruin met wit
+  stijlGebieden: [{ midden: [84298, 454812], straal: 140, van: "bruinwit", naar: "portiek" }],
+  // Vaste auto's op de vrije parkeerplekken het dichtst bij een punt (op verzoek van Bob: voor de deur aan de Van Steelaan)
+  vasteAutos: [{ soort: "rav4", kleur: "#08080a", bij: [84276.85, 454838.53] }, { soort: "colt", kleur: "#a3151a", bij: [84276.85, 454838.53] }],
+};
 export const LOCATIES = {
   julianaplein: {
     naam: "Koningin Julianaplein, Voorburg",
@@ -11,14 +27,6 @@ export const LOCATIES = {
     verdieping: 4,
     kijkpunt: [84450.0, 454639.8], // de Jumbo
     muurplekken: [[-36, -12, "Achter het muurtje bij Bon Appetit"], [24, 44, "Achter het muurtje bij de Jumbo"], [44, -3, "Achter de muur aan de oostkant"]],
-    // Gevels die afwijken van de regel "stijl op bouwjaar", naar Google 3D-beelden van Bob (22-11-2026). Sleutel = BAG-pand.
-    stijlPerPand: {
-      "1916100000102052": "bruinwit", // blok achter de parkeerplaats, boven de Jumbo
-      "1916100000098418": "geel", // blok aan de westkant
-      "1916100000101520": "creme", // blok aan de oostkant, met zonneschermen
-      "1916100000099002": "zeilschip", // 't Zeilschip
-      "1916100000115288": "zeilschip",
-    },
   },
   steelaan: {
     naam: "Monseigneur van Steelaan, Voorburg",
@@ -38,8 +46,5 @@ export const LOCATIES = {
     modus: "bonus", // zoveel mogelijk fatbikes in de tijd
     tijd: 180,
     seizoen: "winter",
-    // vaste auto's op de plekken het dichtst bij de voordeur (op verzoek van Bob)
-    vasteAutos: [{ soort: "rav4", kleur: "#08080a" }, { soort: "colt", kleur: "#a3151a" }],
-    standaardStijl: "portiek", // lichte portiekflats met witte balkons (Google 3D-beeld van Bob)
   },
 };

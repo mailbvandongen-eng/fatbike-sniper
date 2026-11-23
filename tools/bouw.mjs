@@ -3,12 +3,13 @@
 // Assen in het spel: x = oost, y = omhoog, z = zuid (meters, oorsprong = midden van de locatie).
 import { readFileSync, writeFileSync } from "node:fs";
 import { ShapeUtils, Vector2 } from "../lib/three.module.js";
-import { LOCATIES } from "./locaties.mjs";
+import { LOCATIES, GEDEELD } from "./locaties.mjs";
 import { naarRD } from "./rd.mjs";
 
 const id = process.argv[2] ?? "julianaplein";
 const L = LOCATIES[id];
 const [OX, OY] = L.midden;
+const VER = 320; // tot hier staat alles in de kaart: je kunt van het ene level naar het andere lopen
 const panden = JSON.parse(readFileSync(`data/ruw/${id}/3dbag.json`));
 const osm = JSON.parse(readFileSync(`data/ruw/${id}/osm.json`)).elements;
 
@@ -98,8 +99,8 @@ for (const f of panden) {
     else if (jaar >= 1990) stijl = "modern";
     else if (lagen >= 8 && jaar >= 1960) stijl = "galerij";
     else if (jaar >= 1955) stijl = "bruinwit"; // donkerbruine baksteen met witte raambanden, zoals rond het plein
-    if (stijl === "bruinwit" && L.standaardStijl) stijl = L.standaardStijl;
-    const eigen = L.stijlPerPand?.[f.id.replace("NL.IMBAG.Pand.", "")];
+    for (const g of GEDEELD.stijlGebieden) if (stijl === g.van && Math.hypot(mid[0] + OX - g.midden[0], OY - mid[1] - g.midden[1]) < g.straal) stijl = g.naar;
+    const eigen = GEDEELD.stijlPerPand[f.id.replace("NL.IMBAG.Pand.", "")];
     if (eigen) stijl = eigen;
     // lange as van het gebouw: de korte gevels van galerijflats zijn de rode kopgevels
     let as = [1, 0], langst = 0;
@@ -202,7 +203,7 @@ for (const w of wegen) {
   }
   if (t.railway === "tram") lijnen.push({ s: "tram", b: 1.6, p });
   if (t.barrier === "hedge") heggen.push({ l: p, h: 1.2 });
-  if ((t.barrier === "wall" || t.barrier === "retaining_wall") && Math.hypot(...p[0]) < 160) muurtjes.push(p);
+  if ((t.barrier === "wall" || t.barrier === "retaining_wall") && Math.hypot(...p[0]) < VER) muurtjes.push(p);
   if (t.natural === "tree_row") for (let i = 0; i < p.length - 1; i++) {
     const [a, b] = [p[i], p[i + 1]], d = Math.hypot(b[0] - a[0], b[1] - a[1]);
     for (let s = 0; s < d; s += 8) bomen.push([r1(a[0] + ((b[0] - a[0]) * s) / d), r1(a[1] + ((b[1] - a[1]) * s) / d), 9]);
@@ -227,7 +228,7 @@ for (const n of knoop.values()) {
   const t = n.tags;
   if (!t?.name || !(t.shop || ["fast_food", "restaurant", "cafe", "bank", "pharmacy", "ice_cream"].includes(t.amenity))) continue;
   const p = lokaal(n.lat, n.lon);
-  if (Math.hypot(...p) > 170) continue;
+  if (Math.hypot(...p) > VER) continue;
   let best = null;
   for (const v of voetafdrukken) {
     const r = v.ring;
@@ -258,7 +259,7 @@ for (const w of wegen) {
     const n = knoop.get(w.nodes[i]);
     if (n?.tags?.highway !== "crossing") continue;
     const p = lokaal(n.lat, n.lon);
-    if (Math.hypot(...p) > 150) continue;
+    if (Math.hypot(...p) > VER) continue;
     const a = knoop.get(w.nodes[Math.max(0, i - 1)]), b = knoop.get(w.nodes[Math.min(w.nodes.length - 1, i + 1)]);
     if (!a || !b) continue;
     const [pa, pb] = [lokaal(a.lat, a.lon), lokaal(b.lat, b.lon)];
@@ -287,7 +288,7 @@ function rijVakken(ring) {
   for (let s = stap / 2; s < best - stap / 2 + 0.3; s += stap)
     plekken.push([r1(a[0] + dx * s + (n[0] * diep) / 2), r1(a[1] + dz * s + (n[1] * diep) / 2), r1(haaks ? Math.atan2(n[0], n[1]) : Math.atan2(dx, dz)), haaks ? 1 : 0]);
 }
-for (const v of vlakken) if ((v.s === "vak" || v.s === "strook") && Math.hypot(...v.r[0]) < 200) rijVakken(v.r);
+for (const v of vlakken) if ((v.s === "vak" || v.s === "strook") && Math.hypot(...v.r[0]) < VER) rijVakken(v.r);
 const terreinen = vlakken.filter((v) => v.s === "parkeer");
 const gangen = lijnen.filter((l) => l.gang);
 const afstLijn = (p, l) => {
@@ -399,8 +400,10 @@ if (bon) {
 
 // ---------- vaste auto's: op de parkeerplekken het dichtst bij de voordeur ----------
 const vasteAutos = [];
-for (const va of L.vasteAutos ?? []) {
-  const vrij = plekken.filter((p) => !p.bezet).sort((a, b) => Math.hypot(a[0] - gx, a[1] - gz) - Math.hypot(b[0] - gx, b[1] - gz))[0];
+for (const va of GEDEELD.vasteAutos) {
+  const [bx, bz] = [va.bij[0] - OX, -(va.bij[1] - OY)];
+  const vrij = plekken.filter((p) => !p.bezet).sort((a, b) => Math.hypot(a[0] - bx, a[1] - bz) - Math.hypot(b[0] - bx, b[1] - bz))[0];
+  if (vrij && Math.hypot(vrij[0] - bx, vrij[1] - bz) > 40) break; // geen plek in de buurt (valt buiten deze kaart)
   if (!vrij) break;
   vrij.bezet = true;
   vasteAutos.push([vrij[0], vrij[1], vrij[2], vrij[3], va.soort, va.kleur]);
@@ -413,7 +416,7 @@ for (const [s2, x, z] of dingen) if (s2 === "rek" && Math.hypot(x, z) < 70) hang
 
 const uit = {
   naam: L.naam, kort: L.kort, modus: L.modus ?? "rondes", seizoen: L.seizoen ?? "zomer", tijd: L.tijd, bron: "3D BAG (CC BY 4.0), © OpenStreetMap-bijdragers (ODbL)",
-  sluipschutter, muren, daken, voetafdrukken: voetafdrukken.filter((v) => Math.hypot(...v.ring[0]) < 260),
+  sluipschutter, muren, daken, voetafdrukken: voetafdrukken.filter((v) => Math.hypot(...v.ring[0]) < VER + 20),
   vlakken, lijnen, bomen, heggen, dingen, plekken: plekken.filter((p) => !p.bezet), vasteAutos, winkels, oversteken, muurtjes, standplaatsen, startStand, bogen, dakboog, hangplekken, graaf: { knopen, kanten },
 };
 writeFileSync(`data/${id}.json`, JSON.stringify(uit));

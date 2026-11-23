@@ -280,7 +280,7 @@ export function tekenGrond(d, midden, maat, px) {
   // witte blokjes langs de randen van de fietspaden
   x.fillStyle = "#f1efe8";
   const blok = 0.32;
-  for (const l of d.lijnen) if (l.s === "fietspad" && Math.hypot(...l.p[0]) < 160) for (let i = 0; i < l.p.length - 1; i++) {
+  for (const l of d.lijnen) if (l.s === "fietspad" && Math.hypot(l.p[0][0] - midden[0], l.p[0][1] - midden[1]) < maat) for (let i = 0; i < l.p.length - 1; i++) {
     const [a, b] = [l.p[i], l.p[i + 1]], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
     const dx = (b[0] - a[0]) / L, dz = (b[1] - a[1]) / L;
     for (const k of [-1, 1]) for (let t = 0.3; t < L; t += 0.75) {
@@ -531,7 +531,7 @@ export function bouwWereld(d, scene) {
   // heggen en perken
   const hegBak = [];
   for (const h of d.heggen) {
-    if (h.r && Math.hypot(...h.r[0]) < 200 && h.r.length > 2) {
+    if (h.r && h.r.length > 2) {
       const vorm = new THREE.Shape(h.r.map(([x, z]) => new THREE.Vector2(x, -z)));
       const g = new THREE.ExtrudeGeometry(vorm, { depth: h.h, bevelEnabled: false });
       g.rotateX(-Math.PI / 2);
@@ -551,7 +551,6 @@ export function bouwWereld(d, scene) {
   const meubel = [];
   wereld.rekken = [];
   for (const [soort, x, z, n] of d.dingen) {
-    if (Math.hypot(x, z) > 180) continue;
     if (soort === "paal") buis(meubel, V(x, 0, z), V(x, 0.9, z), 0.06, "#3a3a3a", 0, 6);
     else if (soort === "bak") { buis(meubel, V(x, 0, z), V(x, 0.85, z), 0.22, "#2f4a3a", 0, 8); }
     else if (soort === "bank") { blok(meubel, 1.8, 0.08, 0.45, V(x, 0.45, z), "#7a5a3c"); blok(meubel, 1.8, 0.4, 0.06, V(x, 0.7, z - 0.22), "#7a5a3c"); blok(meubel, 1.6, 0.45, 0.35, V(x, 0.22, z), "#333"); }
@@ -567,20 +566,34 @@ export function bouwWereld(d, scene) {
   // geparkeerde auto's in de vakken
   wereld.geparkeerd = [];
   for (const [x, z, hoek, haaks] of d.plekken) {
-    if (Math.hypot(x, z) > 125 || Math.random() < 0.28) continue;
+    if (Math.random() < 0.28) continue;
     // haaks: meestal met de neus het vak in
     const draai = hoek + (haaks ? (Math.random() < 0.75 ? 0 : Math.PI) : Math.random() < 0.5 ? Math.PI : 0) + tussen(-0.05, 0.05);
     wereld.geparkeerd.push(parkeer(x + tussen(-0.15, 0.15), z + tussen(-0.15, 0.15), draai, haaks));
   }
   // vaste auto's op vaste plekken (per level), langs de stoep met de neus in de rijrichting
   for (const [x, z, hoek, haaks, soort, kleur] of d.vasteAutos ?? []) wereld.geparkeerd.push(parkeer(x, z, hoek, haaks, soort, kleur));
-  zetGeparkeerd(wereld.geparkeerd, scene);
+  const autosBij = zetGeparkeerd(wereld.geparkeerd, scene);
+  // De wereld schuift met je mee: de scherpe grond (170 m) en de getekende auto's liggen rond het punt waar je bent.
+  let ac = null, gc = [0, 0];
+  wereld.bij = (x, z, direct = false) => {
+    if (!ac || Math.hypot(x - ac[0], z - ac[1]) > 20) { ac = [x, z]; autosBij(x, z); }
+    if (Math.hypot(x - gc[0], z - gc[1]) > (direct ? 1 : 45)) {
+      gc = [x, z];
+      const oud = wereld.grond.material.map;
+      wereld.grond.material.map = tekenGrond(d, gc, 170, 2048);
+      wereld.grond.position.set(x, 0, z);
+      oud.dispose();
+    }
+  };
+  wereld.bij(0, 0);
   return wereld;
 }
 
 /** Fietsen in de rekken (stilstaand, wel raakbaar). */
 export function zetFietsenInRekken(wereld, scene, voegToe) {
   for (const r of wereld.rekken) {
+    if (Math.hypot(r.x, r.z) > 170) continue; // fietsen in rekken alleen rond het level zelf (ze worden samengevoegd tot één vorm)
     const hoek = Math.random() * Math.PI;
     const dx = Math.cos(hoek), dz = Math.sin(hoek);
     for (let i = 0; i < r.n; i++) {

@@ -108,23 +108,41 @@ function voegSamen(delen) {
   return uit;
 }
 
-/** Tekent alle geparkeerde auto's: per model en per materiaal één InstancedMesh; dichtbij het hele model, ver weg het lichte. */
-export function zetGeparkeerd(plekken, scene, grensVer = 55) {
+/**
+ * Tekent de geparkeerde auto's: per model en per materiaal één InstancedMesh voor dichtbij (het hele model) en één voor
+ * verder weg (het lichte model). Geeft een functie terug die bepaalt welke auto's getekend worden rond een punt:
+ * je kunt door de hele wijk lopen, maar alleen de auto's in de buurt kosten tekenwerk.
+ */
+export function zetGeparkeerd(plekken, scene, grensDicht = 50, grensVer = 115) {
+  const groepen = [];
   for (const naam of Object.keys(M)) {
     const a = M[naam];
     const alle = plekken.filter((p) => p.userData.soort === naam);
+    if (!alle.length) continue;
+    for (const p of alle) p.updateMatrix();
     const wielDelen = Object.values(a.wielen).flatMap((w) => w.delen.map((d) => ({ ...d, m: new THREE.Matrix4().makeTranslation(w.pos.x, w.pos.y, w.pos.z).multiply(d.m) })));
-    for (const [lijst, delen] of [[alle.filter((p) => Math.hypot(p.position.x, p.position.z) <= grensVer), [...a.romp, ...wielDelen]], [alle.filter((p) => Math.hypot(p.position.x, p.position.z) > grensVer), a.ver]]) {
-      if (!lijst.length) continue;
-      for (const { geo, mat } of voegSamen(delen)) {
-        const im = new THREE.InstancedMesh(geo, mat, lijst.length);
-        const k = new THREE.Color();
-        lijst.forEach((p, i) => { p.updateMatrix(); im.setMatrixAt(i, p.matrix); if (mat === a.lak) im.setColorAt(i, k.set(p.userData.kleur)); });
-        im.castShadow = mat === a.lak; im.receiveShadow = true;
-        if (mat === MAT.glas || mat === GLAS_DONKER) im.renderOrder = 2;
-        im.frustumCulled = false;
-        scene.add(im);
-      }
-    }
+    const maak = (delen) => voegSamen(delen).map(({ geo, mat }) => {
+      const im = new THREE.InstancedMesh(geo, mat, alle.length);
+      if (mat === a.lak) im.setColorAt(0, new THREE.Color("#fff")); // maakt de kleurlaag aan
+      im.castShadow = mat === a.lak; im.receiveShadow = true;
+      if (mat === MAT.glas || mat === GLAS_DONKER) im.renderOrder = 2;
+      im.frustumCulled = false; im.count = 0;
+      scene.add(im);
+      return { im, lak: mat === a.lak };
+    });
+    groepen.push({ alle, dicht: maak([...a.romp, ...wielDelen]), ver: maak(a.ver) });
   }
+  const k = new THREE.Color();
+  return (cx, cz) => {
+    for (const g of groepen) {
+      let nd = 0, nv = 0;
+      for (const p of g.alle) {
+        const d = Math.hypot(p.position.x - cx, p.position.z - cz);
+        if (d > grensVer) continue;
+        const [lijst, i] = d <= grensDicht ? [g.dicht, nd++] : [g.ver, nv++];
+        for (const { im, lak } of lijst) { im.setMatrixAt(i, p.matrix); if (lak) im.setColorAt(i, k.set(p.userData.kleur)); }
+      }
+      for (const [lijst, n] of [[g.dicht, nd], [g.ver, nv]]) for (const { im } of lijst) { im.count = n; im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; }
+    }
+  };
 }
