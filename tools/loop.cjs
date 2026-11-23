@@ -29,11 +29,21 @@ const TYPE = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/jav
   console.log("op straat", await S());
   await page.screenshot({ path: `${UIT}/1-straat.png` });
   // stick naar voren houden
-  const r = await page.evaluate(() => { const v = document.querySelector("#stick").getBoundingClientRect(); return { x: v.x + v.width / 2, y: v.y + v.height / 2, R: v.width / 2 }; });
+  const r = { x: 150, y: 280, R: 56 }; // ergens links op het scherm: daar verschijnt de stuurknuppel
   const cdp = await page.context().newCDPSession(page);
-  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: r.x, y: r.y }] });
-  await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: r.x, y: r.y - r.R * 0.95 }] });
-  await page.waitForTimeout(6000);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: r.x, y: r.y, id: 1 }] });
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: r.x, y: r.y - r.R * 0.95, id: 1 }] });
+  await page.waitForTimeout(4000);
+  // tweede vinger op de actieknop terwijl je loopt: schieten met het pistool
+  const vu = await page.evaluate(() => { const v = document.querySelector("#vuur").getBoundingClientRect(); return { x: v.x + v.width / 2, y: v.y + v.height / 2 }; });
+  const k0 = await page.evaluate(() => window.__spel.spel.kogels);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: r.x, y: r.y - r.R * 0.95, id: 1 }, { x: vu.x, y: vu.y, id: 2 }] });
+  await page.waitForTimeout(400);
+  // de tweede vinger weer los (de eerste blijft liggen)
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: r.x, y: r.y - r.R * 0.95, id: 1 }] });
+  await page.waitForTimeout(2500);
+  await page.screenshot({ path: `${UIT}/2b-pistool.png` });
+  console.log("schieten tijdens het lopen:", await page.evaluate((k0) => `kogels ${k0} -> ${window.__spel.spel.kogels}, stick nog vast: ${window.__spel.loop.stick.y.toFixed(2)}`, k0));
   console.log("na lopen", await S());
   await page.screenshot({ path: `${UIT}/2-lopen.png` });
   await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
@@ -46,7 +56,9 @@ const TYPE = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/jav
     zet(); window.__iv = setInterval(zet, 30);
   });
   await page.waitForTimeout(2500);
-  await page.tap("#slaan");
+  await page.tap("#wapen"); // pistool -> vuisten
+  console.log("wapen:", await page.evaluate(() => window.__spel.loop.wapen));
+  await page.tap("#vuur");
   await page.waitForFunction(() => window.__spel.spel.geraakt > 0, null, { timeout: 120000 }).then(() => console.log("fatbiker van zijn fiets geslagen")).catch(() => console.log("slaan MISLUKT"));
   await page.evaluate(() => clearInterval(window.__iv));
   await page.waitForTimeout(1500);
@@ -66,6 +78,23 @@ const TYPE = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/jav
   await page.waitForTimeout(6000);
   await page.screenshot({ path: `${UIT}/4b-neer.png` });
   await page.waitForFunction(() => window.__spel.loop.neer <= 0, null, { timeout: 300000 }).then(() => console.log("weer opgestaan")).catch(() => console.log("NIET opgestaan"));
+  // mes: band lek steken
+  await page.tap("#wapen");
+  console.log("wapen:", await page.evaluate(() => window.__spel.loop.wapen));
+  const g0 = await page.evaluate(() => {
+    const s = window.__spel, l = s.loop, f = s.reizigers.find((r) => r.fat && r.toestand === "rijden");
+    const fx = Math.sin(s.kijk.yaw), fz = Math.cos(s.kijk.yaw);
+    f.wacht = 1e9; f.vlucht = 0; f.schrikken = () => {}; f.vrij = null;
+    const zet = () => { if (f.toestand === "rijden") { f.pos.set(l.pos.x + fx * 1.6, 0, l.pos.z + fz * 1.6); f.pad.copy(f.pos); } };
+    zet(); window.__iv = setInterval(zet, 30);
+    return s.spel.geraakt;
+  });
+  await page.waitForTimeout(2500);
+  await page.tap("#vuur");
+  await page.waitForFunction((g0) => window.__spel.spel.geraakt > g0, g0, { timeout: 120000 }).then(() => console.log("band lek gestoken")).catch(() => console.log("mes MISLUKT"));
+  console.log("laatste treffer:", await page.evaluate(() => JSON.stringify(window.__spel.spel.laatste ?? null)));
+  await page.evaluate(() => clearInterval(window.__iv));
+  await page.screenshot({ path: `${UIT}/4c-mes.png` });
   console.log("eind", await S());
   await page.tap("#loopKnop");
   await page.waitForFunction(() => !window.__spel.loop.aan, null, { timeout: 30000 });

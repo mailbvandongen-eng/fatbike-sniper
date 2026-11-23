@@ -356,6 +356,61 @@ function kaleBoom() {
   return plak(bak);
 }
 
+// ---------- structuur op de grond: klinkers op straat, tegels op de stoep ----------
+// De grondtekening is te grof voor losse stenen (8 cm per beeldpunt). Daarom een klein, herhalend patroon dat de
+// kleur van de grond per steen iets lichter of donkerder maakt: R = klinkers (21 x 10,5 cm, halfsteens), G = stoeptegels
+// (30 x 30 cm), B = grove vlekken. De shader kiest op de kleur van de grond: gras en asfalt krijgen geen stenen.
+let steenKaart = null;
+function maakSteenKaart() {
+  const N = 256, c = document.createElement("canvas"); c.width = c.height = N;
+  const x = c.getContext("2d"), im = x.createImageData(N, N), D = im.data;
+  const rnd = (i, j, k) => { const v = Math.sin(i * 127.1 + j * 311.7 + k * 74.7) * 43758.5453; return v - Math.floor(v); };
+  // grove vlekken: 16 x 16 willekeurige waarden, vloeiend ertussen (herhalend)
+  const vlek = (u, v) => {
+    const fu = u * 16, fv = v * 16, i = Math.floor(fu), j = Math.floor(fv), a = fu - i, b = fv - j, s = (t) => t * t * (3 - 2 * t);
+    const g = (p, q) => rnd(((p % 16) + 16) % 16, ((q % 16) + 16) % 16, 3);
+    return (g(i, j) * (1 - s(a)) + g(i + 1, j) * s(a)) * (1 - s(b)) + (g(i, j + 1) * (1 - s(a)) + g(i + 1, j + 1) * s(a)) * s(b);
+  };
+  for (let py = 0; py < N; py++) for (let px = 0; px < N; px++) {
+    // klinkers: 4 stenen breed, 8 rijen hoog, om en om een halve steen verschoven
+    const rij = Math.floor(py / 32), sx = (px + (rij % 2) * 32) % N, kol = Math.floor(sx / 64);
+    const voeg = sx % 64 < 2 || py % 32 < 2;
+    const steen = voeg ? 0.3 : 0.4 + 0.2 * rnd(kol, rij, 1) + 0.03 * rnd(px, py, 5);
+    // tegels: 3 x 3
+    const T = N / 3, tv = px % T < 1.6 || py % T < 1.6;
+    const tegel = tv ? 0.36 : 0.46 + 0.08 * rnd(Math.floor(px / T), Math.floor(py / T), 2) + 0.02 * rnd(px, py, 6);
+    const o = (py * N + px) * 4;
+    D[o] = steen * 255; D[o + 1] = tegel * 255; D[o + 2] = vlek(px / N, py / N) * 255; D[o + 3] = 255;
+  }
+  x.putImageData(im, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.NoColorSpace; t.anisotropy = 8;
+  return t;
+}
+function steenPatroon(mat) {
+  steenKaart ??= maakSteenKaart();
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.steenKaart = { value: steenKaart };
+    sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nvarying vec2 vGrondXZ;")
+      .replace("#include <begin_vertex>", "#include <begin_vertex>\nvGrondXZ = (modelMatrix * vec4(transformed, 1.0)).xz;");
+    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nuniform sampler2D steenKaart;\nvarying vec2 vGrondXZ;")
+      .replace("#include <map_fragment>", `#include <map_fragment>
+      {
+        vec3 g0 = diffuseColor.rgb; float mx = max(g0.r, max(g0.g, g0.b)); float lum = dot(g0, vec3(0.3, 0.59, 0.11));
+        float gras = step(g0.b * 1.25, g0.g) * step(g0.r * 0.86, g0.g);
+        float asfalt = 1.0 - smoothstep(0.085, 0.105, mx);
+        float rood = smoothstep(0.6, 0.75, (g0.r - g0.g) / max(g0.r, 0.001));
+        float steen = texture2D(steenKaart, vGrondXZ / 0.84).r;
+        float tegel = texture2D(steenKaart, vGrondXZ / 0.9).g;
+        float vlek = texture2D(steenKaart, vGrondXZ / 11.0).b;
+        float d = mix(steen, tegel, smoothstep(0.3, 0.4, lum));
+        float s = (1.0 - gras) * (1.0 - asfalt) * (1.0 - rood);
+        diffuseColor.rgb *= mix(1.0, d * 2.0, s) * (0.84 + 0.32 * vlek);
+      }`);
+  };
+  return mat;
+}
+
 export function bouwWereld(d, scene) {
   const wereld = { botsers: [], statisch: [], gevels: [] };
   // gebouwen
@@ -385,7 +440,7 @@ export function bouwWereld(d, scene) {
     const t = tekenGrond(d, [0, 0], maat, px);
     const g = new THREE.PlaneGeometry(maat, maat);
     g.rotateX(-Math.PI / 2);
-    const mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: t, roughness: 0.95, polygonOffset: y === 0, polygonOffsetFactor: -1 }));
+    const mesh = new THREE.Mesh(g, steenPatroon(new THREE.MeshStandardMaterial({ map: t, roughness: 0.95, polygonOffset: y === 0, polygonOffsetFactor: -1 })));
     mesh.position.y = y;
     mesh.receiveShadow = true;
     scene.add(mesh);

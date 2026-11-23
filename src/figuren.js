@@ -552,3 +552,30 @@ export function maakKar() {
   k.userData.stang = 0.31;
   return k;
 }
+
+/** Pistool, loop langs +z, greep bij de oorsprong. */
+export function maakPistool() {
+  const bak = [];
+  blok(bak, 0.03, 0.045, 0.19, V(0, 0.045, 0.06), "#202124");   // slede
+  blok(bak, 0.028, 0.03, 0.15, V(0, 0.012, 0.05), "#2c2d31");  // kast
+  blok(bak, 0.03, 0.11, 0.045, V(0, -0.045, -0.01), "#17181a", [0.25, 0, 0]); // greep
+  blok(bak, 0.008, 0.03, 0.05, V(0, -0.012, 0.045), "#17181a"); // trekkerbeugel
+  const m = new THREE.Mesh(plak(bak), MAT.voertuig);
+  m.castShadow = true;
+  return m;
+}
+/** Mes, lemmet langs +z, heft bij de oorsprong. */
+export function maakMes() {
+  const bak = [];
+  blok(bak, 0.026, 0.03, 0.11, V(0, 0, -0.02), "#2a2018");                    // heft
+  blok(bak, 0.045, 0.012, 0.012, V(0, 0, 0.04), "#6d7075");                   // stootplaat
+  const lem = new THREE.BufferGeometry();                                      // plat, puntig lemmet
+  const p = [[0, 0.016, 0.045], [0, -0.016, 0.045], [0, -0.012, 0.19], [0, 0.004, 0.23], [0, 0.016, 0.16]];
+  const tri = [[0, 1, 2], [0, 2, 4], [4, 2, 3]], pos = [];
+  for (const d of [0.004, -0.004]) for (const t of tri) for (const i of (d > 0 ? t : [...t].reverse())) pos.push(d, p[i][1], p[i][2]);
+  lem.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); lem.computeVertexNormals();
+  stuk(bak, lem, "#c9ccd1");
+  const m = new THREE.Mesh(plak(bak), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.3, metalness: 0.7, side: THREE.DoubleSide }));
+  m.castShadow = true;
+  return m;
+}

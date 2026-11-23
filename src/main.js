@@ -2,7 +2,7 @@
 import * as THREE from "three";
 import { bouwWereld, zetFietsenInRekken, bevries } from "./wereld.js";
 import { Graaf, Voetganger, Fietser, Auto, Boodschapper, Staander } from "./verkeer.js";
-import { kies, tussen, maakGeweer, MAT, laadFietsen } from "./figuren.js";
+import { kies, tussen, maakGeweer, maakPistool, maakMes, MAT, laadFietsen } from "./figuren.js";
 import { laadMensen, maakMens } from "./mensen.js";
 import { laadAutos } from "./autos.js";
 import { Effecten } from "./effecten.js";
@@ -117,10 +117,15 @@ async function laad() {
   await Promise.all([laadMensen((v) => $("#laden").style.setProperty("--v", v)), laadFietsen(), laadAutos((data.vasteAutos ?? []).map((a) => a[4]))]);
   wereld = bouwWereld(data, scene);
   graaf = new Graaf(data.graaf);
+  blokken = data.voetafdrukken.map((v) => ({ r: v.ring, x0: Math.min(...v.ring.map((p) => p[0])), x1: Math.max(...v.ring.map((p) => p[0])), z0: Math.min(...v.ring.map((p) => p[1])), z1: Math.max(...v.ring.map((p) => p[1])) }));
+  graaf.blok = inGebouw; // niemand rijdt of loopt door een muur
   // jij: de schutter met het geweer
   schutter = maakMens("schutter");
   geweer = maakGeweer();
   scene.add(geweer); // los in de wereld: elk beeld tegen de schouder gelegd, in de kijkrichting
+  pistool = maakPistool(); mes = maakMes(); pistool.visible = mes.visible = false;
+  scene.add(pistool, mes);
+  zetWapen("pistool");
   scene.add(schutter.object);
   // ▲▼ gaan van laag naar hoog: eerst de plekken op de grond, dan de verdiepingen
   standen = data.standplaatsen.map((st, i) => ({ ...st, i })).sort((a, b) => a.pos[1] - b.pos[1]);
@@ -218,8 +223,17 @@ function wisselStand(richting) {
 }
 
 // ---------- lopen: de straat op, zonder kijker (derde persoon) ----------
-const loop = { aan: false, pos: new THREE.Vector3(), richting: 0, snelheid: 0, stick: { x: 0, y: 0 }, toets: {}, slag: 0, slagRaak: false, neer: 0, richt: 0 };
+const loop = { aan: false, pos: new THREE.Vector3(), richting: 0, snelheid: 0, stick: { x: 0, y: 0 }, toets: {}, slag: 0, slagRaak: false, neer: 0, richt: 0, wapen: "pistool", keek: 0 };
+const WAPENS = ["pistool", "vuist", "mes"];
 let blokken = null; // gebouwen (met omhullende rechthoek) waar je niet doorheen kunt
+let pistool = null, mes = null;
+function zetWapen(w) { loop.wapen = w; for (const el of document.querySelectorAll("#wapen svg")) el.style.display = el.dataset.w === w ? "" : "none"; }
+function volgendWapen() { zetWapen(WAPENS[(WAPENS.indexOf(loop.wapen) + 1) % WAPENS.length]); }
+/** De actieknop: bij je raam schieten met het geweer; lopend het wapen dat je in je hand hebt. */
+function actie() {
+  if (!loop.aan || loop.wapen === "pistool") return schiet();
+  sla(loop.wapen);
+}
 function zetLopen(aan) {
   if (wisselt() || filmCam || !spel.bezig) return;
   wisselTot = performance.now() + 1500;
@@ -235,7 +249,6 @@ function zetLopen(aan) {
       loop.pos.set(graaf.k[n][0], 0, graaf.k[n][1]);
       loop.richting = kijk.yaw; kijk.pitch = -0.12;
       Object.assign(loop, { slag: 0, neer: 0, richt: 0, snelheid: 0 });
-      blokken ??= data.voetafdrukken.map((v) => ({ r: v.ring, x0: Math.min(...v.ring.map((p) => p[0])), x1: Math.max(...v.ring.map((p) => p[0])), z0: Math.min(...v.ring.map((p) => p[1])), z1: Math.max(...v.ring.map((p) => p[1])) }));
     } else zetStand(standNr);
   }, 600);
   setTimeout(() => $("#wissel").classList.remove("aan"), 1300);
@@ -250,12 +263,25 @@ const inRing = (x, z, r) => {
 };
 const lok = new THREE.Vector3();
 /** Kun je hier niet staan? Gebouwen, muurtjes en geparkeerde auto's houden je tegen. */
+/** Staat dit punt in een gebouw (of binnen r meter van een gevel)? */
+function inGebouw(x, z, r = 0) {
+  for (const b of blokken) {
+    if (x < b.x0 - r || x > b.x1 + r || z < b.z0 - r || z > b.z1 + r) continue;
+    if (inRing(x, z, b.r)) return true;
+    if (r > 0) for (let i = 0, j = b.r.length - 1; i < b.r.length; j = i++) {
+      const [ax, az] = b.r[j], [bx, bz] = b.r[i], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz || 1;
+      const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / L2));
+      if ((x - ax - dx * t) ** 2 + (z - az - dz * t) ** 2 < r * r) return true;
+    }
+  }
+  return false;
+}
 function geblokkeerd(x, z) {
-  for (const b of blokken) if (x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1 && inRing(x, z, b.r)) return true;
+  if (inGebouw(x, z, 0.45)) return true; // je bent zelf ook breed: niet half de muur in
   for (const m of data.muurtjes ?? []) for (let i = 0; i < m.length - 1; i++) {
     const [a, b] = [m[i], m[i + 1]], dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz || 1;
     const t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / L2));
-    if (Math.hypot(x - a[0] - dx * t, z - a[1] - dz * t) < 0.35) return true;
+    if (Math.hypot(x - a[0] - dx * t, z - a[1] - dz * t) < 0.5) return true;
   }
   for (const st of stil) {
     if (st.soort !== "auto") continue;
@@ -276,11 +302,14 @@ function klapKrijgen() {
   melding("fout");
   $("#hud").classList.remove("schud"); void $("#hud").offsetWidth; $("#hud").classList.add("schud");
 }
-/** Uithalen: een fatbiker gaat van zijn fiets, een ander gaat ruzie met je maken. */
-function sla() {
+/** Uithalen met de vuist (fatbiker van zijn fiets, of ruzie) of met het mes (band lek steken). */
+function sla(soort = "vuist") {
   if (!loop.aan || loop.slag > 0 || loop.neer > 0) return;
-  loop.slag = 0.62; loop.slagRaak = false; loop.richting = kijk.yaw;
-  schutter.zet("stomp", 1.25, 0);
+  loop.slag = 0.62; loop.slagRaak = false; loop.slagSoort = soort;
+  // draai naar de dichtstbijzijnde fatbike binnen bereik, anders naar waar je kijkt
+  const doel = reizigers.filter((r) => r.fat && r.toestand === "rijden" && r.pos.distanceTo(loop.pos) < 3).sort((a, b) => a.pos.distanceTo(loop.pos) - b.pos.distanceTo(loop.pos))[0];
+  loop.richting = doel ? Math.atan2(doel.pos.x - loop.pos.x, doel.pos.z - loop.pos.z) : kijk.yaw;
+  schutter.zet(soort === "mes" ? "jab" : "stomp", 1.25, 0);
 }
 function stapLopen(dt) {
   const L = loop;
@@ -309,6 +338,9 @@ function stapLopen(dt) {
       else if (!geblokkeerd(L.pos.x, nz)) L.pos.z = nz;
       let d = Math.atan2(mx, mz) - L.richting; d = Math.atan2(Math.sin(d), Math.cos(d));
       L.richting += d * Math.min(1, dt * 10);
+      // de camera draait rustig achter je aan, tenzij je net zelf hebt rondgekeken of naar de camera toe loopt
+      let c = L.richting - kijk.yaw; c = Math.atan2(Math.sin(c), Math.cos(c));
+      if (performance.now() - L.keek > 900 && Math.abs(c) < 2.4) kijk.yaw += THREE.MathUtils.clamp(c, -1, 1) * 1.15 * dt;
       // tegen iemand oplopen geeft ruzie; soms krijg je een klap
       for (const r of reizigers) if (r.ruzie && Math.hypot(r.pos.x - L.pos.x, r.pos.z - L.pos.z) < 0.7) r.ruzie(L.pos, Math.random() < 0.35, klapKrijgen);
     }
@@ -316,17 +348,24 @@ function stapLopen(dt) {
       L.slag -= dt;
       if (L.slag < 0.36 && !L.slagRaak) {
         L.slagRaak = true;
+        const hx = Math.sin(L.richting), hz = Math.cos(L.richting);
         const voorJe = (r, bereik) => {
           const dx = r.pos.x - L.pos.x, dz = r.pos.z - L.pos.z, d = Math.hypot(dx, dz);
-          return d < bereik && (dx * fx + dz * fz) / (d || 1) > 0.3 ? d : Infinity;
+          return d < bereik && (dx * hx + dz * hz) / (d || 1) > 0.2 ? d : Infinity;
         };
-        const fat = reizigers.filter((r) => r.fat && r.toestand === "rijden").sort((a, b) => voorJe(a, 2.6) - voorJe(b, 2.6))[0];
-        const auto = reizigers.filter((r) => r.wordBoos).sort((a, b) => voorJe(a, 3.2) - voorJe(b, 3.2))[0];
-        if (fat && voorJe(fat, 2.6) < Infinity) fatbikeGeraakt(fat, "klap", fat.pos.clone().setY(1));
-        else if (auto && voorJe(auto, 3.2) < Infinity) { geluid.tik(1); auto.wordBoos(); } // tegen een auto slaan: de bestuurder pikt het niet
-        else {
-          const wie = reizigers.filter((r) => r.ruzie).sort((a, b) => voorJe(a, 1.7) - voorJe(b, 1.7))[0];
-          if (wie && voorJe(wie, 1.7) < Infinity) { geluid.tik(1); wie.ruzie(L.pos, Math.random() < 0.6, klapKrijgen, true); }
+        const dichtst = (lijst, bereik) => { const r = lijst.sort((a, b) => voorJe(a, bereik) - voorJe(b, bereik))[0]; return r && voorJe(r, bereik) < Infinity ? r : null; };
+        const fat = dichtst(reizigers.filter((r) => r.fat && r.toestand === "rijden"), 2.8);
+        if (L.slagSoort === "mes") {
+          // het mes is alleen voor banden: de dichtstbijzijnde band van een fatbike
+          if (fat) {
+            const w = fat.fiets.userData.wielen.map((x) => x.getWorldPosition(new THREE.Vector3())).sort((a, b) => a.distanceTo(L.pos) - b.distanceTo(L.pos))[0];
+            fatbikeGeraakt(fat, "band", w);
+          }
+        } else {
+          const auto = dichtst(reizigers.filter((r) => r.wordBoos), 3.2);
+          if (fat) fatbikeGeraakt(fat, "klap", fat.pos.clone().setY(1));
+          else if (auto) { geluid.tik(1); auto.wordBoos(); } // tegen een auto slaan: de bestuurder pikt het niet
+          else { const wie = dichtst(reizigers.filter((r) => r.ruzie), 1.8); if (wie) { geluid.tik(1); wie.ruzie(L.pos, Math.random() < 0.6, klapKrijgen, true); } }
         }
       }
     }
@@ -466,7 +505,23 @@ function schiet() {
   spel.kogels--; spel.schoten++;
   geluid.schot(); geluid.herladen();
   // de kogel vertrekt bij je ogen en gaat naar het punt waar het kruisje op staat
-  const d = richtPunt().sub(oog).normalize();
+  let doelPunt = richtPunt();
+  if (loop.aan) {
+    // lopend (zonder kijker) helpt het spel met mikken: staat het kruisje bijna op een fatbike, dan gaat het schot naar zijn band
+    const cd = richting();
+    let best = null;
+    for (const r of reizigers) {
+      if (!r.fat || r.toestand !== "rijden") continue;
+      for (const w of r.fiets.userData.wielen) {
+        const p = w.getWorldPosition(new THREE.Vector3()), naar = p.clone().sub(camera.position), afst = naar.length();
+        const hoek = Math.acos(THREE.MathUtils.clamp(naar.dot(cd) / afst, -1, 1));
+        if (afst < 70 && hoek < 0.11 && (!best || hoek < best.hoek)) best = { hoek, p };
+      }
+    }
+    if (best) doelPunt = best.p;
+    loop.richting = kijk.yaw;
+  }
+  const d = doelPunt.sub(oog).normalize();
   // de kijker is op NUL_AFSTAND m afgesteld: de kogel gaat iets omhoog zodat hij daar op de draad zit
   const tVal = NUL_AFSTAND / KOGEL_V;
   const v = d.clone().multiplyScalar(KOGEL_V);
@@ -734,76 +789,102 @@ function zetZoom(z) {
 function draai(dx, dy) {
   const k = (fov() * Math.PI) / 180 / innerHeight;
   kijk.yaw -= dx * k * 1.05; kijk.pitch -= dy * k * 1.05;
-  if (loop.aan) { kijk.pitch = THREE.MathUtils.clamp(kijk.pitch, -0.7, 0.45); return; } // lopend kijk je vrij rond
+  if (loop.aan) { kijk.pitch = THREE.MathUtils.clamp(kijk.pitch, -0.7, 0.45); loop.keek = performance.now(); return; } // lopend kijk je vrij rond
   let d = kijk.yaw - kijk.basisYaw; d = Math.atan2(Math.sin(d), Math.cos(d));
   kijk.yaw = kijk.basisYaw + THREE.MathUtils.clamp(d, -RICHT.yawMax, RICHT.yawMax);
   const soort = standen[standNr]?.soort;
   kijk.pitch = THREE.MathUtils.clamp(kijk.pitch, soort === "dak" ? -1.3 : soort === "grond" ? -0.4 : RICHT.pitchMin, RICHT.pitchMax);
 }
 const doek = renderer.domElement;
-doek.addEventListener("pointerdown", (e) => {
-  // de eerste vinger op het scherm: vergeet vingers waarvan we het loslaten gemist hebben
-  // (anders telt een nieuwe veeg als knijpen en kun je niet meer draaien)
-  if (e.isPrimary) { vingers.clear(); knijp = null; }
-  doek.setPointerCapture(e.pointerId);
-  vingers.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: performance.now() });
+/**
+ * Slepen op een element, met een vinger of de muis. Elke vinger wordt apart gevolgd (touch-events met hun eigen nummer),
+ * zodat lopen, kijken en schieten tegelijk kunnen. h = { start(p), beweeg(p), einde(p) } met p.clientX/clientY.
+ */
+function sleepbaar(el, h) {
+  let id = null;
+  el.addEventListener("touchstart", (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (id !== null && ![...e.touches].some((t) => t.identifier === id)) id = null; // loslaten gemist
+    if (id !== null) return;
+    const t = e.changedTouches[0]; id = t.identifier; h.start?.(t); h.beweeg?.(t);
+  }, { passive: false });
+  el.addEventListener("touchmove", (e) => { e.preventDefault(); for (const t of e.changedTouches) if (t.identifier === id) h.beweeg?.(t); }, { passive: false });
+  const eind = (e) => { for (const t of e.changedTouches) if (t.identifier === id) { id = null; h.einde?.(t); } };
+  el.addEventListener("touchend", eind); el.addEventListener("touchcancel", eind);
+  el.addEventListener("mousedown", (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault(); e.stopPropagation(); h.start?.(e); h.beweeg?.(e);
+    const mv = (m) => h.beweeg?.(m), up = (m) => { removeEventListener("mousemove", mv); removeEventListener("mouseup", up); h.einde?.(m); };
+    addEventListener("mousemove", mv); addEventListener("mouseup", up);
+  });
+}
+// kijken: vingers op het beeld zelf. Eén vinger = draaien, twee = knijpen om te zoomen.
+const sync = (e) => { for (const k of [...vingers.keys()]) if (![...e.touches].some((t) => t.identifier === k)) vingers.delete(k); if (vingers.size < 2) knijp = null; };
+doek.addEventListener("touchstart", (e) => {
+  e.preventDefault(); sync(e);
+  for (const t of e.changedTouches) vingers.set(t.identifier, { x: t.clientX, y: t.clientY });
   if (vingers.size === 2) { const [a, b] = [...vingers.values()]; knijp = { d: Math.hypot(a.x - b.x, a.y - b.y), z: kijk.zoom }; }
-  if (e.pointerType === "mouse" && e.button === 2) zetZoom(kijk.zoom > 1.5 ? 1 : kijk.scoopZoom);
+}, { passive: false });
+doek.addEventListener("touchmove", (e) => {
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    const v = vingers.get(t.identifier);
+    if (!v) continue;
+    const dx = t.clientX - v.x, dy = t.clientY - v.y;
+    v.x = t.clientX; v.y = t.clientY;
+    if (vingers.size === 2 && knijp) { const [a, b] = [...vingers.values()]; zetZoom(knijp.z * (Math.hypot(a.x - b.x, a.y - b.y) / knijp.d)); }
+    else if (vingers.size === 1) draai(dx, dy);
+  }
+}, { passive: false });
+for (const n of ["touchend", "touchcancel"]) doek.addEventListener(n, (e) => { for (const t of e.changedTouches) vingers.delete(t.identifier); if (vingers.size < 2) knijp = null; });
+// muis: slepen = kijken, korte klik = actie, rechtsklik = kijker
+let muis = null;
+doek.addEventListener("mousedown", (e) => {
+  if (e.button === 2) return zetZoom(kijk.zoom > 1.5 ? 1 : kijk.scoopZoom);
+  muis = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: performance.now() };
 });
-doek.addEventListener("pointermove", (e) => {
-  const v = vingers.get(e.pointerId);
-  if (!v) return;
-  const dx = e.clientX - v.x, dy = e.clientY - v.y;
-  v.x = e.clientX; v.y = e.clientY;
-  if (vingers.size === 2 && knijp) {
-    const [a, b] = [...vingers.values()];
-    zetZoom(knijp.z * (Math.hypot(a.x - b.x, a.y - b.y) / knijp.d));
-  } else if (vingers.size === 1) draai(dx, dy);
+addEventListener("mousemove", (e) => { if (!muis) return; draai(e.clientX - muis.x, e.clientY - muis.y); muis.x = e.clientX; muis.y = e.clientY; });
+addEventListener("mouseup", (e) => {
+  if (muis && e.button === 0 && Math.hypot(e.clientX - muis.sx, e.clientY - muis.sy) < 5 && performance.now() - muis.t < 400) actie();
+  muis = null;
 });
-const los = (e) => {
-  const v = vingers.get(e.pointerId);
-  vingers.delete(e.pointerId);
-  if (vingers.size < 2) knijp = null;
-  // muis: korte klik zonder slepen = schieten
-  if (v && e.pointerType === "mouse" && e.button === 0 && Math.hypot(e.clientX - v.sx, e.clientY - v.sy) < 5 && performance.now() - v.t < 400) schiet();
-};
-doek.addEventListener("pointerup", los);
-doek.addEventListener("pointercancel", los);
-doek.addEventListener("lostpointercapture", los);
 doek.addEventListener("contextmenu", (e) => e.preventDefault());
 addEventListener("wheel", (e) => { zetZoom(kijk.zoom * Math.exp(-e.deltaY * 0.0015)); }, { passive: true });
 addEventListener("keydown", (e) => {
-  if (e.code === "Space") schiet();
-  if (e.code === "KeyF" || e.code === "Enter") schiet();
+  if (e.repeat) return;
+  loop.toets[e.code] = true;
+  if (e.code === "Space" || e.code === "KeyF" || e.code === "Enter") actie();
   if (e.code === "KeyQ") zetZoom(kijk.zoom > 1.5 ? 1 : kijk.scoopZoom);
+  if (e.code === "KeyG") zetLopen(!loop.aan);
+  if (e.code === "Tab" || e.code === "KeyR") { e.preventDefault(); volgendWapen(); }
+  const nr = ["Digit1", "Digit2", "Digit3"].indexOf(e.code);
+  if (nr >= 0) zetWapen(WAPENS[nr]);
 });
+addEventListener("keyup", (e) => { loop.toets[e.code] = false; });
 const knop = (sel, neer, op) => {
   const el = $(sel);
-  el.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); el.classList.add("in"); neer?.(); });
-  const uit = (e) => { el.classList.remove("in"); op?.(); };
-  el.addEventListener("pointerup", uit); el.addEventListener("pointercancel", uit); el.addEventListener("pointerleave", uit);
+  sleepbaar(el, { start: () => { el.classList.add("in"); neer?.(); }, einde: () => { el.classList.remove("in"); op?.(); } });
 };
-knop("#vuur", schiet);
+knop("#vuur", () => actie());
 knop("#hoger", () => wisselStand(1));
 knop("#loopKnop", () => zetLopen(!loop.aan));
-knop("#slaan", sla);
-// stuurknuppel links: slepen vanaf het midden
+knop("#wapen", () => volgendWapen());
+// stuurknuppel: verschijnt waar je links je duim neerzet (zoals bij GTA op de telefoon)
 {
-  const st = $("#stick"), duim = $("#stickDuim");
-  const zet = (e) => {
-    const r = st.getBoundingClientRect(), R = r.width / 2;
-    let x = (e.clientX - r.left - R) / R, y = -(e.clientY - r.top - R) / R;
-    const l = Math.hypot(x, y); if (l > 1) { x /= l; y /= l; }
-    loop.stick.x = x; loop.stick.y = y;
-    duim.style.transform = `translate(${x * R * 0.6}px, ${-y * R * 0.6}px)`;
-  };
-  const los = () => { delete st.dataset.vast; loop.stick.x = loop.stick.y = 0; duim.style.transform = ""; };
-  st.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); st.setPointerCapture(e.pointerId); st.dataset.vast = "1"; zet(e); });
-  st.addEventListener("pointermove", (e) => { if (st.dataset.vast) zet(e); });
-  for (const n of ["pointerup", "pointercancel", "lostpointercapture"]) st.addEventListener(n, los);
+  const vlak = $("#loopVlak"), st = $("#stick"), duim = $("#stickDuim"), R = 56;
+  let o = null;
+  sleepbaar(vlak, {
+    start: (p) => { o = { x: p.clientX, y: p.clientY }; st.style.left = `${o.x - R}px`; st.style.top = `${o.y - R}px`; st.style.bottom = "auto"; st.classList.add("vast"); },
+    beweeg: (p) => {
+      if (!o) return;
+      let x = (p.clientX - o.x) / R, y = -(p.clientY - o.y) / R;
+      const l = Math.hypot(x, y); if (l > 1) { x /= l; y /= l; }
+      loop.stick.x = x; loop.stick.y = y;
+      duim.style.transform = `translate(${x * R * 0.7}px, ${-y * R * 0.7}px)`;
+    },
+    einde: () => { o = null; loop.stick.x = loop.stick.y = 0; duim.style.transform = ""; st.classList.remove("vast"); st.style.left = st.style.top = st.style.bottom = ""; },
+  });
 }
-addEventListener("keydown", (e) => { loop.toets[e.code] = true; if (e.code === "KeyG") zetLopen(!loop.aan); if (e.code === "KeyV") sla(); });
-addEventListener("keyup", (e) => { loop.toets[e.code] = false; });
 knop("#lager", () => wisselStand(-1));
 addEventListener("keydown", (e) => { if (e.code === "PageUp" || e.code === "KeyE") wisselStand(1); if (e.code === "PageDown" || e.code === "KeyC") wisselStand(-1); });
 // schuif: onderste 8% = gewoon kijken, daarboven 2× tot 40×, logaritmisch (fijn bij weinig zoom)
@@ -813,14 +894,10 @@ function zoomNaarSchuif(z) { return z < 1.5 ? 0 : ONDER + ((1000 - ONDER) * Math
 // eigen verticale schuif: de plek van je vinger in het vak bepaalt de zoom
 {
   const vak = $("#zoom");
-  const zet = (e) => {
+  sleepbaar(vak, { beweeg: (e) => {
     const r = vak.getBoundingClientRect();
-    const p = THREE.MathUtils.clamp(1 - (e.clientY - r.top - 18) / Math.max(1, r.height - 36), 0, 1);
-    zetZoom(schuifNaarZoom(p * 1000));
-  };
-  vak.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); vak.setPointerCapture(e.pointerId); vak.dataset.vast = "1"; zet(e); });
-  vak.addEventListener("pointermove", (e) => { if (vak.dataset.vast) zet(e); });
-  for (const n of ["pointerup", "pointercancel", "lostpointercapture"]) vak.addEventListener(n, () => delete vak.dataset.vast);
+    zetZoom(schuifNaarZoom(THREE.MathUtils.clamp(1 - (e.clientY - r.top - 18) / Math.max(1, r.height - 36), 0, 1) * 1000));
+  } });
 }
 $("#begin").addEventListener("click", begin);
 // level kiezen: een ander level laadt een andere wereld, dus de pagina opnieuw
@@ -987,18 +1064,26 @@ function lus() {
     schutter.mixer.update(echt);
     schutter.object.updateMatrixWorld(true);
     schutter.object.visible = true;
-    geweer.visible = L.neer <= 0 && L.slag <= 0;
-    if (geweer.visible) {
-      const fx = Math.sin(kijkt), fz = Math.cos(kijkt), links = new THREE.Vector3(fz, 0, -fx);
-      const pitch = richtend ? kijk.pitch : -0.5;
-      const dir = new THREE.Vector3(fx * Math.cos(pitch), Math.sin(pitch), fz * Math.cos(pitch));
-      const schouder = schutter.plek("DEF-upper_armR");
-      geweer.position.copy(schouder).addScaledVector(links, 0.07).addScaledVector(dir, richtend ? -0.1 : 0.02).add(new THREE.Vector3(0, richtend ? 0.03 : -0.12, 0));
-      geweer.rotation.set(-pitch, kijkt, 0, "YXZ");
-      geweer.updateMatrixWorld(true);
-      const omlaag = new THREE.Vector3(0, -1, 0);
-      schutter.arm("R", geweer.localToWorld(new THREE.Vector3(0, -0.06, 0.2)), omlaag.clone().addScaledVector(links, -0.6));
-      schutter.arm("L", geweer.localToWorld(new THREE.Vector3(0, -0.04, 0.58)), omlaag.clone().addScaledVector(links, 0.4));
+    // het geweer blijft bij het raam; in je hand heb je het pistool of het mes (of niets: vuisten)
+    geweer.visible = false;
+    const ding = L.neer > 0 ? null : L.wapen === "pistool" ? pistool : L.wapen === "mes" ? mes : null;
+    pistool.visible = ding === pistool; mes.visible = ding === mes;
+    if (ding) {
+      const fx = Math.sin(kijkt), fz = Math.cos(kijkt);
+      if (ding === pistool && richtend) {
+        // arm gestrekt naar waar je mikt
+        const dir = new THREE.Vector3(fx * Math.cos(kijk.pitch), Math.sin(kijk.pitch), fz * Math.cos(kijk.pitch));
+        const schouder = schutter.plek("DEF-upper_armR");
+        schutter.arm("R", schouder.clone().addScaledVector(dir, 0.56), new THREE.Vector3(0, -1, 0).addScaledVector(new THREE.Vector3(fz, 0, -fx), -0.5));
+        ding.position.copy(schutter.plek("DEF-handR")).addScaledVector(dir, 0.06);
+        ding.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
+      } else {
+        // in de hand, in het verlengde van je onderarm
+        const hand = schutter.plek("DEF-handR"), elleboog = schutter.plek("DEF-forearmR");
+        const langs = hand.clone().sub(elleboog).normalize();
+        ding.position.copy(hand).addScaledVector(langs, 0.07);
+        ding.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), langs);
+      }
     }
     // camera achter je, iets over de rechterschouder; niet door muren heen
     const cy = Math.sin(kijk.yaw), cz = Math.cos(kijk.yaw), cp = Math.cos(kijk.pitch);
@@ -1031,6 +1116,7 @@ function lus() {
     schutter.arm("R", geweer.localToWorld(new THREE.Vector3(0, -0.06, 0.2)), omlaag.clone().addScaledVector(links, -0.6));
     schutter.arm("L", geweer.localToWorld(new THREE.Vector3(0, -0.04, 0.58)), omlaag.clone().addScaledVector(links, 0.4));
     schutter.object.visible = geweer.visible = !scoop;
+    pistool.visible = mes.visible = false;
     if (scoop) camera.position.copy(oog);
     else {
       // over de schouder: per plek een andere afstand en hoogte (op het dak hoger, anders zie je alleen grind)
@@ -1048,4 +1134,4 @@ function lus() {
 }
 zetZoom(1);
 laad().then(() => requestAnimationFrame(lus)).catch((e) => { $("#laden").textContent = "Laden mislukt: " + e.message; console.error(e); });
-window.__spel = { spel, reizigers, stil, kijk, camera, oog, loop, zetLopen, sla, klapKrijgen, vallers, schiet, begin, zetZoom, draai, scene, renderer, stand: () => standen[standNr]?.naam };
+window.__spel = { spel, reizigers, stil, kijk, camera, oog, loop, zetLopen, sla, actie, zetWapen, klapKrijgen, vallers, schiet, begin, zetZoom, draai, scene, renderer, stand: () => standen[standNr]?.naam };

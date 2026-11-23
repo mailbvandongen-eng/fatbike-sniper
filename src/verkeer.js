@@ -89,6 +89,8 @@ class Reiziger {
     // rechts houden (vanuit de rijrichting gezien), naar de breedte van de weg
     const off = this.zij(this.breed);
     this.pad.set(a[0] + dx * this.t - (dz / l) * off, 0, a[1] + dz * this.t + (dx / l) * off);
+    // niet tegen of in een gevel: dan over het midden van het pad
+    if (off && this.g.blok?.(this.pad.x, this.pad.z, 0.3)) this.pad.set(a[0] + dx * this.t, 0, a[1] + dz * this.t);
     this.richtingDoel = Math.atan2(dx, dz);
     if (direct) { this.pos.copy(this.pad); this.richting = this.richtingDoel; }
     this.lengte = l;
@@ -117,6 +119,8 @@ class Reiziger {
     const k = 1 - Math.exp(-dt / this.traag);
     const ox = this.pos.x, oz = this.pos.z;
     this.pos.lerp(this.pad, k);
+    // een afgesneden bocht mag niet door een muur gaan: dan recht het routepunt achterna
+    if (this.g.blok?.(this.pos.x, this.pos.z, 0.2) && !this.g.blok(this.pad.x, this.pad.z)) this.pos.set(ox, 0, oz).lerp(this.pad, Math.min(1, k * 4));
     const mx = this.pos.x - ox, mz = this.pos.z - oz;
     const oud = this.richting;
     if (mx * mx + mz * mz > 1e-6) {
@@ -395,8 +399,15 @@ export class Fietser extends Reiziger {
     else {
       if (!this.doel || Math.hypot(this.doel[0] - this.pad.x, this.doel[1] - this.pad.z) < 1) {
         // een nieuw punt, liefst ergens anders heen (niet terug)
+        // niet te dichtbij, en de rechte lijn ernaartoe mag niet door een gebouw gaan
+        const vrijeLijn = (q) => {
+          const dx = q[0] - this.pad.x, dz = q[1] - this.pad.z, d = Math.hypot(dx, dz);
+          for (let t = 1.5; t < d; t += 1.5) if (this.g.blok?.(this.pad.x + (dx / d) * t, this.pad.z + (dz / d) * t, 0.6)) return false;
+          return true;
+        };
         let p, i = 0;
-        do p = kies(this.vrij); while (++i < 8 && Math.hypot(p[0] - this.pad.x, p[1] - this.pad.z) < 15);
+        do p = kies(this.vrij); while (++i < 14 && (Math.hypot(p[0] - this.pad.x, p[1] - this.pad.z) < 15 || !vrijeLijn(p)));
+        if (!vrijeLijn(p)) { this.wacht = 0.5; return this.glad(dt); } // geen vrije lijn gevonden: even wachten
         this.doel = p;
         if (Math.random() < 0.15) this.wacht = tussen(2, 7); // even stoppen voor de telefoon
       }

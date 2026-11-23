@@ -319,6 +319,8 @@ for (const g of gangen) for (let i = 0; i < g.p.length - 1; i++) {
 // Bits: 1 = auto, 2 = fiets, 4 = voetganger, 8 = fatbike
 const AUTO = new Set(["secondary", "tertiary", "residential", "unclassified", "service", "living_street"]);
 const graafKnoop = new Map(), knopen = [], kanten = [];
+const pandBox = voetafdrukken.map((v) => ({ r: v.ring, x0: Math.min(...v.ring.map((p) => p[0])), x1: Math.max(...v.ring.map((p) => p[0])), z0: Math.min(...v.ring.map((p) => p[1])), z1: Math.max(...v.ring.map((p) => p[1])) }));
+const inPand = (p) => pandBox.some((b) => p[0] > b.x0 && p[0] < b.x1 && p[1] > b.z0 && p[1] < b.z1 && binnen(p, b.r));
 const kIdx = (nid) => {
   if (!graafKnoop.has(nid)) { const n = knoop.get(nid); graafKnoop.set(nid, knopen.length); knopen.push(lokaal(n.lat, n.lon).map(r1)); }
   return graafKnoop.get(nid);
@@ -334,7 +336,12 @@ for (const w of wegen) {
   if (h === "pedestrian" || (h === "footway" && w.tags.bicycle === "yes")) bits |= 2;
   const ns = w.nodes.filter((n) => knoop.has(n));
   const een = w.tags.oneway === "yes" ? 1 : 0;
-  for (let i = 0; i < ns.length - 1; i++) kanten.push([kIdx(ns[i]), kIdx(ns[i + 1]), bits, r1(BREED[h]), een]);
+  for (let i = 0; i < ns.length - 1; i++) {
+    // geen stukken die door een gebouw lopen (onderdoorgangen): niemand rijdt of loopt door een muur
+    const [pa, pb] = [lokaal(ns[i].lat ?? knoop.get(ns[i]).lat, ns[i].lon ?? knoop.get(ns[i]).lon), lokaal(knoop.get(ns[i + 1]).lat, knoop.get(ns[i + 1]).lon)];
+    if ([0.25, 0.5, 0.75].some((t) => inPand([pa[0] + (pb[0] - pa[0]) * t, pa[1] + (pb[1] - pa[1]) * t]))) continue;
+    kanten.push([kIdx(ns[i]), kIdx(ns[i + 1]), bits, r1(BREED[h]), een]);
+  }
 }
 
 // ---------- standplaatsen ----------
