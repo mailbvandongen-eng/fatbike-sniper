@@ -76,6 +76,59 @@
         0.62,
         -0.75
       ]
+    },
+    "rav4": {
+      "uid": "de74fe4e98004c92b1103947597d1b53",
+      "naam": "2021 Toyota RAV4 Hybrid",
+      "maker": "tonielpro520",
+      "lengte": 4.6,
+      "voor": -1,
+      "ratio": 0.22,
+      "ver": 1500,
+      "lak": [
+        "Silver_Sky_Metallic"
+      ],
+      "glas": [],
+      "kleuren": {
+        "Color_M04": [
+          0.02,
+          0.02,
+          0.02
+        ],
+        "Color_M03": [
+          0.03,
+          0.03,
+          0.03
+        ],
+        "Color_M02": [
+          0.04,
+          0.04,
+          0.04
+        ],
+        "Philippine_License_Plate_Recovered": [
+          0.83,
+          0.66,
+          0.05
+        ]
+      },
+      "vast": true
+    },
+    "colt": {
+      "uid": "eb488d59a4ea4afd869ceaec991b43eb",
+      "naam": "Mitsubishi Colt 2004",
+      "maker": "tutusho",
+      "lengte": 3.87,
+      "voor": -1,
+      "ratio": 0.25,
+      "ver": 1500,
+      "lak": [
+        "material_3"
+      ],
+      "glas": [
+        "material_4"
+      ],
+      "glasAchter": 0.05,
+      "vast": true
     }
   }
 }

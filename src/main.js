@@ -114,7 +114,7 @@ async function laad() {
       }
     }
   }
-  await Promise.all([laadMensen((v) => $("#laden").style.setProperty("--v", v)), laadFietsen(), laadAutos()]);
+  await Promise.all([laadMensen((v) => $("#laden").style.setProperty("--v", v)), laadFietsen(), laadAutos((data.vasteAutos ?? []).map((a) => a[4]))]);
   wereld = bouwWereld(data, scene);
   graaf = new Graaf(data.graaf);
   // jij: de schutter met het geweer

@@ -33,6 +33,7 @@ def info(m):
     if not m or not m.use_nodes: return None, False
     b = m.node_tree.nodes.get('Principled BSDF')
     tex = any(n.type == 'TEX_IMAGE' for n in m.node_tree.nodes)
+    if m.name in C.get('kleuren', {}): return list(C['kleuren'][m.name]) + [1], False   # eigen kleur voor dit onderdeel (bijv. zwarte velgen)
     return (list(b.inputs['Base Color'].default_value) if b else [0.8, 0.8, 0.8, 1]), tex
 vast = set(C.get('lak', [])) | set(C.get('glas', []))
 for p_ in me.polygons:
@@ -54,6 +55,12 @@ for v in me.vertices:
     if (lang == 0) != (C.get('voor', 1) > 0): x = -x
     v.co = Vector((x, y, (c.z - zmin) * s))
 me.update()
+# getinte ruiten achter: glas achter de voorstoelen krijgt een eigen, donker materiaal
+if 'glasAchter' in C:
+    donker = bpy.data.materials.new('glas_donker'); me.materials.append(donker); di = len(me.materials) - 1
+    for p_ in me.polygons:
+        m = me.materials[p_.material_index]
+        if m and m.name in C.get('glas', []) and sum(me.vertices[i].co.y for i in p_.vertices) / len(p_.vertices) > C['glasAchter']: p_.material_index = di
 # normalen kunnen omgeklapt zijn door de as-wissel
 bm = bmesh.new(); bm.from_mesh(me)
 # test: spiegelt de afbeelding? determinant van de as-afbeelding
@@ -147,7 +154,7 @@ print('MATERIALEN', sorted({m.name for o in [ob] for m in o.data.materials if m}
 fv = [v.co for v in ob.data.vertices]
 meta = {'wielen': {o.name: [round(c, 3) for c in o.location] for o in wobj.values()}, 'straal': round(sum(w['r'] for w in hoeken.values()) / max(1, len(hoeken)), 3),
         'maat': [round(max(p.x for p in fv) - min(p.x for p in fv), 3), round(max(p.y for p in fv) - min(p.y for p in fv), 3), round(max(p.z for p in fv), 3)],
-        'lak': C.get('lak', []), 'glas': C.get('glas', []), 'stoel': C.get('stoel')}
+        'lak': C.get('lak', []), 'glas': C.get('glas', []), 'glasDonker': ['glas_donker'] if 'glasAchter' in C else [], 'stoel': C.get('stoel')}
 json.dump(meta, open(META, 'w')); print('META', meta)
 if PNG:
     sc = bpy.context.scene; cam = bpy.data.objects.new('c', bpy.data.cameras.new('c')); sc.collection.objects.link(cam); sc.camera = cam

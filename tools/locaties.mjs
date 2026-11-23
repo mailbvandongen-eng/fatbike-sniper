@@ -38,6 +38,8 @@ export const LOCATIES = {
     modus: "bonus", // zoveel mogelijk fatbikes in de tijd
     tijd: 180,
     seizoen: "winter",
+    // vaste auto's op de plekken het dichtst bij de voordeur (op verzoek van Bob)
+    vasteAutos: [{ soort: "rav4", kleur: "#08080a" }, { soort: "colt", kleur: "#a3151a" }],
     standaardStijl: "portiek", // lichte portiekflats met witte balkons (Google 3D-beeld van Bob)
   },
 };

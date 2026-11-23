@@ -2,6 +2,7 @@
 // (InstancedMesh: één keer in het geheugen), rijdende auto's hebben draaiende wielen en een bestuurder.
 import * as THREE from "three";
 import { GLTFLoader } from "../lib/three-addons.js";
+import { MeshoptDecoder } from "../lib/meshopt_decoder.mjs";
 import { MAT, kies } from "./figuren.js";
 
 const NAMEN = ["hatchback", "hatchback", "klein", "sedan", "sedan", "bus"];
@@ -13,9 +14,13 @@ const LAK = [
 const M = {};
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 
-export async function laadAutos() {
-  const L = new GLTFLoader(), v = window.VERSIE ?? "";
-  await Promise.all([...new Set(NAMEN)].map(async (n) => {
+// getinte ruiten (achterin): bijna zwart
+const GLAS_DONKER = new THREE.MeshStandardMaterial({ color: "#07090b", transparent: true, opacity: 0.93, roughness: 0.05, metalness: 0.6, depthWrite: false });
+/** Laadt de gewone auto's, plus extra modellen die alleen op een vaste plek staan (per level). */
+export async function laadAutos(extra = []) {
+  const L = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder), v = window.VERSIE ?? "";
+  GLAS_DONKER.envMap = MAT.env ?? null;
+  await Promise.all([...new Set([...NAMEN, ...extra])].map(async (n) => {
     const [g, meta] = await Promise.all([L.loadAsync(`assets/autos/${n}.glb?v=${v}`), fetch(`assets/autos/${n}.json?v=${v}`).then((r) => r.json())]);
     g.scene.updateMatrixWorld(true);
     const lak = new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.3, metalness: 0.4, envMap: MAT.env ?? null, side: THREE.DoubleSide, vertexColors: false });
@@ -24,6 +29,7 @@ export async function laadAutos() {
     const mat = (m) => {
       if (meta.lak.includes(m.name)) return lak;
       if (meta.glas.includes(m.name)) return glas;
+      if (meta.glasDonker?.includes(m.name)) return GLAS_DONKER;
       if (!mats.has(m)) { m.metalness = Math.min(m.metalness, 0.5); if (m.transparent && !m.map) { m.transparent = false; } if (m.map) { m.alphaTest = 0.4; m.transparent = false; } mats.set(m, m); }
       return m;
     };
@@ -33,8 +39,11 @@ export async function laadAutos() {
       if (!o.isMesh) return;
       let top = o; while (top.parent && top.parent !== g.scene && !/^(romp|ver|wiel_)/.test(top.name)) top = top.parent;
       const deel = { geo: o.geometry, mat: mat(o.material), m: o.matrixWorld.clone() };
-      if (top.name.startsWith("wiel_")) (wielen[top.name] ??= { delen: [], pos: top.getWorldPosition(V()) }).delen.push({ ...deel, m: new THREE.Matrix4().copy(top.matrixWorld).invert().multiply(o.matrixWorld) });
-      else if (top.name.startsWith("ver")) ver.push(deel);
+      if (top.name.startsWith("wiel_")) {
+        // de as uit de maten (blender x, y, z -> three x, z, -y); de knoop zelf is door het verkleinen verschoven en geschaald
+        const [wx, wy, wz] = meta.wielen[top.name], pos = V(wx, wz, -wy);
+        (wielen[top.name] ??= { delen: [], pos }).delen.push({ ...deel, m: new THREE.Matrix4().makeTranslation(-pos.x, -pos.y, -pos.z).multiply(o.matrixWorld) });
+      } else if (top.name.startsWith("ver")) ver.push(deel);
       else romp.push(deel);
     });
     const [bx, ly, hz] = meta.maat;
@@ -58,11 +67,11 @@ export function maakAuto(o = {}) {
 }
 
 /** Een geparkeerde auto: alleen een plek en een raakvlak; het tekenen gaat in één keer met zetGeparkeerd. */
-export function parkeer(x, z, hoek, haaks) {
-  const naam = haaks ? kies(NAMEN) : kies(["hatchback", "klein", "sedan"]), a = M[naam];
+export function parkeer(x, z, hoek, haaks, vast = null, kleur = null) {
+  const naam = vast ?? (haaks ? kies(NAMEN) : kies(["hatchback", "klein", "sedan"])), a = M[naam];
   const p = new THREE.Object3D();
   p.position.set(x, 0, z); p.rotation.y = hoek;
-  p.userData = { soort: naam, L: a.L, B: a.B, H: a.H, raak: raakVan(a), kleur: kies(LAK) };
+  p.userData = { soort: naam, L: a.L, B: a.B, H: a.H, raak: raakVan(a), kleur: kleur ?? kies(LAK) };
   return p;
 }
 
@@ -72,15 +81,18 @@ function voegSamen(delen) {
   for (const d of delen) (perMat.get(d.mat) ?? perMat.set(d.mat, []).get(d.mat)).push(d);
   const uit = [];
   for (const [mat, lijst] of perMat) {
-    const gs = lijst.map((d) => { const g = d.geo.index ? d.geo.toNonIndexed() : d.geo.clone(); g.applyMatrix4(d.m); if (!g.attributes.normal) g.computeVertexNormals(); return g; });
-    const n = gs.reduce((s, g) => s + g.attributes.position.count, 0);
+    // de modellen zijn met meshopt verkleind: de getallen zijn gehele waarden met een eigen schaal. Daarom lezen we
+    // punt voor punt (getX geeft de echte waarde) en rekenen we zelf om, in plaats van de geometrie te verplaatsen.
+    const gs = lijst.map((d) => ({ g: d.geo.index ? d.geo.toNonIndexed() : d.geo, m: d.m, nm: new THREE.Matrix3().getNormalMatrix(d.m) }));
+    const n = gs.reduce((s, x) => s + x.g.attributes.position.count, 0);
     const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), uv = new Float32Array(n * 2), col = new Float32Array(n * 3).fill(1);
+    const v = new THREE.Vector3();
     let o = 0;
-    for (const g of gs) {
+    for (const { g, m, nm } of gs) {
       const k = g.attributes.position.count, P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv, K = g.attributes.color;
       for (let i = 0; i < k; i++) {
-        pos[(o + i) * 3] = P.getX(i); pos[(o + i) * 3 + 1] = P.getY(i); pos[(o + i) * 3 + 2] = P.getZ(i);
-        nor[(o + i) * 3] = N.getX(i); nor[(o + i) * 3 + 1] = N.getY(i); nor[(o + i) * 3 + 2] = N.getZ(i);
+        v.fromBufferAttribute(P, i).applyMatrix4(m); pos[(o + i) * 3] = v.x; pos[(o + i) * 3 + 1] = v.y; pos[(o + i) * 3 + 2] = v.z;
+        if (N) { v.fromBufferAttribute(N, i).applyMatrix3(nm).normalize(); nor[(o + i) * 3] = v.x; nor[(o + i) * 3 + 1] = v.y; nor[(o + i) * 3 + 2] = v.z; }
         if (U) { uv[(o + i) * 2] = U.getX(i); uv[(o + i) * 2 + 1] = U.getY(i); }
         if (K) { col[(o + i) * 3] = K.getX(i); col[(o + i) * 3 + 1] = K.getY(i); col[(o + i) * 3 + 2] = K.getZ(i); }
       }
@@ -109,6 +121,7 @@ export function zetGeparkeerd(plekken, scene, grensVer = 55) {
         const k = new THREE.Color();
         lijst.forEach((p, i) => { p.updateMatrix(); im.setMatrixAt(i, p.matrix); if (mat === a.lak) im.setColorAt(i, k.set(p.userData.kleur)); });
         im.castShadow = mat === a.lak; im.receiveShadow = true;
+        if (mat === MAT.glas || mat === GLAS_DONKER) im.renderOrder = 2;
         im.frustumCulled = false;
         scene.add(im);
       }

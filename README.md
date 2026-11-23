@@ -75,6 +75,12 @@ Echte modellen van Sketchfab (CC BY 4.0), verwerkt met `tools/autos/bouw.sh` (`a
 - kleine auto en sedan: [Low Poly Small car](https://sketchfab.com/3d-models/ebe7c5e98a7448b5abb2eaf0cb22b766) en [Low-Poly Sedan car](https://sketchfab.com/3d-models/aeb2699532b4402e8b75ec8888b800b9) door scailman
 - bestelbus: [Van](https://sketchfab.com/3d-models/5e8a68c6585c4cf3b764ef7e82ef9a78) door VertexVendingMac
 
+Alleen in het bonuslevel, op vaste plekken voor de deur (`vasteAutos` in `tools/locaties.mjs`):
+- zwarte Toyota RAV4: [2021 Toyota RAV4 Hybrid](https://sketchfab.com/3d-models/de74fe4e98004c92b1103947597d1b53) door tonielpro520 (CC BY 4.0), zwart gespoten met zwarte velgen
+- rode Mitsubishi Colt: [Mitsubishi Colt 2004](https://sketchfab.com/3d-models/eb488d59a4ea4afd869ceaec991b43eb) door tutusho (Sketchfab Standard-licentie), met getinte ruiten achter
+
+De modellen zijn verkleind met meshopt; daardoor zijn de getallen in het bestand gehele waarden met een eigen schaal. `src/autos.js` leest ze punt voor punt uit en gebruikt de wielassen uit het json-bestand.
+
 Geparkeerde auto's zijn kopieën van hetzelfde model (`InstancedMesh`, `src/autos.js`), elk met een eigen lakkleur. Rijdende auto's hebben draaiende wielen en een bestuurder.
 
 ## Lopen

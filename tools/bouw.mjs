@@ -390,6 +390,15 @@ if (bon) {
   if (v) dakboog = [r1(v.c[0]), r1(v.c[1]), r1(v.v.h - H0), bon[3]];
 }
 
+// ---------- vaste auto's: op de parkeerplekken het dichtst bij de voordeur ----------
+const vasteAutos = [];
+for (const va of L.vasteAutos ?? []) {
+  const vrij = plekken.filter((p) => !p.bezet).sort((a, b) => Math.hypot(a[0] - gx, a[1] - gz) - Math.hypot(b[0] - gx, b[1] - gz))[0];
+  if (!vrij) break;
+  vrij.bezet = true;
+  vasteAutos.push([vrij[0], vrij[1], vrij[2], vrij[3], va.soort, va.kleur]);
+}
+
 // ---------- hangplekken voor fatbikes ----------
 const hangplekken = [];
 for (const w of winkels) if (["Jumbo", "Bon Appetit", "Albert Heijn", "HEMA", "Action"].includes(w[0])) hangplekken.push([r1(w[1] + Math.sin(w[3]) * 3), r1(w[2] + Math.cos(w[3]) * 3)]);
@@ -398,7 +407,7 @@ for (const [s2, x, z] of dingen) if (s2 === "rek" && Math.hypot(x, z) < 70) hang
 const uit = {
   naam: L.naam, kort: L.kort, modus: L.modus ?? "rondes", seizoen: L.seizoen ?? "zomer", tijd: L.tijd, bron: "3D BAG (CC BY 4.0), © OpenStreetMap-bijdragers (ODbL)",
   sluipschutter, muren, daken, voetafdrukken: voetafdrukken.filter((v) => Math.hypot(...v.ring[0]) < 260),
-  vlakken, lijnen, bomen, heggen, dingen, plekken, winkels, oversteken, muurtjes, standplaatsen, startStand, bogen, dakboog, hangplekken, graaf: { knopen, kanten },
+  vlakken, lijnen, bomen, heggen, dingen, plekken: plekken.filter((p) => !p.bezet), vasteAutos, winkels, oversteken, muurtjes, standplaatsen, startStand, bogen, dakboog, hangplekken, graaf: { knopen, kanten },
 };
 writeFileSync(`data/${id}.json`, JSON.stringify(uit));
 const tri = Object.values(muren).reduce((s, m) => s + m.pos.length / 9, 0) + Object.values(daken).reduce((s, m) => s + m.pos.length / 9, 0);

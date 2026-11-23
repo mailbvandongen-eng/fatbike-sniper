@@ -479,6 +479,8 @@ export function bouwWereld(d, scene) {
     const draai = hoek + (haaks ? (Math.random() < 0.75 ? 0 : Math.PI) : Math.random() < 0.5 ? Math.PI : 0) + tussen(-0.05, 0.05);
     wereld.geparkeerd.push(parkeer(x + tussen(-0.15, 0.15), z + tussen(-0.15, 0.15), draai, haaks));
   }
+  // vaste auto's op vaste plekken (per level), langs de stoep met de neus in de rijrichting
+  for (const [x, z, hoek, haaks, soort, kleur] of d.vasteAutos ?? []) wereld.geparkeerd.push(parkeer(x, z, hoek, haaks, soort, kleur));
   zetGeparkeerd(wereld.geparkeerd, scene);
   return wereld;
 }
