@@ -321,7 +321,9 @@ function stapLopen(dt) {
           return d < bereik && (dx * fx + dz * fz) / (d || 1) > 0.3 ? d : Infinity;
         };
         const fat = reizigers.filter((r) => r.fat && r.toestand === "rijden").sort((a, b) => voorJe(a, 2.6) - voorJe(b, 2.6))[0];
+        const auto = reizigers.filter((r) => r.wordBoos).sort((a, b) => voorJe(a, 3.2) - voorJe(b, 3.2))[0];
         if (fat && voorJe(fat, 2.6) < Infinity) fatbikeGeraakt(fat, "klap", fat.pos.clone().setY(1));
+        else if (auto && voorJe(auto, 3.2) < Infinity) { geluid.tik(1); auto.wordBoos(); } // tegen een auto slaan: de bestuurder pikt het niet
         else {
           const wie = reizigers.filter((r) => r.ruzie).sort((a, b) => voorJe(a, 1.7) - voorJe(b, 1.7))[0];
           if (wie && voorJe(wie, 1.7) < Infinity) { geluid.tik(1); wie.ruzie(L.pos, Math.random() < 0.6, klapKrijgen, true); }
@@ -558,6 +560,7 @@ function treffer(r, p) {
     fx.inslag(p, "#ddd");
     geluid.tik(); geluid.alarm(afstandVol(p) * 2);
     knipper(wie.object);
+    if (loop.aan) wie.wordBoos?.(); // sta je op straat, dan komt de bestuurder op je af
     fout("Auto geraakt!", "Het alarm gaat af");
     return;
   }
@@ -935,6 +938,7 @@ function lus() {
   }
   // op de grond: je gluurt over het muurtje, met de kijker kom je omhoog
   if (loop.aan) stapLopen(echt);
+  spel.speler = loop.aan ? loop.pos : null; spel.aangereden = klapKrijgen;
   zetDetail();
   stapKogels(dt);
   stapVallers(dt);

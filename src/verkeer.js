@@ -434,13 +434,37 @@ export class Auto extends Reiziger {
       const voor = dx * fx + dz * fz, zij = Math.abs(dx * fz - dz * fx);
       if (voor > 0 && voor < 7 && zij < 1.6) rem = Math.min(rem, (voor - 2.6) / 4.4);
     }
-    this.v = this.vBasis * THREE.MathUtils.clamp(rem, 0, 1) * (Math.hypot(this.pos.x, this.pos.z) < 45 ? 0.6 : 1);
-    super.stap(dt);
+    const sp = spel.speler; // waar je loopt (null als je bij je raam staat)
+    if (this.boos > 0 && sp) {
+      // kwaad (je schoot op hem of sloeg tegen de auto): recht op je af, zonder te remmen
+      this.boos -= dt;
+      const dx = sp.x - this.pad.x, dz = sp.z - this.pad.z, d = Math.hypot(dx, dz) || 1, st = Math.min(d, 7.5 * dt);
+      this.pad.x += (dx / d) * st; this.pad.z += (dz / d) * st;
+      this.glad(dt);
+      if (Math.hypot(sp.x - this.pos.x, sp.z - this.pos.z) < 1.7) { spel.aangereden?.(); this.boos = 0; }
+      if (this.boos <= 0) {
+        // terug de weg op: verder vanaf het dichtstbijzijnde punt
+        this.boos = 0;
+        this.van = this.g.dichtbij(this.pos.x, this.pos.z, AUTO);
+        const v = this.g.volgende(-1, this.van, AUTO, 1, this.straal);
+        if (v) { this.naar = v.n; this.breed = v.breed; this.t = 0; this.plaats(false); }
+      }
+    } else {
+      // gewoon: ook remmen als jij voor de auto loopt
+      if (sp) {
+        const dx = sp.x - this.pos.x, dz = sp.z - this.pos.z, voor = dx * fx + dz * fz, zij = Math.abs(dx * fz - dz * fx);
+        if (voor > 0 && voor < 12 && zij < 1.8) rem = Math.min(rem, (voor - 4.6) / 6); // stopt ruim een meter voor je
+      }
+      this.v = this.vBasis * THREE.MathUtils.clamp(rem, 0, 1) * (Math.hypot(this.pos.x, this.pos.z) < 45 ? 0.6 : 1);
+      super.stap(dt);
+    }
     this.auto.position.copy(this.pos);
     this.auto.rotation.y = this.richting;
     for (const w of this.auto.userData.wielen) w.rotation.x += (this.snelheid * dt) / this.auto.userData.straal;
     if (this.m.hoog.visible) this.m.mixer.update(dt);
   }
   schrikken() {}
+  /** Je schoot op de auto of sloeg ertegen: de bestuurder komt op je af. */
+  wordBoos() { this.boos = 12; }
   get object() { return this.auto; }
 }

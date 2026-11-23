@@ -85,4 +85,4 @@ Geparkeerde auto's zijn kopieën van hetzelfde model (`InstancedMesh`, `src/auto
 
 ## Lopen
 
-Met het loop-icoon linksboven ga je de straat op (derde persoon, geen kijker): stuurknuppel links (of WASD), slepen = rondkijken, vuurknop = schieten vanaf de heup, vuist (of V) = slaan. Een fatbiker die je raakt gaat van zijn fiets en rent weg. Loop je tegen iemand op, dan krijg je ruzie; soms haalt hij uit en ga je even neer. Gebouwen, muurtjes en geparkeerde auto's houden je tegen. Er raakt niemand gewond: iedereen staat weer op. Testen: `node tools/loop.cjs`.
+Met het loop-icoon linksboven ga je de straat op (derde persoon, geen kijker): stuurknuppel links (of WASD), slepen = rondkijken, vuurknop = schieten vanaf de heup, vuist (of V) = slaan. Een fatbiker die je raakt gaat van zijn fiets en rent weg. Loop je tegen iemand op, dan krijg je ruzie; soms haalt hij uit en ga je even neer. Gebouwen, muurtjes en geparkeerde auto's houden je tegen. Rijdende auto's remmen voor je; schiet je op een rijdende auto of sla je ertegen, dan komt de bestuurder op je af en rijdt hij je omver. Er raakt niemand gewond: iedereen staat weer op. Testen: `node tools/loop.cjs`.
