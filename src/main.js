@@ -247,7 +247,6 @@ function begin() {
   for (let i = 0; i < ri.tegelijk; i++) nieuweFatbike(i === 0);
   $("#start").hidden = $("#einde").hidden = true;
   $("#hud").hidden = false;
-  setTimeout(zetSchuifLengte, 0);
   tekenHud();
 }
 // boodschappers: uit een geparkeerde auto naar een winkel en terug
@@ -599,7 +598,7 @@ function zetZoom(z) {
   const scoop = kijk.zoom > 1.5;
   document.body.classList.toggle("scoop", scoop);
   $("#zoomWaarde").textContent = `${kijk.zoom.toFixed(kijk.zoom < 10 ? 1 : 0)}×`;
-  $("#zoomSchuif").value = zoomNaarSchuif(kijk.zoom);
+  $("#zoom").style.setProperty("--p", zoomNaarSchuif(kijk.zoom) / 1000);
 }
 function draai(dx, dy) {
   const k = (fov() * Math.PI) / 180 / innerHeight;
@@ -660,10 +659,18 @@ addEventListener("keydown", (e) => { if (e.code === "PageUp" || e.code === "KeyE
 const ZMAX = 40, ZMIN = 2, ONDER = 80;
 const schuifNaarZoom = (v) => (v < ONDER ? 1 : ZMIN * Math.pow(ZMAX / ZMIN, (v - ONDER) / (1000 - ONDER)));
 function zoomNaarSchuif(z) { return z < 1.5 ? 0 : ONDER + ((1000 - ONDER) * Math.log(z / ZMIN)) / Math.log(ZMAX / ZMIN); }
-$("#zoomSchuif").addEventListener("input", (e) => zetZoom(schuifNaarZoom(+e.target.value)));
-// de schuif staat rechtop: de lengte volgt de hoogte van het vak
-const zetSchuifLengte = () => $("#zoomSchuif").style.setProperty("--l", `${$("#zoom").clientHeight}px`);
-addEventListener("resize", zetSchuifLengte); setTimeout(zetSchuifLengte, 0);
+// eigen verticale schuif: de plek van je vinger in het vak bepaalt de zoom
+{
+  const vak = $("#zoom");
+  const zet = (e) => {
+    const r = vak.getBoundingClientRect();
+    const p = THREE.MathUtils.clamp(1 - (e.clientY - r.top - 18) / Math.max(1, r.height - 36), 0, 1);
+    zetZoom(schuifNaarZoom(p * 1000));
+  };
+  vak.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); vak.setPointerCapture(e.pointerId); vak.dataset.vast = "1"; zet(e); });
+  vak.addEventListener("pointermove", (e) => { if (vak.dataset.vast) zet(e); });
+  for (const n of ["pointerup", "pointercancel", "lostpointercapture"]) vak.addEventListener(n, () => delete vak.dataset.vast);
+}
 $("#begin").addEventListener("click", begin);
 // level kiezen: een ander level laadt een andere wereld, dus de pagina opnieuw
 for (const b of document.querySelectorAll("#levels button")) b.addEventListener("click", () => {
