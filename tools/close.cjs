@@ -50,6 +50,10 @@ const TYPE = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/jav
   await page.evaluate(() => { const s = window.__spel; s.vrijeCamera = { pos: [8, 1.8, -16], doel: [4, 0.8, -10] }; });
   await page.waitForTimeout(3000);
   await page.screenshot({ path: `${UIT}/auto.png` });
+  // een rijdende auto met bestuurder, stilgezet
+  await page.evaluate(() => { const s = window.__spel; const a = s.reizigers.find((r) => r.soort === "auto"); a.vBasis = 0; a.pos.set(-3, 0, -24); a.pad.copy(a.pos); a.richting = 2.2; window.__a = a; setInterval(() => { a.pos.set(-3, 0, -24); a.pad.copy(a.pos); a.richting = 2.2; }, 50); s.vrijeCamera = { pos: [1.2, 1.5, -19.5], doel: [-3, 0.8, -24] }; });
+  await page.waitForTimeout(3500);
+  await page.screenshot({ path: `${UIT}/rijdend.png` });
   // de schutter van opzij, op het balkon
   await page.evaluate(() => { const s = window.__spel; const o = s.oog; s.vrijeCamera = { pos: [o.x + 2.2, o.y, o.z + 0.6], doel: [o.x, o.y - 0.3, o.z] }; });
   await page.waitForTimeout(3000);

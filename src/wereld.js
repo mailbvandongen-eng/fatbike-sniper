@@ -1,6 +1,7 @@
 // Bouwt de 3D-wereld uit data/<locatie>.json: gebouwen (3D BAG), grond (OSM), bomen, heggen, straatmeubilair, geparkeerde auto's.
 import * as THREE from "three";
-import { maakAuto, maakFiets, kies, tussen, plak, stuk, blok, buis, bol, M, V } from "./figuren.js";
+import { maakFiets, kies, tussen, plak, stuk, blok, buis, bol, M, V } from "./figuren.js";
+import { parkeer, zetGeparkeerd } from "./autos.js";
 
 // ---------- gevels ----------
 // Eén textuur per stijl, 4 traveeën breed en 3 verdiepingen hoog, zodat niet elk raam hetzelfde is.
@@ -474,13 +475,11 @@ export function bouwWereld(d, scene) {
   wereld.geparkeerd = [];
   for (const [x, z, hoek, haaks] of d.plekken) {
     if (Math.hypot(x, z) > 125 || Math.random() < 0.28) continue;
-    const auto = maakAuto({ soort: haaks ? undefined : kies(["hatch", "sedan", "hatch"]) });
-    auto.position.set(x + tussen(-0.15, 0.15), 0, z + tussen(-0.15, 0.15));
     // haaks: meestal met de neus het vak in
-    auto.rotation.y = hoek + (haaks ? (Math.random() < 0.75 ? 0 : Math.PI) : Math.random() < 0.5 ? Math.PI : 0) + tussen(-0.05, 0.05);
-    scene.add(auto);
-    wereld.geparkeerd.push(auto);
+    const draai = hoek + (haaks ? (Math.random() < 0.75 ? 0 : Math.PI) : Math.random() < 0.5 ? Math.PI : 0) + tussen(-0.05, 0.05);
+    wereld.geparkeerd.push(parkeer(x + tussen(-0.15, 0.15), z + tussen(-0.15, 0.15), draai, haaks));
   }
+  zetGeparkeerd(wereld.geparkeerd, scene);
   return wereld;
 }
 

@@ -1,0 +1,81 @@
+{
+  "_uitleg": "Bron: Sketchfab (CC BY 4.0). lak/glas = materiaalnamen in het model. stoel = [x links(+), hoogte zitting, y naar achteren(+)] in meters.",
+  "autos": {
+    "hatchback": {
+      "uid": "92766c632ee14d21ab8aef3bf5c89f15",
+      "naam": "1999 Allerauto Wolf",
+      "maker": "NNXST",
+      "lengte": 4.02,
+      "voor": -1,
+      "ratio": 0.8,
+      "lak": [
+        "GolfPaintClean"
+      ],
+      "glas": [
+        "GolfGlass"
+      ],
+      "stoel": [
+        0.36,
+        0.36,
+        0.05
+      ]
+    },
+    "klein": {
+      "uid": "ebe7c5e98a7448b5abb2eaf0cb22b766",
+      "naam": "Low Poly Small car",
+      "maker": "scailman",
+      "lengte": 3.55,
+      "voor": -1,
+      "ratio": 0.6,
+      "lak": [
+        "Chassis"
+      ],
+      "glas": [
+        "Windows"
+      ],
+      "stoel": [
+        0.38,
+        0.48,
+        -0.1
+      ]
+    },
+    "sedan": {
+      "uid": "aeb2699532b4402e8b75ec8888b800b9",
+      "naam": "Low-Poly Sedan car",
+      "maker": "scailman",
+      "lengte": 4.35,
+      "voor": -1,
+      "ratio": 0.65,
+      "lak": [
+        "Chassis"
+      ],
+      "glas": [
+        "Windows"
+      ],
+      "stoel": [
+        0.38,
+        0.46,
+        -0.05
+      ]
+    },
+    "bus": {
+      "uid": "5e8a68c6585c4cf3b764ef7e82ef9a78",
+      "naam": "Van",
+      "maker": "VertexVendingMac",
+      "lengte": 4.9,
+      "voor": 1,
+      "ratio": 0.8,
+      "lak": [
+        "Default"
+      ],
+      "glas": [
+        "Material_15"
+      ],
+      "stoel": [
+        0.42,
+        0.62,
+        -0.75
+      ]
+    }
+  }
+}

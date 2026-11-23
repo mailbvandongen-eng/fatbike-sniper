@@ -4,6 +4,7 @@ import { bouwWereld, zetFietsenInRekken, bevries } from "./wereld.js";
 import { Graaf, Voetganger, Fietser, Auto, Boodschapper, Staander } from "./verkeer.js";
 import { kies, tussen, maakGeweer, MAT, laadFietsen } from "./figuren.js";
 import { laadMensen, maakMens } from "./mensen.js";
+import { laadAutos } from "./autos.js";
 import { Effecten } from "./effecten.js";
 import { Geluid } from "./geluid.js";
 
@@ -113,8 +114,8 @@ async function laad() {
       }
     }
   }
+  await Promise.all([laadMensen((v) => $("#laden").style.setProperty("--v", v)), laadFietsen(), laadAutos()]);
   wereld = bouwWereld(data, scene);
-  await Promise.all([laadMensen((v) => $("#laden").style.setProperty("--v", v)), laadFietsen()]);
   graaf = new Graaf(data.graaf);
   // jij: de schutter met het geweer
   schutter = maakMens("schutter");
@@ -129,7 +130,7 @@ async function laad() {
   zetStand(standen.findIndex((st) => st.i === data.startStand));
   for (const a of wereld.geparkeerd) stil.push({ object: a, raak: a.userData.raak, soort: "auto" });
   zetFietsenInRekken(wereld, scene, (f) => stil.push({ object: f, raak: f.userData.raak, soort: "fiets" }));
-  bevries(stil.map((s) => s.object), scene);
+  bevries(stil.filter((s) => s.soort === "fiets").map((s) => s.object), scene); // de auto's zijn al in één keer getekend
   // druk plein: veel mensen dicht bij de parkeerplaats, boodschappers, groepjes en mensen op bankjes
   for (let i = 0; i < (telefoon ? 55 : 75); i++) reizigers.push(new Voetganger(graaf, scene));
   for (let i = 0; i < (telefoon ? 12 : 16); i++) nieuweBoodschapper();
@@ -809,6 +810,9 @@ function lus() {
     if (filmCam.t > filmCam.duur) { filmCam = null; document.body.classList.remove("film"); }
   }
   const scoop = kijk.zoom > 1.5;
+  // door de kijker staat niets dichtbij: een verder voorvlak geeft een scherper dieptebeeld (geen geflikker van vlakken)
+  const voorvlak = scoop ? 1.2 : 0.15;
+  if (camera.near !== voorvlak) { camera.near = voorvlak; camera.updateProjectionMatrix(); }
   // meevolgen: staat het vizier op een fatbike, dan draait het een beetje met hem mee
   if (scoop && !filmCam) volgDoel();
   else volg = null;

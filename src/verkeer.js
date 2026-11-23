@@ -1,6 +1,7 @@
 // Iedereen die beweegt: voetgangers, fietsers, auto's en fatbikes. Ze volgen het netwerk uit OSM.
 import * as THREE from "three";
-import { maakFiets, maakAuto, maakKar, kies, tussen } from "./figuren.js";
+import { maakFiets, maakKar, kies, tussen } from "./figuren.js";
+import { maakAuto } from "./autos.js";
 import { maakMens } from "./mensen.js";
 
 export const AUTO = 1, FIETS = 2, VOET = 4, FAT = 8;
@@ -380,7 +381,12 @@ export class Auto extends Reiziger {
     this.soort = "auto";
     scene.add(this.auto);
     this.raak = this.auto.userData.raak;
-    this.alarm = 0;
+    // de bestuurder: links voorin, in de rijhouding
+    const [sx, sy, sz] = this.auto.userData.stoel;
+    this.m = maakMens("voetganger");
+    this.m.zet("fietsen");
+    this.m.object.position.set(sx, sy - this.m.zithoogte(), -sz);
+    this.auto.add(this.m.object);
   }
   stap(dt, spel) {
     // remmen voor wie er vlak voor zit
@@ -396,6 +402,8 @@ export class Auto extends Reiziger {
     super.stap(dt);
     this.auto.position.copy(this.pos);
     this.auto.rotation.y = this.richting;
+    for (const w of this.auto.userData.wielen) w.rotation.x += (this.snelheid * dt) / this.auto.userData.straal;
+    if (this.m.hoog.visible) this.m.mixer.update(dt);
   }
   schrikken() {}
   get object() { return this.auto; }

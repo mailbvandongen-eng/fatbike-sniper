@@ -10,7 +10,7 @@ const bestanden = [
   ...readdirSync("src").map((f) => `src/${f}`),
   ...readdirSync("data").filter((f) => f.endsWith(".json")).map((f) => `data/${f}`),
   ...readdirSync("lib").filter((f) => /\.m?js$/.test(f)).map((f) => `lib/${f}`),
-  ...readdirSync("assets/mensen").map((f) => `assets/mensen/${f}`),
+  ...["mensen", "fietsen", "autos", "kar"].flatMap((m) => readdirSync(`assets/${m}`).map((f) => `assets/${m}/${f}`)),
 ].sort();
 const h = createHash("sha1");
 for (const f of bestanden) h.update(f).update(readFileSync(f));

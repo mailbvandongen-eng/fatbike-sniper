@@ -67,3 +67,12 @@ Echte modellen van Sketchfab (CC BY 4.0, naamsvermelding verplicht):
 - **Bonus: Van Steelaan** (`steelaan`): portiekflat met verhoogd parterre aan de tramlijn, woonkamer, 1e en 2e verdieping; winter (kale bomen). Zoveel mogelijk fatbikes in 3 minuten; ze rijden kriskras over straat, fietspad en tramrails; een fout kost 10 seconden.
 
 Kiezen op het startscherm (onthouden in de browser) of met `?level=steelaan`. Een nieuw level: zet het in `tools/locaties.mjs` (pand, raam, verdiepingen, kijkpunt, modus, seizoen), draai `haal` en `bouw`, en voeg het toe aan `LEVELS` in `src/main.js` en aan `#levels` in `index.html`. Testen: `node tools/bonus.cjs`.
+
+## Auto's
+
+Echte modellen van Sketchfab (CC BY 4.0), verwerkt met `tools/autos/bouw.sh` (`auto.py`: maat, losse wielen, lichte versie voor ver weg):
+- hatchback: [1999 Allerauto Wolf](https://sketchfab.com/3d-models/92766c632ee14d21ab8aef3bf5c89f15) door NNXST
+- kleine auto en sedan: [Low Poly Small car](https://sketchfab.com/3d-models/ebe7c5e98a7448b5abb2eaf0cb22b766) en [Low-Poly Sedan car](https://sketchfab.com/3d-models/aeb2699532b4402e8b75ec8888b800b9) door scailman
+- bestelbus: [Van](https://sketchfab.com/3d-models/5e8a68c6585c4cf3b764ef7e82ef9a78) door VertexVendingMac
+
+Geparkeerde auto's zijn kopieën van hetzelfde model (`InstancedMesh`, `src/autos.js`), elk met een eigen lakkleur. Rijdende auto's hebben draaiende wielen en een bestuurder.
