@@ -8,6 +8,7 @@ const ROLLEN = {
   voetganger: ["m_wit", "m_spijker", "m_jas", "m_streep", "m_pak", "m_groen", "v_spijker", "v_kort", "v_net", "v_lang"],
   fatbiker: ["f_zwart", "f_grijs", "f_sport"],
   schutter: ["schutter"],
+  handhaver: ["handhaver"], agent: ["agent"],
 };
 // houding in het spel -> beweging uit de bibliotheek
 const CLIP = {
@@ -133,6 +134,36 @@ export function maakMens(rol = "voetganger") {
     },
   };
   m.detail(false, false);
+  if (rol === "handhaver" || rol === "agent") uniform(m, rol);
   return m;
+}
+/** Pet en hesje voor handhaving (geel hesje) en politie (donker vest met gele band); ze bewegen mee met hoofd en romp. */
+function uniform(m, rol) {
+  const o = m.object; o.updateMatrixWorld(true);
+  const hoofd = [], romp = [];
+  o.traverse((b) => { if (b.isBone && b.name === "DEF-head") hoofd.push(b); if (b.isBone && b.name === "DEF-spine003") romp.push(b); });
+  if (!hoofd[0] || !romp[0]) return;
+  const s = m.schaal, P = (b) => b.getWorldPosition(new THREE.Vector3());
+  const hp = P(hoofd[0]), rp = P(romp[0]), heup = P(m.heup);
+  const geel = new THREE.MeshStandardMaterial({ color: "#d9e636", roughness: 0.7, emissive: "#5a6010", emissiveIntensity: 0.5 });
+  const donker = new THREE.MeshStandardMaterial({ color: rol === "agent" ? "#0d1428" : "#16324a", roughness: 0.8 });
+  const wit = new THREE.MeshStandardMaterial({ color: "#f2f2ee", roughness: 0.6 });
+  const zet = (bot, mesh, p) => { mesh.position.copy(p); o.add(mesh); mesh.updateMatrixWorld(true); bot.attach(mesh); };
+  // hesje: een wijde koker om de romp, van de heup tot onder de nek
+  const h = (hp.y - heup.y) * 0.8, vest = new THREE.Mesh(new THREE.CylinderGeometry(0.2 * s, 0.185 * s, h, 14, 1, true), rol === "agent" ? donker : geel);
+  vest.scale.z = 0.78; vest.material.side = THREE.DoubleSide; vest.castShadow = true;
+  zet(romp[0], vest, new THREE.Vector3(rp.x, heup.y + h * 0.56, rp.z));
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.204 * s, 0.2 * s, 0.07 * s, 14, 1, true), rol === "agent" ? geel : donker);
+  band.scale.z = 0.78; band.material.side = THREE.DoubleSide;
+  zet(romp[0], band, new THREE.Vector3(rp.x, heup.y + h * 0.62, rp.z));
+  // pet: bol kapje met een klep naar voren (+z in rust)
+  // de kruin: het hoogste punt van het model in rust
+  const top = new THREE.Box3().setFromObject(m.hoog ?? o).max.y - 0.025 * s;
+  const kap = new THREE.Mesh(new THREE.CylinderGeometry(0.098 * s, 0.108 * s, 0.075 * s, 12), donker);
+  zet(hoofd[0], kap, new THREE.Vector3(hp.x, top, hp.z + 0.01 * s));
+  const rand = new THREE.Mesh(new THREE.CylinderGeometry(0.11 * s, 0.11 * s, 0.022 * s, 12), rol === "agent" ? wit : geel);
+  zet(hoofd[0], rand, new THREE.Vector3(hp.x, top - 0.03 * s, hp.z + 0.01 * s));
+  const klep = new THREE.Mesh(new THREE.BoxGeometry(0.15 * s, 0.012 * s, 0.09 * s), donker);
+  zet(hoofd[0], klep, new THREE.Vector3(hp.x, top - 0.035 * s, hp.z + 0.125 * s));
 }
 export const mensenGeladen = () => Object.keys(modellen).length > 0;

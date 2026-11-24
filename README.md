@@ -91,7 +91,24 @@ Met het loop-icoon ga je de straat op, in derde persoon. De opzet is afgekeken v
 - **Richten:** de richtknop (of X) zet de camera over je schouder met een nauwer beeld; je loopt dan langzaam en houdt het pistool gestrekt. De mikhulp markeert de band van de fatbike bij het kruisje (geel, rood als je richt), maar alleen als de schootslijn vrij is van muren, auto's, fietsen en mensen.
 - **Wapens** (knop, of 1/2/3 of Tab): pistool; vuisten (een fatbiker van zijn fiets slaan, hij rent weg); mes (alleen banden lek steken).
 - **Radar:** linksboven de buurt van bovenaf, gedraaid naar je kijkrichting: gele stippen = fatbikes (op de rand als ze verder weg zijn), rood = een kwade automobilist, wit vierkant = je raam.
-- **De wereld reageert:** je loopt niet door mensen heen; wandel je tegen iemand op, dan wacht die even, ren je iemand omver, dan krijg je ruzie (soms een klap: je gaat neer en staat weer op). Bij een schot rennen mensen in de buurt weg. Auto's remmen en toeteren als je in de weg staat; schiet je op een rijdende auto of sla je ertegen, dan rijdt de bestuurder je omver. Gebouwen, muurtjes, heggen, bomen en geparkeerde auto's houden je tegen. Er raakt niemand gewond: iedereen staat weer op.
+- **De wereld reageert:** je loopt niet door mensen heen; loop of jog je tegen iemand op, dan wacht die even; sprint je iemand omver, dan krijg je ruzie (soms een klap: je gaat neer en staat weer op). Bij een schot rennen mensen in de buurt weg. Auto's remmen en toeteren als je in de weg staat; schiet je op een rijdende auto of sla je ertegen, dan rijdt de bestuurder je omver. Gebouwen, muurtjes, heggen, bomen en geparkeerde auto's houden je tegen. Er raakt niemand gewond: iedereen staat weer op.
+
+### Missies en gezocht worden (`src/straat.js`)
+
+**Missies** (alleen in het Julianaplein-level, zodra je op straat loopt): er verschijnt een gele lichtzuil (geel vierkant op de radar). Loop erin en de missie begint; je doelen zijn rood (pijl erboven, rood op de radar, rode zuil op de plek). Om de beurt:
+- **hangplek**: drie fatbikes die staan te bellen; raak je er één, dan gaan de anderen ervandoor;
+- **banden**: vier geparkeerde fatbikes; steek de banden lek binnen 80 seconden;
+- **achtervolging**: één vluchter die kriskras door de buurt rijdt; stop hem binnen 110 seconden.
+
+De missie staat midden boven in beeld, alleen met tekens en getallen. Gelukt: 500 punten (plus 5 per seconde die over is) en 4 kogels. Doelen van een missie tellen niet mee voor de ronde.
+
+**Gezocht**: wat je op straat uithaalt telt op (schieten 0,5; een auto raken 0,7; bijna een mens raken 1; iemand slaan 0,6; iemand omver sprinten 0,2; een fatbike slopen 0,2; een agent slaan 1,2). Vanaf 1 heb je een ster:
+- 1 ster: twee handhavers te voet (je blijft ze joggend voor); 2 en 3 sterren: politie (alleen met sprinten voor te blijven), met sirene;
+- zien ze je vijf tellen niet, dan knipperen de sterren en zakt het niveau, een ster per zeven tellen;
+- zolang ze je zien kun je niet naar binnen; uit het zicht naar binnen gaan is ontsnappen;
+- pakt een agent je, dan sta je weer bij je raam, ben je 250 punten kwijt en is de missie mislukt.
+
+Testen: `node tools/straat.cjs` (zet de spelregels zelf vooruit, omdat de testbrowser traag is).
 
 Alle aanraakbediening loopt via touch-events per vinger (`sleepbaar` in `src/main.js`), zodat lopen, kijken en schieten tegelijk kunnen. Testen: `node tools/loop.cjs`.
 

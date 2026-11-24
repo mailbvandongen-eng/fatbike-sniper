@@ -199,6 +199,36 @@
       "haar": "short01",
       "haarTint": "#2a221c",
       "ogen": "brown"
+    },
+    {
+      "naam": "handhaver",
+      "rol": "handhaver",
+      "geslacht": "male",
+      "afkomst": "caucasian",
+      "oud": 0.35,
+      "spier": 0.2,
+      "gewicht": 0.2,
+      "pak": "male_worksuit01",
+      "pakTint": "#1f5673",
+      "schoenen": "shoes04",
+      "haar": "short01",
+      "haarTint": "#3b2a1e",
+      "ogen": "brown"
+    },
+    {
+      "naam": "agent",
+      "rol": "agent",
+      "geslacht": "male",
+      "afkomst": "caucasian",
+      "oud": 0.3,
+      "spier": 0.5,
+      "gewicht": 0,
+      "pak": "male_worksuit01",
+      "pakTint": "#0f1830",
+      "schoenen": "shoes04",
+      "haar": "short01",
+      "haarTint": "#1b1714",
+      "ogen": "blue"
     }
   ]
 }

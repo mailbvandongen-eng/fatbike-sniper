@@ -73,6 +73,8 @@ export class Geluid {
   stappen() { for (let i = 0; i < 6; i++) this.ruisStoot({ duur: 0.07, filter: "bandpass", freq: 500 + Math.random() * 200, q: 1.5, gain: 0.35, start: i * 0.22 }); }
   /** Een voetstap; harder en doffer naarmate je sneller gaat. */
   stap(v = 1.5) { this.ruisStoot({ duur: 0.055, filter: "bandpass", freq: 320 + Math.random() * 160, q: 1.2, gain: Math.min(0.5, 0.12 + v * 0.06) }); }
+  /** Tweetonige sirene, in de verte. */
+  sirene(v = 1) { for (let i = 0; i < 4; i++) this.toon({ freq: i % 2 ? 620 : 470, duur: 0.5, type: "sawtooth", gain: 0.05 * v, start: i * 0.5 }); }
   /** Claxon van een auto die voor je moet stoppen. */
   toeter(v = 1) {
     for (const f of [392, 494]) this.toon({ freq: f, duur: 0.45, type: "square", gain: 0.07 * v });

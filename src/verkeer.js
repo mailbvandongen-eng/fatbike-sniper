@@ -353,7 +353,7 @@ export class Fietser extends Reiziger {
   stap(dt, spel) {
     if (this.toestand !== "rijden") return;
     if (this.vlucht > 0) { this.vlucht -= dt; this.v = this.vBasis * 1.5; if (this.vlucht <= 0) this.v = this.vBasis; }
-    if (this.fat && this.vlucht <= 0 && this.wacht <= 0) {
+    if (this.fat && !this.geenStop && this.vlucht <= 0 && this.wacht <= 0) {
       // fatbikes hangen bij de Jumbo, Bon Appetit en de fietsenrekken
       const plek = spel?.hangplekken?.find((h) => Math.hypot(h.x - this.pos.x, h.z - this.pos.z) < 9);
       if (plek && plek !== this.laatstePlek && Math.random() < dt * 0.8) { this.laatstePlek = plek; this.wacht = tussen(8, 22); }
@@ -393,7 +393,7 @@ export class Fietser extends Reiziger {
       });
     }
   }
-  verAf() { return this.vrij ? false : super.verAf(); }
+  verAf() { return this.vrij || this.missie ? false : super.verAf(); }
   /** Bonus: rechtstreeks van punt naar punt, dwars over straat, fietspad en tramrails. */
   vrijRijden(dt) {
     if (this.wacht > 0) this.wacht -= dt;
@@ -482,4 +482,73 @@ export class Auto extends Reiziger {
   /** Je schoot op de auto of sloeg ertegen: de bestuurder komt op je af. */
   wordBoos() { this.boos = 12; }
   get object() { return this.auto; }
+}
+
+
+// ---------- handhaving en politie: komen te voet achter je aan als je gezocht wordt ----------
+export class Agent {
+  constructor(graaf, scene, x, z, rol) {
+    this.g = graaf; this.rol = rol; this.soort = "agent";
+    this.m = maakMens(rol); this.mens = this.m.object;
+    this.groep = new THREE.Group(); this.groep.add(this.mens);
+    this.pos = new THREE.Vector3(x, 0, z); this.pad = this.pos; this.richting = 0;
+    this.v = rol === "agent" ? 4.7 : 3.1; // een handhaver kun je al joggend voorblijven, een agent alleen met sprinten
+    this.lijn = []; this.herT = 0; this.zichtT = Math.random() * 0.3; this.ziet = false; this.duwT = 0; this.snelheid = 0;
+    this.groep.position.copy(this.pos);
+    this.raak = [{ deel: "mens", min: new THREE.Vector3(-0.25, 0, -0.2), max: new THREE.Vector3(0.25, 1.85, 0.2) }];
+    scene.add(this.groep);
+  }
+  /** Probeer een stap; glijd langs muren en heggen. */
+  loop(dx, dz, st) {
+    const d = Math.hypot(dx, dz) || 1, nx = this.pos.x + (dx / d) * st, nz = this.pos.z + (dz / d) * st;
+    const dicht = (x, z) => this.g.blok?.(x, z, 0.35) || this.g.heg?.(x, z, 0.1);
+    if (!dicht(nx, nz)) this.pos.set(nx, 0, nz); else if (!dicht(nx, this.pos.z)) this.pos.x = nx; else if (!dicht(this.pos.x, nz)) this.pos.z = nz; else return false;
+    let h = Math.atan2(dx, dz) - this.richting; h = Math.atan2(Math.sin(h), Math.cos(h));
+    this.richting += h * 0.25;
+    return true;
+  }
+  stap(dt, spel) {
+    const doel = spel.speler;
+    if (this.afdruipen || !doel) {
+      // klaar: rustig weglopen en dan verdwijnen
+      this.afT = (this.afT ?? 9) - dt; this.ziet = false;
+      const weg = doel ? [this.pos.x - doel.x, this.pos.z - doel.z] : [Math.sin(this.richting), Math.cos(this.richting)];
+      this.loop(weg[0], weg[1], 1.4 * dt); this.m.zet("lopen");
+      if (this.afT <= 0) this.klaar = true;
+    } else if (this.duwT > 0) {
+      this.duwT -= dt; this.m.zet("schrik"); // even uit het veld geslagen
+    } else {
+      const dx = doel.x - this.pos.x, dz = doel.z - this.pos.z, d = Math.hypot(dx, dz);
+      // zien ze je? (niet te ver weg, en niets ertussen)
+      if ((this.zichtT -= dt) <= 0) { this.zichtT = 0.3; this.ziet = d < 55 && spel.zichtVrij(this.pos, doel); }
+      // de route: rechtstreeks als dat kan, anders over de paden
+      if ((this.herT -= dt) <= 0) {
+        this.herT = 1;
+        let recht = d < 30;
+        if (recht) for (let t = 1; t < d; t += 1) if (this.g.blok?.(this.pos.x + (dx / d) * t, this.pos.z + (dz / d) * t, 0.35) || this.g.heg?.(this.pos.x + (dx / d) * t, this.pos.z + (dz / d) * t, 0.1)) { recht = false; break; }
+        if (recht) this.lijn = [];
+        else {
+          // over alle paden (ook fietspaden): bit FAT zit op elke kant van het netwerk
+          const r = this.g.route(this.g.dichtbij(this.pos.x, this.pos.z, FAT), this.g.dichtbij(doel.x, doel.z, FAT), FAT);
+          this.lijn = r ? r.map((n) => this.g.k[n]) : [];
+          // niet eerst terug naar het dichtstbijzijnde punt als je al onderweg bent naar het volgende
+          const af = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]), hier = [this.pos.x, this.pos.z];
+          while (this.lijn.length > 1 && af(hier, this.lijn[1]) <= af(this.lijn[0], this.lijn[1]) + 0.5) this.lijn.shift();
+        }
+      }
+      while (this.lijn.length && Math.hypot(this.lijn[0][0] - this.pos.x, this.lijn[0][1] - this.pos.z) < 1) this.lijn.shift();
+      const [tx, tz] = this.lijn.length ? this.lijn[0] : [doel.x, doel.z];
+      const ox = this.pos.x, oz = this.pos.z;
+      if (d > 1.1 && !this.loop(tx - this.pos.x, tz - this.pos.z, this.v * dt)) this.herT = 0;
+      this.snelheid = Math.hypot(this.pos.x - ox, this.pos.z - oz) / Math.max(dt, 1e-3);
+      this.m.zet(this.snelheid > 3.8 ? "sprinten" : this.snelheid > 0.5 ? "rennen" : "staan", this.snelheid > 3.8 ? this.snelheid / 5.6 : Math.max(0.7, this.snelheid / 3.3));
+      if (d < 1.25) spel.aangehouden?.(this);
+    }
+    this.m.mixer.update(dt);
+    this.groep.position.copy(this.pos); this.groep.rotation.y = this.richting;
+  }
+  /** Een duw of klap: hij staat even stil. */
+  duw() { this.duwT = 2.4; }
+  schrikken() {}
+  get object() { return this.groep; }
 }

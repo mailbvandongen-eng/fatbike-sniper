@@ -126,6 +126,20 @@ h1 span{color:var(--geel)}
 #levels button{appearance:none;border:2px solid #fff3;background:#ffffff10;color:var(--ink);border-radius:999px;padding:9px 16px;font:700 15px system-ui;cursor:pointer}
 #levels button.aan{border-color:var(--geel);color:var(--geel);background:#ffc83d18}
 #kogels.krap{color:var(--rood)}
+/* gezocht: sterren naast de teller; ze knipperen als ze je kwijt zijn */
+#sterren{gap:1px;font-size:17px;padding:4px 10px}
+#sterren i{font-style:normal;color:#fff3}#sterren i.aan{color:#ff4a3d;text-shadow:0 0 8px #ff4a3d99}
+#sterren.kwijt i.aan{animation:knipper .7s infinite}
+#sterren.schud{animation:schud .35s}
+/* missie: midden boven, alleen tekens en getallen */
+#missie{position:absolute;left:50%;top:calc(max(10px,var(--sat)) + 48px);transform:translateX(-50%);gap:8px;font-size:17px;border:2px solid #ff5a3d}
+#missie svg{width:20px;height:20px;color:var(--ink)}
+#missie i.fb{width:24px;height:16px;background:#ff5a3d;-webkit-mask:url(icon-fatbike.svg) center/contain no-repeat;mask:url(icon-fatbike.svg) center/contain no-repeat}
+#missie b{font-variant-numeric:tabular-nums;margin-left:4px}#missie b.krap{color:var(--rood)}
+#missie.gelukt{border-color:var(--groen);box-shadow:0 0 18px #7be07b88}#missie.mislukt{border-color:var(--rood);opacity:.6}
+/* aangehouden: handboeien op het zwarte scherm */
+#wissel svg{width:110px;color:#fff;opacity:0}
+body.gepakt #wissel{opacity:1}body.gepakt #wissel svg{opacity:.9}
 #eindeSterren{font-size:44px;color:var(--geel);letter-spacing:.1em;margin:6px 0}
 #eindeScore{line-height:1.5;margin:10px 0 22px}
 #draai{position:fixed;inset:0;z-index:20;display:none;place-items:center;text-align:center;padding:30px;background:#111317;font-weight:700;font-size:18px;line-height:1.4}
@@ -155,16 +169,18 @@ h1 span{color:var(--geel)}
 <div id="zoomWaarde">1×</div>
 <svg id="kruis" viewBox="-11 -11 22 22" stroke="#fff" stroke-width="1.6" stroke-linecap="round"><path d="M-9 0h5M4 0h5M0-9v5M0 4v5"/><circle r="1" fill="#fff" stroke="none"/></svg>
 <div id="flits"></div>
-<div id="wissel"></div>
+<div id="wissel"><svg viewBox="0 0 48 24" fill="none" stroke="currentColor" stroke-width="2.6"><circle cx="13" cy="12" r="8"/><circle cx="35" cy="12" r="8"/><path d="M21 12h6"/></svg></div>
 
 <div id="hud" hidden>
   <div class="bovenbalk">
     <div class="pil" id="doelen"></div>
+    <div class="pil" id="sterren" hidden></div>
     <div class="pil" id="kogels"></div>
     <div class="pil" id="fouten"></div>
     <div class="pil" id="score">0</div>
   </div>
   <div id="raakteken"></div>
+  <div class="pil" id="missie" hidden></div>
   <div class="knop klein" id="hoger" aria-label="Hoger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg></div>
   <div class="knop klein" id="loopKnop" aria-label="Lopen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4.5" r="1.8" fill="currentColor"/><path d="M13 8l-3 4 3 3-1 6M10 12l-3 1M13 10l4 2M13 15l3 5"/></svg></div>
   <canvas id="radar" width="232" height="232"></canvas>
@@ -197,6 +213,7 @@ h1 span{color:var(--geel)}
       <p id="uitlegRegel"></p>
       <p>Slepen = kijken · schuif rechts omhoog = inzoomen · ▲▼ linksboven = andere verdieping.</p>
       <p>Het <b>loop-icoon</b> brengt je de straat op: links je duim om te lopen, rechts slepen om te kijken. Knoppen rechts: sprinten, wapen wisselen (pistool, vuisten, mes) en richten. De radar toont de fatbikes als gele stippen.</p>
+      <p><b>Missies:</b> loop in een gele lichtzuil om er een te beginnen; je doelen zijn rood. <b>Gezocht:</b> maak je herrie, dan komt er handhaving (blauw op de radar). Blijf uit het zicht tot de sterren weg zijn.</p>
     </div>
     <div class="knoppen">
       <div id="levels"><button data-level="julianaplein">Julianaplein</button><button data-level="steelaan">Bonus: Van Steelaan</button></div>
@@ -219,9 +236,9 @@ h1 span{color:var(--geel)}
 </div>
 
 <!-- versie -->
-<script>window.VERSIE = "85a5dcf34c"; window.VERSIE_DATUM = "24-11, 01:16";</script>
-<script type="importmap">{"imports":{"three":"./lib/three.module.js?v=85a5dcf34c","./lib/three.module.js":"./lib/three.module.js?v=85a5dcf34c","./lib/meshopt_decoder.mjs":"./lib/meshopt_decoder.mjs?v=85a5dcf34c","./lib/three-addons.js":"./lib/three-addons.js?v=85a5dcf34c","./src/autos.js":"./src/autos.js?v=85a5dcf34c","./src/effecten.js":"./src/effecten.js?v=85a5dcf34c","./src/figuren.js":"./src/figuren.js?v=85a5dcf34c","./src/geluid.js":"./src/geluid.js?v=85a5dcf34c","./src/main.js":"./src/main.js?v=85a5dcf34c","./src/mensen.js":"./src/mensen.js?v=85a5dcf34c","./src/verkeer.js":"./src/verkeer.js?v=85a5dcf34c","./src/wereld.js":"./src/wereld.js?v=85a5dcf34c"}}</script>
-<script type="module" src="./src/main.js?v=85a5dcf34c"></script>
+<script>window.VERSIE = "45737ba00d"; window.VERSIE_DATUM = "24-11, 12:19";</script>
+<script type="importmap">{"imports":{"three":"./lib/three.module.js?v=45737ba00d","./lib/three.module.js":"./lib/three.module.js?v=45737ba00d","./lib/meshopt_decoder.mjs":"./lib/meshopt_decoder.mjs?v=45737ba00d","./lib/three-addons.js":"./lib/three-addons.js?v=45737ba00d","./src/autos.js":"./src/autos.js?v=45737ba00d","./src/effecten.js":"./src/effecten.js?v=45737ba00d","./src/figuren.js":"./src/figuren.js?v=45737ba00d","./src/geluid.js":"./src/geluid.js?v=45737ba00d","./src/main.js":"./src/main.js?v=45737ba00d","./src/mensen.js":"./src/mensen.js?v=45737ba00d","./src/straat.js":"./src/straat.js?v=45737ba00d","./src/verkeer.js":"./src/verkeer.js?v=45737ba00d","./src/wereld.js":"./src/wereld.js?v=45737ba00d"}}</script>
+<script type="module" src="./src/main.js?v=45737ba00d"></script>
 <!-- /versie -->
 </body>
 </html>

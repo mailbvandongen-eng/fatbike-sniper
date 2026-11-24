@@ -25,6 +25,7 @@ const TYPE = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/jav
   await page.tap("#loopKnop");
   await page.waitForFunction(() => window.__spel.loop.aan, null, { timeout: 30000 });
   await page.waitForTimeout(2500);
+  await page.evaluate(() => { window.__spel.straat.strafbaar = () => {}; }); // deze test gaat over lopen en vechten, niet over gezocht worden
   const S = () => page.evaluate(() => { const s = window.__spel, l = s.loop; return JSON.stringify({ pos: [+l.pos.x.toFixed(1), +l.pos.z.toFixed(1)], v: +l.snelheid.toFixed(1), neer: +l.neer.toFixed(1), geraakt: s.spel.geraakt, zoom: s.kijk.zoom }); });
   console.log("op straat", await S());
   await page.screenshot({ path: `${UIT}/1-straat.png` });
