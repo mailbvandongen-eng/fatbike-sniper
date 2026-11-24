@@ -23,8 +23,9 @@ const GEVEL = {
   winkel: { b: 5.0, h: 3.7, winkel: true },
   huis: { b: 2.7, h: 2.7, steen: ["#8e4630", "#9a5238", "#7f3d29"], voeg: "#c9b9a8", raam: [1.3, 1.35], kozijn: "#f5f3ee", latei: "#d8d2c6" },
   modern: { b: 3.4, h: 2.9, steen: ["#cbb999", "#d6c6a6", "#c2b08f"], voeg: "#e6dcc8", raam: [1.9, 1.7], kozijn: "#4a4d50", latei: "#bfb3a0" },
-  // rijtjeshuis uit de jaren 70 met plat dak: geelbruine baksteen, brede ramen, donkerbruine houten band
-  jaren70: { b: 2.75, h: 2.7, steen: ["#b08a5a", "#a88252", "#b89262", "#9c784c"], voeg: "#c9b79a", raam: [1.9, 1.45], kozijn: "#efece4", latei: "#4a3528" },
+  // rijtjeshuis uit de jaren 70 met plat dak (Zoetermeer, naar Street View): donker roodbruine baksteen, witte kozijnen,
+  // en een witte band tussen de verdiepingen
+  jaren70: { b: 2.75, h: 2.7, steen: ["#6a4338", "#74493c", "#5f3b31", "#7a4f41"], voeg: "#8b766a", raam: [1.5, 1.35], kozijn: "#efece4", latei: "#6a4338", band: "#e9e6de" },
   nieuw: { b: 3.0, h: 3.0, steen: ["#4d423c", "#5a4b44", "#463c37"], voeg: "#6d625b", raam: [1.3, 2.1], kozijn: "#2b2b2b", latei: "#3a3330" },
 };
 const KOL = 4, LAAG = 3, PX = 48;
@@ -127,6 +128,7 @@ function gevelTextuur(st) {
       ruit(x, rx, ry, rb * PX, rh * PX, st.kozijn, Math.random() < 0.3);
       x.fillStyle = st.latei; x.fillRect(rx - 4, ry + rh * PX + 3, rb * PX + 8, 0.06 * PX);
     }
+    if (st.band) { x.fillStyle = st.band; x.fillRect(0, 0, W, 0.085 * PX); }
     x.restore();
   }
   const t = new THREE.CanvasTexture(c);
@@ -249,7 +251,9 @@ function maakOverkappingen(lijnen, scene) {
 const GRONDKLEUR = {
   // naar de luchtfoto: straten en parkeerplaats van roodbruine klinkers, stoepen beige, fietspad rood asfalt
   basis: "#b5a88f", plein: "#cdb98e", stoep: "#d2be8f", weg: "#86645e", asfalt: "#4d4e52", parkeer: "#86604f", vak: "#5f5d5d", fietspad: "#93524c",
-  gras: "#5f7f42", struik: "#3f5f2f", eiland: "#a59f93", speel: "#c4ad7f", speelgroen: "#5f9c7c", fietsvlak: "#a9a196", tram: "#6d6a63", gebouw: "#3c3a37",
+  gras: "#5f7f42", struik: "#3f5f2f", eiland: "#a59f93", speel: "#c4ad7f", speelgroen: "#5f9c7c",
+  // BGT: de echte indeling van de grond
+  b_gras: "#5f7f42", b_erf: "#75805a", b_open: "#9a9285", b_voetpad: "#b5af9f", b_klinker: "#86645e", b_parkeer: "#6d6a66", b_asfalt: "#4d4e52", b_fietspad: "#93524c", b_water: "#4c676c", fietsvlak: "#a9a196", tram: "#6d6a63", gebouw: "#3c3a37",
 };
 export function tekenGrond(d, midden, maat, px) {
   const c = document.createElement("canvas");
@@ -262,11 +266,23 @@ export function tekenGrond(d, midden, maat, px) {
   const ruis = x.createImageData(px, px);
   for (let i = 0; i < ruis.data.length; i += 4) { const v = Math.random() * 30; ruis.data[i] = ruis.data[i + 1] = ruis.data[i + 2] = v; ruis.data[i + 3] = 40; }
   const vlak = (ring, kl) => { x.fillStyle = kl; x.beginPath(); ring.forEach((p, i) => x[i ? "lineTo" : "moveTo"](...P(p))); x.closePath(); x.fill(); };
-  // een speeltuintje met kunstgras heeft een rand van tegels
-  for (const v of d.vlakken) if (v.s === "speelgroen") { x.strokeStyle = GRONDKLEUR.eiland; x.lineWidth = 1.6 * s; x.lineJoin = "round"; x.beginPath(); v.r.forEach((p, i) => x[i ? "lineTo" : "moveTo"](...P(p))); x.closePath(); x.stroke(); }
-  for (const v of d.vlakken) if (["gras", "speel", "speelgroen", "plein"].includes(v.s)) vlak(v.r, GRONDKLEUR[v.s]);
   x.lineCap = x.lineJoin = "round";
   const lijn = (l, kl, b) => { x.strokeStyle = kl; x.lineWidth = b * s; x.beginPath(); l.p.forEach((p, i) => x[i ? "lineTo" : "moveTo"](...P(p))); x.stroke(); };
+  const speelgroen = () => {
+    // een speeltuintje met kunstgras heeft een rand van klinkers
+    for (const v of d.vlakken) if (v.s === "speelgroen") { x.strokeStyle = "#8f887c"; x.lineWidth = 1.6 * s; x.beginPath(); v.r.forEach((p, i) => x[i ? "lineTo" : "moveTo"](...P(p))); x.closePath(); x.stroke(); vlak(v.r, GRONDKLEUR.speelgroen); }
+  };
+  if (d.vlakken.some((v) => v.s.startsWith("b_"))) {
+    // de grond uit de grootschalige topografie (BGT): elk vlak zijn eigen kleur, alleen wat in beeld ligt
+    for (const v of d.vlakken) {
+      if (!v.s.startsWith("b_")) continue;
+      if (!v.r.some((q) => Math.abs(q[0] - midden[0]) < o + 2 && Math.abs(q[1] - midden[1]) < o + 2) && Math.hypot(v.r[0][0] - midden[0], v.r[0][1] - midden[1]) > o * 1.6) continue;
+      vlak(v.r, GRONDKLEUR[v.s]);
+    }
+    speelgroen();
+  } else {
+  speelgroen();
+  for (const v of d.vlakken) if (["gras", "speel", "plein"].includes(v.s)) vlak(v.r, GRONDKLEUR[v.s]);
   const wegKleur = (l) => (l.asfalt ? GRONDKLEUR.asfalt : GRONDKLEUR.weg);
   for (const soort of ["stoep", "weg", "fietspad"]) for (const l of d.lijnen) if (l.s === soort) lijn(l, soort === "weg" ? GRONDKLEUR.stoep : GRONDKLEUR[soort], l.b + (soort === "weg" ? 3.2 : 0));
   // stoepen langs wegen eerst breder, dan de weg erover
@@ -275,6 +291,7 @@ export function tekenGrond(d, midden, maat, px) {
   for (const l of d.lijnen) if (l.gang) lijn(l, GRONDKLEUR.parkeer, l.b);
   for (const v of d.vlakken) if (v.s === "struik") vlak(v.r, GRONDKLEUR.struik);
   for (const l of d.lijnen) if (l.s === "fietspad") lijn(l, l.asfalt ? GRONDKLEUR.fietspad : "#9a5e55", l.b);
+  }
   // gevallen blad onder de bomen (herfst en winter)
   if (d.seizoen === "winter") for (const [bx, bz] of d.bomen) {
     if (Math.abs(bx - midden[0]) > o + 5 || Math.abs(bz - midden[1]) > o + 5) continue;
@@ -492,11 +509,13 @@ export function bouwWereld(d, scene) {
   // speeltuintjes: het toestel in het midden, passend binnen de rand
   if (speeltoestel) for (const [x, z, straal] of d.speeltuinen ?? []) {
     if (Math.hypot(x, z) > 300 || straal < 3) continue;
-    const t = speeltoestel.clone(), maat = Math.min(1, (straal * 1.5) / 7);
-    t.position.set(x, 0, z); t.rotation.y = (x * 0.37 + z * 0.91) % 6.283; t.scale.setScalar(maat);
+    // houten toren met glijbaan en schommels, in het noordelijke deel van de cirkel (zoals op de luchtfoto)
+    const t = speeltoestel.clone(), maat = Math.min(1.15, straal / 7);
+    const tx = x - straal * 0.12, tz = z - straal * 0.38;
+    t.position.set(tx, 0, tz); t.rotation.y = 0.5; t.scale.setScalar(maat);
     t.updateMatrixWorld(true);
     scene.add(t); t.traverse((o) => { if (o.isMesh) wereld.botsers.push(o); });
-    wereld.rond.push([x, z, 2.6 * maat]);
+    wereld.rond.push([tx, tz, 1.5 * maat]);
   }
   // gebouwen
   for (const [stijl, m] of Object.entries(d.muren)) {
@@ -591,6 +610,23 @@ export function bouwWereld(d, scene) {
       const [a, b] = [h.l[i], h.l[i + 1]];
       buis(hegBak, V(a[0], 0.6, a[1]), V(b[0], 0.6, b[1]), 0.45, "#3f5e2e", 0, 4);
     }
+  }
+  // schuttingen en heggen om de tuinen (BGT): hout 1,8 m, heg 1,5 m, muur of hek 1 m
+  const houtBak = [];
+  for (const [ax, az, bx, bz, soort] of d.schuttingen ?? []) {
+    if (Math.hypot(ax, az) > 200) continue;
+    const L = Math.hypot(bx - ax, bz - az), hoek = Math.atan2(bx - ax, bz - az), mx = (ax + bx) / 2, mz = (az + bz) / 2;
+    if (soort === "heg") blok(hegBak, 0.55, 1.5, L + 0.3, V(mx, 0.75, mz), kies(["#3c5a2c", "#456631", "#36522a"]), [0, hoek, 0]);
+    else if (soort === "hout") {
+      blok(houtBak, 0.05, 1.8, L, V(mx, 0.9, mz), kies(["#7a5a3c", "#6f5136", "#836343", "#74573b"]), [0, hoek, 0]);
+      blok(houtBak, 0.1, 1.9, 0.1, V(ax, 0.95, az), "#5b4330");
+    } else if (soort === "muur") blok(houtBak, 0.22, 1.1, L, V(mx, 0.55, mz), "#6e4a3c", [0, hoek, 0]);
+    else { blok(houtBak, 0.04, 0.06, L, V(mx, 1.0, mz), "#4a4d50", [0, hoek, 0]); blok(houtBak, 0.04, 0.06, L, V(mx, 0.5, mz), "#4a4d50", [0, hoek, 0]); blok(houtBak, 0.06, 1.05, 0.06, V(ax, 0.52, az), "#4a4d50"); }
+  }
+  if (houtBak.length) {
+    const sch = new THREE.Mesh(plak(houtBak), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 }));
+    sch.castShadow = sch.receiveShadow = true;
+    scene.add(sch); wereld.botsers.push(sch);
   }
   if (hegBak.length) {
     const heg = new THREE.Mesh(plak(hegBak), bladPatroon(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 })));

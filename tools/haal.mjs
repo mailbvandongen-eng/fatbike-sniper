@@ -39,3 +39,25 @@ const [s, w, n, e] = L.osmBbox;
 const osm = await haal(`https://api.openstreetmap.org/api/0.6/map.json?bbox=${w},${s},${e},${n}`);
 writeFileSync(`${map}/osm.json`, JSON.stringify(osm));
 console.log(`OSM: ${osm.elements.length} elementen`);
+
+// BGT (Basisregistratie Grootschalige Topografie, PDOK, CC0): tuinen (erven), bestrating, groen, bomen en heggen
+// op de decimeter nauwkeurig. Alleen voor locaties met bgt: true.
+if (L.bgt) {
+  const lagen = ["onbegroeidterreindeel", "begroeidterreindeel", "wegdeel", "ondersteunendwegdeel", "waterdeel", "vegetatieobject_punt", "vegetatieobject_lijn", "scheiding_lijn", "paal", "straatmeubilair"];
+  const bgt = {};
+  for (const laag of lagen) {
+    bgt[laag] = [];
+    let u = `https://api.pdok.nl/lv/bgt/ogc/v1/collections/${laag}/items?bbox=${w},${s},${e},${n}&limit=1000&f=json`;
+    while (u) {
+      const d = await haal(u);
+      for (const f of d.features) {
+        const p = f.properties;
+        if (p.eind_registratie) continue; // vervallen
+        bgt[laag].push({ soort: p.fysiek_voorkomen ?? p.type ?? null, functie: p.functie ?? null, plus: p.plus_fysiek_voorkomen ?? p.plus_type ?? p.plus_functie ?? null, g: f.geometry });
+      }
+      u = d.links?.find((l) => l.rel === "next")?.href;
+    }
+    console.log(`BGT ${laag}: ${bgt[laag].length}`);
+  }
+  writeFileSync(`${map}/bgt.json`, JSON.stringify(bgt));
+}

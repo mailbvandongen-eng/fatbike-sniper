@@ -21,7 +21,9 @@ s = LENGTE / max(mx.x - mn.x, mx.y - mn.y)
 for o in ms:
     for v in o.data.vertices: v.co = Vector(((v.co.x - (mn.x + mx.x) / 2) * s, (v.co.y - (mn.y + mx.y) / 2) * s, (v.co.z - mn.z) * s))
     for m in o.data.materials:
-        nt = m.node_tree; bsdf = next(n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED')
+        if not m or not m.use_nodes: continue
+        nt = m.node_tree; bsdf = next((n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED'), None)
+        if not bsdf: continue
         for naam in ('Normal', 'Metallic', 'Roughness'):
             for l in list(bsdf.inputs[naam].links): nt.links.remove(l)
         bsdf.inputs['Metallic'].default_value = 0.1; bsdf.inputs['Roughness'].default_value = 0.6

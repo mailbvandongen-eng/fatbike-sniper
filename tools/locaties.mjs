@@ -66,6 +66,7 @@ export const LOCATIES = {
     hangjeugd: true, // groepjes bij het speeltuintje, en fatbikes die af en aan rijden
     fatDruk: 1.7,
     kijkpunt: [92875, 453162], // het speeltuintje
+    bgt: true, // tuinen, bestrating, bomen en heggen uit de grootschalige topografie
     grond: "gras", // een hofje: gras tussen de paden, geen plein
     druk: 0.3, // en het is er rustig
   },

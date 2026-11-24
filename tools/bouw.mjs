@@ -1,7 +1,7 @@
 // Bouwt uit de ruwe gegevens de wereld van een locatie: data/<locatie>.json
 //   node tools/bouw.mjs julianaplein
 // Assen in het spel: x = oost, y = omhoog, z = zuid (meters, oorsprong = midden van de locatie).
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { ShapeUtils, Vector2 } from "../lib/three.module.js";
 import { LOCATIES, GEDEELD } from "./locaties.mjs";
 import { naarRD } from "./rd.mjs";
@@ -224,6 +224,48 @@ for (const n of knoop.values()) {
   else if (t.highway === "street_lamp") dingen.push(["lamp", x, z]);
 }
 
+// ---------- BGT: de echte indeling van de grond (tuinen, bestrating, groen), bomen, heggen en schuttingen ----------
+const schuttingen = [];
+if (L.bgt && existsSync(`data/ruw/${id}/bgt.json`)) {
+  const bgt = JSON.parse(readFileSync(`data/ruw/${id}/bgt.json`));
+  const ring = (g) => (g.type === "Polygon" ? g.coordinates[0] : g.type === "MultiPolygon" ? g.coordinates[0][0] : null)?.map(([lon, lat]) => lokaal(lat, lon).map(r1));
+  const lijn = (g) => (g.type === "LineString" ? [g.coordinates] : g.type === "MultiLineString" ? g.coordinates : []).map((l) => l.map(([lon, lat]) => lokaal(lat, lon).map(r1)));
+  const opp = (r) => { let a = 0; for (let i = 0; i < r.length - 1; i++) a += r[i][0] * r[i + 1][1] - r[i + 1][0] * r[i][1]; return Math.abs(a) / 2; };
+  const BGTVER = 190, bv = [];
+  const voeg = (lijst, kies) => { for (const f of lijst) { const r = ring(f.g); if (!r || Math.hypot(...r[0]) > BGTVER) continue; const soort = kies(f); if (soort) bv.push({ s: soort, r, a: opp(r) }); } };
+  voeg(bgt.begroeidterreindeel, () => "b_gras");
+  voeg(bgt.ondersteunendwegdeel, (f) => (f.soort === "groenvoorziening" ? "b_gras" : "b_open"));
+  voeg(bgt.waterdeel, () => "b_water");
+  voeg(bgt.onbegroeidterreindeel, (f) => (f.soort === "erf" ? "b_erf" : f.soort === "gesloten verharding" ? "b_asfalt" : "b_open"));
+  voeg(bgt.wegdeel, (f) => (/parkeer/.test(f.functie ?? "") ? "b_parkeer" : /voetpad|voetganger|inrit/.test(f.functie ?? "") ? "b_voetpad" : /fietspad/.test(f.functie ?? "") ? "b_fietspad" : f.soort === "gesloten verharding" ? "b_asfalt" : "b_klinker"));
+  bv.sort((p, q) => q.a - p.a); // grote vlakken eerst, kleine eroverheen (gaten in vlakken houden we niet bij)
+  for (const v of bv) vlakken.push({ s: v.s, r: v.r });
+  // bomen: de echte bomen in plaats van die uit OSM
+  if (bgt.vegetatieobject_punt.length) {
+    bomen.length = 0;
+    for (const f of bgt.vegetatieobject_punt) { const [x, z] = lokaal(f.g.coordinates[1], f.g.coordinates[0]).map(r1); bomen.push([x, z, 7 + ((Math.abs(Math.round(x * 13 + z * 7)) % 6))]); }
+  }
+  for (const f of bgt.vegetatieobject_lijn) for (const l of lijn(f.g)) heggen.push({ l, h: 1.2 });
+  for (const f of bgt.scheiding_lijn) for (const l of lijn(f.g)) for (let i = 0; i < l.length - 1; i++) schuttingen.push([l[i][0], l[i][1], l[i + 1][0], l[i + 1][1], f.soort === "muur" ? "muur" : "hek"]);
+  for (const f of bgt.paal) if (/licht/.test(`${f.plus} ${f.soort}`)) { const [x, z] = lokaal(f.g.coordinates[1], f.g.coordinates[0]).map(r1); if (!dingen.some((d) => d[0] === "lamp" && Math.hypot(d[1] - x, d[2] - z) < 3)) dingen.push(["lamp", x, z]); }
+  // tuinen: om elk erf een schutting of een heg, behalve waar het tegen een gebouw of een ander erf aan ligt
+  const erven = bv.filter((v) => v.s === "b_erf" && Math.hypot(...v.r[0]) < 150);
+  const inGebouw = (p) => voetafdrukken.some((v) => binnen(p, v.ring));
+  erven.forEach((e, nr) => {
+    const soort = ["hout", "hout", "heg", "hout", "heg"][nr % 5];
+    for (let i = 0; i < e.r.length - 1; i++) {
+      const [a, b] = [e.r[i], e.r[i + 1]], dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz);
+      if (l < 0.6) continue;
+      const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], nx = -dz / l, nz = dx / l;
+      // de buitenkant van deze rand
+      const buiten = binnen([m[0] + nx * 0.3, m[1] + nz * 0.3], e.r) ? [m[0] - nx * 0.45, m[1] - nz * 0.45] : [m[0] + nx * 0.45, m[1] + nz * 0.45];
+      if (inGebouw(buiten) || inGebouw(m) || erven.some((o) => o !== e && binnen(buiten, o.r))) continue;
+      schuttingen.push([a[0], a[1], b[0], b[1], soort]);
+    }
+  });
+  console.log(`BGT: ${bv.length} vlakken, ${erven.length} tuinen, ${schuttingen.length} stukken schutting of heg, ${bomen.length} bomen`);
+}
+
 // ---------- winkelborden: elke winkel met een naam op de dichtstbijzijnde gevel ----------
 const winkels = [];
 for (const n of knoop.values()) {
@@ -436,7 +478,7 @@ for (const v of vlakken) if (v.s.startsWith("speel")) {
 const uit = {
   naam: L.naam, kort: L.kort, modus: L.modus ?? "rondes", seizoen: L.seizoen ?? "zomer", tijd: L.tijd, grond: L.grond, druk: L.druk, karate: L.karate, hangjeugd: L.hangjeugd, fatDruk: L.fatDruk, bron: "3D BAG (CC BY 4.0), © OpenStreetMap-bijdragers (ODbL)",
   sluipschutter, muren, daken, voetafdrukken: voetafdrukken.filter((v) => Math.hypot(...v.ring[0]) < VER + 20),
-  vlakken, lijnen, bomen, heggen, dingen, plekken: plekken.filter((p) => !p.bezet), vasteAutos, winkels, oversteken, muurtjes, standplaatsen, startStand, bogen, dakboog, hangplekken, speeltuinen, graaf: { knopen, kanten },
+  vlakken, lijnen, bomen, heggen, dingen, plekken: plekken.filter((p) => !p.bezet), vasteAutos, winkels, oversteken, muurtjes, standplaatsen, startStand, bogen, dakboog, hangplekken, speeltuinen, schuttingen, graaf: { knopen, kanten },
 };
 writeFileSync(`data/${id}.json`, JSON.stringify(uit));
 const tri = Object.values(muren).reduce((s, m) => s + m.pos.length / 9, 0) + Object.values(daken).reduce((s, m) => s + m.pos.length / 9, 0);

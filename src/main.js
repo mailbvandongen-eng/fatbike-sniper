@@ -219,16 +219,37 @@ function bouwDecor(st) {
     const muur = new THREE.MeshStandardMaterial({ color: "#d8d2c4", roughness: 1 }), hout = new THREE.MeshStandardMaterial({ color: "#f3f1ea", roughness: 0.6 });
     const doos = (b, h, d, x, y, z, mat) => { const m = new THREE.Mesh(new THREE.BoxGeometry(b, h, d), mat); m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; g.add(m); return m; };
     const B = 1.5, onder = 0.92, boven = 2.25; // de raamopening
-    // de binnenmuur staat een stukje achter de echte gevel (van buiten zie je hem dus niet)
-    doos(5, onder, 0.1, 0, onder / 2, -0.2, muur); doos(5, 2.7 - boven, 0.1, 0, (2.7 + boven) / 2, -0.2, muur);
-    for (const k of [-1, 1]) doos((5 - B) / 2, boven - onder, 0.1, k * (B / 2 + (5 - B) / 4), (onder + boven) / 2, -0.2, muur);
+    // een klein slaapkamertje: 2,7 m breed, 3 m diep. De muur met het raam staat een stukje achter de echte gevel
+    // (van buiten zie je hem dus niet); de andere muren en het plafond zie je alleen van binnen.
+    const KB = 2.7, KD = 3.0, KH = 2.5, z0 = -0.2;
+    doos(KB, onder, 0.1, 0, onder / 2, z0, muur); doos(KB, KH - boven, 0.1, 0, (KH + boven) / 2, z0, muur);
+    for (const k of [-1, 1]) doos((KB - B) / 2, boven - onder, 0.1, k * (B / 2 + (KB - B) / 4), (onder + boven) / 2, z0, muur);
+    const behang = new THREE.MeshStandardMaterial({ color: "#cfd6d2", roughness: 1 }), wit = new THREE.MeshStandardMaterial({ color: "#eeeae2", roughness: 1 });
+    const wand = (b, h, x, y, z, ry, rx, mat) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(b, h), mat); m.position.set(x, y, z); m.rotation.set(rx, ry, 0); m.receiveShadow = true; g.add(m); return m; };
+    wand(KD, KH, -KB / 2, KH / 2, z0 - KD / 2, Math.PI / 2, 0, behang); wand(KD, KH, KB / 2, KH / 2, z0 - KD / 2, -Math.PI / 2, 0, behang);
+    wand(KB, KH, 0, KH / 2, z0 - KD, 0, 0, muur); wand(KB, KD, 0, KH, z0 - KD / 2, 0, Math.PI / 2, wit);
     // van buiten: een donker gat in de gevel (de kamer erachter). Van binnen kijk je er dwars doorheen.
     const gat = new THREE.Mesh(new THREE.PlaneGeometry(B, boven - onder), new THREE.MeshBasicMaterial({ color: "#15171a" }));
     gat.position.set(0, (onder + boven) / 2, 0.015); g.add(gat);
+    // inrichting: eenpersoonsbed langs de linkermuur, nachtkastje, kledingkast, deur, radiator onder het raam, gordijnen
+    const M_ = (kleur, ruw = 0.9) => new THREE.MeshStandardMaterial({ color: kleur, roughness: ruw });
+    const eiken = M_("#b08d5f", 0.7), bx = -KB / 2 + 0.47;
+    doos(0.92, 0.28, 2.02, bx, 0.14, z0 - KD + 1.03, eiken); doos(0.9, 0.2, 1.98, bx, 0.38, z0 - KD + 1.03, M_("#f1efe9"));
+    doos(0.94, 0.12, 1.35, bx, 0.5, z0 - KD + 1.36, M_("#4f6f8f")); doos(0.6, 0.12, 0.4, bx, 0.52, z0 - KD + 0.3, M_("#fbfaf6"));
+    doos(0.94, 0.75, 0.05, bx, 0.6, z0 - KD + 0.03, eiken); // hoofdbord
+    doos(0.42, 0.5, 0.4, -KB / 2 + 0.22, 0.25, z0 - KD + 2.35, eiken); doos(0.12, 0.3, 0.12, -KB / 2 + 0.22, 0.65, z0 - KD + 2.35, M_("#e8d9a8")); // nachtkastje met lampje
+    doos(0.95, 2.05, 0.58, KB / 2 - 0.5, 1.02, z0 - KD + 0.3, eiken); doos(0.02, 1.9, 0.01, KB / 2 - 0.5, 1.02, z0 - KD + 0.595, M_("#6f5636")); // kledingkast
+    doos(0.85, 2.05, 0.04, 0.05, 1.02, z0 - KD + 0.02, M_("#f3f1ea", 0.6)); doos(0.12, 0.03, 0.05, 0.38, 1.05, z0 - KD + 0.06, M_("#8d9093", 0.4)); // deur met klink
+    doos(1.2, 0.55, 0.1, 0, 0.42, z0 - 0.12, M_("#f4f2ec", 0.5)); // radiator
+    for (const k of [-1, 1]) doos(0.3, boven - 0.15, 0.08, k * (B / 2 + 0.2), (boven + 0.15) / 2 + 0.05, z0 - 0.1, M_("#7d8c7a")); // gordijnen
+    doos(B + 0.9, 0.04, 0.04, 0, boven + 0.12, z0 - 0.1, M_("#3a3a3a", 0.5));
+    doos(1.5, 0.012, 1.0, 0.35, 0.006, z0 - 1.5, M_("#8a4a3c")); // vloerkleed
+    wand(0.5, 0.7, KB / 2 - 0.004, 1.6, z0 - 1.9, -Math.PI / 2, 0, M_("#d7b24a")); // poster
+    doos(0.3, 0.14, 0.3, 0, KH - 0.07, z0 - 1.5, M_("#f6f0dc", 0.4)); // plafondlamp
     doos(B + 0.16, 0.05, 0.3, 0, onder, 0.02, hout); // vensterbank
     for (const k of [-1, 1]) doos(0.06, boven - onder, 0.1, k * B / 2, (onder + boven) / 2, 0, hout);
     doos(B, 0.06, 0.1, 0, boven, 0, hout);
-    doos(5, 0.1, 3.2, 0, -0.05, -1.6, new THREE.MeshStandardMaterial({ color: "#8a7558", roughness: 0.8 })); // vloer
+    doos(KB, 0.1, KD, 0, -0.05, z0 - KD / 2, new THREE.MeshStandardMaterial({ color: "#a58b68", roughness: 0.8 })); // laminaat
     // de twee raamvleugels staan naar buiten open
     const ruit = new THREE.MeshStandardMaterial({ color: "#9fb3bd", transparent: true, opacity: 0.3, roughness: 0.1 });
     for (const k of [-1, 1]) {
@@ -479,11 +500,31 @@ function uitAuto(x, z, mb = 0.3, ml = mb) {
   for (const o of autosBij(x, z)) { const u = uitRechthoek(o, x, z, mb, ml); if (u) return u; }
   return null;
 }
+// schuttingen in vakken van 8 m (er zijn er honderden)
+let schutRooster = null;
+function schuttingBij(x, z) {
+  if (!data.schuttingen?.length) return [];
+  if (!schutRooster) {
+    schutRooster = new Map();
+    for (const sg of data.schuttingen) {
+      const n = Math.ceil(Math.hypot(sg[2] - sg[0], sg[3] - sg[1]) / 4) + 1, gezien = new Set();
+      for (let i = 0; i <= n; i++) { const k = (Math.floor((sg[0] + ((sg[2] - sg[0]) * i) / n) / 8) + 512) * 1024 + Math.floor((sg[1] + ((sg[3] - sg[1]) * i) / n) / 8) + 512; if (!gezien.has(k)) { gezien.add(k); (schutRooster.get(k) ?? schutRooster.set(k, []).get(k)).push(sg); } }
+    }
+  }
+  const uit = [], ix = Math.floor(x / 8) + 512, iz = Math.floor(z / 8) + 512;
+  for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const l = schutRooster.get((ix + a) * 1024 + iz + b); if (l) uit.push(...l); }
+  return uit;
+}
 function geblokkeerd(x, z) {
   if (inGebouw(x, z, 0.45)) return true; // je bent zelf ook breed: niet half de muur in
   if (inHeg(x, z, 0.15)) return true; // door een heg loop je niet heen
   for (const [bx, bz] of wereld.bomen) if ((x - bx) ** 2 + (z - bz) ** 2 < 0.3) return true; // boomstammen
   for (const [rx, rz, rr] of wereld.rond) if ((x - rx) ** 2 + (z - rz) ** 2 < rr * rr) return true; // speeltoestel
+  // schuttingen, tuinheggen en hekken
+  for (const [ax, az, bx, bz, soort] of schuttingBij(x, z)) {
+    const dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz || 1, t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / L2));
+    if (Math.hypot(x - ax - dx * t, z - az - dz * t) < (soort === "heg" ? 0.6 : 0.4)) return true;
+  }
   for (const m of data.muurtjes ?? []) for (let i = 0; i < m.length - 1; i++) {
     const [a, b] = [m[i], m[i + 1]], dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz || 1;
     const t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / L2));
