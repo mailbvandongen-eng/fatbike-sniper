@@ -140,6 +140,8 @@ Alles komt uit `src/geluid.js` (Web Audio, geen bestanden): motor met versnellin
 
 ### Missies en gezocht worden (`src/straat.js`)
 
+**Aanhouden en vechten met handhaving:** een handhaver of agent moet een tel naast je staan om je vast te pakken (`grijp` in `Agent.stap`); dan komt hij achter je staan en word je in de boeien geslagen (`arresteer` in `src/main.js`: handen op de rug, boeien, de camera draait om je heen) en pas daarna afgevoerd naar je raam. Je kunt ook vechten: een agent die je slaat vecht terug (`Agent.ruzie`), gaat na een paar klappen even neer en staat weer op. Lig je zelf op de grond met een agent erbij, dan ben je erbij. Het startscherm heeft geen uitleg meer. Testen: `node tools/boeien.cjs`.
+
 **Missies** (alleen in het Julianaplein-level, zodra je op straat loopt): er verschijnt een gele lichtzuil (geel vierkant op de radar). Loop erin en de missie begint; je doelen zijn rood (pijl erboven, rood op de radar, rode zuil op de plek). Om de beurt:
 - **hangplek**: drie fatbikes die staan te bellen; raak je er één, dan gaan de anderen ervandoor;
 - **banden**: vier geparkeerde fatbikes; steek de banden lek binnen 80 seconden;

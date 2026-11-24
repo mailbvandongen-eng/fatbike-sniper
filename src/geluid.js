@@ -167,6 +167,13 @@ export class Geluid {
   }
   /** Het sissen van een lontje. */
   sis() { this.ruisStoot({ duur: 0.55, filter: "bandpass", freq: 5200, q: 1.5, gain: 0.18 }); }
+  /** Handboeien die dichtklikken: twee keer een ratel en een klik. */
+  boeien() {
+    for (const start of [0.35, 1.0]) {
+      for (let i = 0; i < 6; i++) this.ruisStoot({ duur: 0.018, filter: "bandpass", freq: 4200, q: 6, gain: 0.5, start: start + i * 0.035 });
+      this.toon({ freq: 2100, duur: 0.05, type: "square", gain: 0.08, start: start + 0.23 });
+    }
+  }
   /** Kiai: de korte kreet bij een zware techniek. */
   kiai() {
     if (!this.ctx) return;

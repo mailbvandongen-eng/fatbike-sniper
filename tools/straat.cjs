@@ -82,7 +82,7 @@ const TYPE = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/jav
   await vooruit(7);
   console.log("3 sterren:", await lijst());
   await vooruit(30);
-  await page.waitForFunction(() => !window.__spel.loop.aan, null, { timeout: 60000 }).then(() => console.log("aangehouden: terug bij het raam")).catch(() => console.log("NIET aangehouden"));
+  await page.waitForFunction(() => !window.__spel.loop.aan, null, { timeout: 400000 }).then(() => console.log("aangehouden: terug bij het raam")).catch(() => console.log("NIET aangehouden"));
   await page.waitForTimeout(500);
   await page.screenshot({ path: `${UIT}/4-gepakt.png` });
   await page.waitForTimeout(4000);

@@ -338,7 +338,7 @@ const wapens = () => (schutter === karateka ? ["vuist", "knuppel", "vuurwerk"] :
 const vuurwerk = [];
 function gooi() {
   const L = loop;
-  if (!L.aan || L.slag > 0 || L.neer > 0 || L.wankel > 0) return;
+  if (!L.aan || L.slag > 0 || L.neer > 0 || L.wankel > 0 || L.boeien > 0) return;
   // naar het groepje waar je naar kijkt (anders een meter of acht voor je uit)
   const kx = Math.sin(kijk.yaw), kz = Math.cos(kijk.yaw);
   let doel = null, best = 0.75;
@@ -393,6 +393,7 @@ function stapVuurwerk(dt) {
 function volgendWapen() { const w = wapens(); zetWapen(w[(w.indexOf(loop.wapen) + 1) % w.length]); }
 /** De actieknop: bij je raam schieten met het geweer; lopend het wapen dat je in je hand hebt. */
 function actie() {
+  if (loop.boeien > 0) return;
   if (rij.aan) return geluid.toeter(1); // in de auto: de claxon
   if (!loop.aan || loop.wapen === "pistool") return schiet();
   if (loop.wapen === "vuurwerk") return gooi();
@@ -711,12 +712,31 @@ function geblokkeerdDoorDing(x, z) {
   return false;
 }
 
+/** Aangehouden: de agent komt achter je staan en slaat je in de boeien. Daarna word je afgevoerd (terug naar je raam). */
+let boeiMesh = null;
+function arresteer(agent) {
+  const L = loop;
+  if (!L.aan || L.boeien > 0 || !agent) return;
+  if (rij.aan) stapUitGedwongen();
+  Object.assign(L, { boeien: 3.6, neer: 0, slag: 0, wankel: 0, vx: 0, vz: 0, snelheid: 0, slagStraks: null });
+  zetMikken(false);
+  const fx = Math.sin(L.richting), fz = Math.cos(L.richting);
+  agent.boeit = true; agent.ruzieT = 0; agent.pos.set(L.pos.x - fx * 0.62, 0, L.pos.z - fz * 0.62); agent.richting = L.richting;
+  schutter.zet("staan", 1, 0);
+  geluid.boeien();
+  if (!boeiMesh) {
+    boeiMesh = new THREE.Group();
+    const staal = new THREE.MeshStandardMaterial({ color: "#b9bdc2", metalness: 0.9, roughness: 0.3 });
+    for (const k of [-1, 1]) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.042, 0.008, 6, 14), staal); r.position.x = k * 0.05; r.rotation.y = Math.PI / 2; boeiMesh.add(r); }
+    scene.add(boeiMesh);
+  }
+}
 /**
  * Je krijgt een klap. Van iemand met wie je vecht (wie) wankel je eerst; pas na een paar klappen ga je neer.
  * Zonder wie (een auto die je schept) lig je meteen. Je krabbelt altijd weer op.
  */
 function klapKrijgen(wie = null) {
-  if (loop.neer > 0 || !loop.aan || rij.aan) return; // in de auto zit je veilig
+  if (loop.neer > 0 || !loop.aan || rij.aan || loop.boeien > 0) return; // in de auto zit je veilig
   if (wie?.pos && loop.veilig > 0) return; // net geraakt: je krijgt even de tijd om terug te komen
   loop.veilig = 1.1;
   loop.conditie -= 1; loop.herstel = 5;
@@ -744,7 +764,7 @@ function slagDoel() {
   const kx = Math.sin(kijk.yaw), kz = Math.cos(kijk.yaw);
   let best = null;
   for (const r of reizigers) {
-    const bereik = r.fat ? (r.toestand === "rijden" ? 3 : 0) : r.wordBoos ? 3.2 : r.soort === "agent" ? (r.afdruipen ? 0 : 2.2) : r.ruzie && r.groep.visible !== false && !(r.ruzieNeer > 0) ? 2.5 : 0;
+    const bereik = r.fat ? (r.toestand === "rijden" ? 3 : 0) : r.wordBoos ? 3.2 : r.soort === "agent" ? (r.afdruipen || r.ruzieNeer > 0 ? 0 : 2.2) : r.ruzie && r.groep.visible !== false && !(r.ruzieNeer > 0) ? 2.5 : 0;
     if (!bereik) continue;
     const dx = r.pos.x - loop.pos.x, dz = r.pos.z - loop.pos.z, d = Math.hypot(dx, dz) || 1e-3;
     if (d > bereik) continue;
@@ -755,7 +775,7 @@ function slagDoel() {
 }
 /** Uithalen met de vuist (fatbiker van zijn fiets, of vechten) of met het mes (band lek steken). */
 function sla(soort = "vuist") {
-  if (!loop.aan || loop.neer > 0 || loop.wankel > 0) return;
+  if (!loop.aan || loop.neer > 0 || loop.wankel > 0 || loop.boeien > 0) return;
   if (loop.slag > 0) { loop.slagStraks = soort; return; } // tik je door, dan volgt de volgende klap meteen
   const karate = schutter === karateka && soort !== "mes" && soort !== "knuppel";
   let nr, beweging, duur, raak, tempo, zwaar, ver = 0.95;
@@ -803,6 +823,14 @@ function raakMens(wie, zwaar) {
 }
 function stapLopen(dt) {
   const L = loop;
+  if (L.boeien > 0) {
+    // in de boeien: je staat stil terwijl de camera om je heen draait; daarna word je afgevoerd
+    L.boeien -= dt; L.snelheid = L.vx = L.vz = 0;
+    kijk.yaw += dt * 0.75; L.keek = performance.now();
+    if (L.boeien <= 0) { L.boeien = 0; for (const r of reizigers) if (r.boeit) r.boeit = false; if (boeiMesh) boeiMesh.visible = false; straat.aangehouden(); }
+    oog.set(L.pos.x, 1.55, L.pos.z);
+    return;
+  }
   if (rij.aan) return stapRijden(dt);
   // instappen: even wachten (de ruit, het portier), dan zit je erin
   if (rij.instapT > 0 && (rij.instapT -= dt) <= 0 && rij.straks) { const st = rij.straks; rij.straks = null; if (stil.includes(st)) return echtInstappen(st); }
@@ -901,9 +929,9 @@ function stapLopen(dt) {
         } else {
           // wie je bij het uithalen voor je had, krijgt de klap (niet de fatbike die er toevallig naast staat)
           const mens = L.doelwit?.ruzie && !L.doelwit.fat && L.doelwit.soort !== "agent" && !(L.doelwit.ruzieNeer > 0) && voorJe(L.doelwit, 2.2) < Infinity ? L.doelwit : null;
-          const auto = dichtst(reizigers.filter((r) => r.wordBoos), 3.2), agent = dichtst(reizigers.filter((r) => r.soort === "agent" && !r.afdruipen), 1.9);
+          const auto = dichtst(reizigers.filter((r) => r.wordBoos), 3.2), agent = dichtst(reizigers.filter((r) => r.soort === "agent" && !r.afdruipen && !(r.ruzieNeer > 0)), 1.9);
           if (mens) raakMens(mens, L.slagZwaar);
-          else if (agent) { geluid.stomp(0.8); agent.duw(); straat.strafbaar(1.2); } // een agent slaan: hij staat even stil, maar het wordt er niet beter op
+          else if (agent) { raakMens(agent, L.slagZwaar); straat.strafbaar(1); } // een agent slaan: hij vecht terug, en het wordt er niet beter op // een agent slaan: hij staat even stil, maar het wordt er niet beter op
           else if (fat) { geluid.stomp(1); fatbikeGeraakt(fat, "klap", fat.pos.clone().setY(1)); }
           else if (auto) { geluid.bonk(); auto.wordBoos(); straat.strafbaar(0.3); } // tegen een auto slaan: de bestuurder pikt het niet
           else { const wie = dichtst(reizigers.filter((r) => r.ruzie && r.groep.visible !== false && !(r.ruzieNeer > 0)), 1.9); if (wie) raakMens(wie, L.slagZwaar); }
@@ -990,12 +1018,6 @@ function toonStart() {
   $("#startRonde").textContent = bonus ? "Bonuslevel" : `Ronde ${spel.ronde}`;
   $("#startDoel").textContent = bonus ? `Zoveel mogelijk fatbikes in ${Math.round(ri.tijd / 60)} minuten` : `${ri.fatbikes} fatbikes · ${ri.kogels} kogels · geen haast`;
   $("#startBest").textContent = bonus ? (bestBonus ? `Record: ${bestBonus} fatbikes` : "") : best ? `Beste score: ${best}` : "";
-  $("#uitlegPlek").textContent = bonus
-    ? "Je staat bij het raam van de woonkamer, een halve trap boven de straat. Voor je ligt de tramlijn. Het is winter."
-    : "Je staat op het balkon van de 4e verdieping. Onder je ligt de parkeerplaats, met de Jumbo erachter.";
-  $("#uitlegRegel").innerHTML = bonus
-    ? "Raak <b>geen mensen, gewone fietsen of auto's</b>: dat kost 10 seconden. Kogels genoeg."
-    : "Raak <b>geen mensen, gewone fietsen of auto's</b>. Na 3 fouten ben je af. Je hebt alle tijd: alleen je kogels zijn op te maken.";
   for (const b of document.querySelectorAll("#levels button")) b.classList.toggle("aan", b.dataset.level === LOCATIE);
 }
 function begin() {
@@ -1652,7 +1674,9 @@ function lus() {
   if (loop.aan) { stapLopen(echt); $("#sprint").classList.toggle("aan", loop.sprint); $("#richt").classList.toggle("aan", loop.mikken); }
   spel.speler = loop.aan ? loop.pos : null; spel.aangereden = klapKrijgen; spel.toeter = () => geluid.toeter(1);
   spel.zichtVrij = zichtVrij;
-  spel.aangehouden = () => { if (!(rij.aan && Math.abs(rij.v) > 1.5)) straat.aangehouden(); }; // uit een rijdende auto halen ze je niet
+  spel.aangehouden = (agent) => { if (!(rij.aan && Math.abs(rij.v) > 1.5)) arresteer(agent); }; // uit een rijdende auto halen ze je niet
+  // lig je op de grond en staat er een agent bij, dan ben je erbij
+  if (loop.aan && loop.neer > 0 && !(loop.boeien > 0)) { const a = reizigers.find((r) => r.soort === "agent" && !r.afdruipen && !(r.ruzieNeer > 0) && r.pos.distanceTo(loop.pos) < 3); if (a) arresteer(a); }
   straat.stap(echt, tijd);
   tekenRadar();
   // hangjeugd die is weggerend komt na een tijdje terug (niet vlak voor je neus)
@@ -1751,9 +1775,18 @@ function lus() {
     schutter.object.visible = true;
     // het geweer blijft bij het raam; in je hand heb je het pistool of het mes (of niets: vuisten)
     geweer.visible = false;
-    const ding = L.neer > 0 ? null : L.wapen === "pistool" ? pistool : L.wapen === "mes" ? mes : L.wapen === "knuppel" ? knuppel : null;
+    const ding = L.neer > 0 || L.boeien > 0 ? null : L.wapen === "pistool" ? pistool : L.wapen === "mes" ? mes : L.wapen === "knuppel" ? knuppel : null;
     pistool.visible = ding === pistool; mes.visible = ding === mes; knuppel.visible = ding === knuppel;
     schutter.los("DEF-spine002"); schutter.los("DEF-shoulderR");
+    if (L.boeien > 0 && L.boeien < 3.1) {
+      // handen op de rug, de boeien om je polsen
+      const bx = Math.sin(L.richting), bz = Math.cos(L.richting), heup = schutter.plek("DEF-hips");
+      const links = new THREE.Vector3(bz, 0, -bx), rug = new THREE.Vector3(-bx, 0, -bz);
+      for (const [k, z] of [["L", 1], ["R", -1]]) schutter.arm(k, heup.clone().addScaledVector(rug, 0.19).addScaledVector(links, z * 0.05).add(new THREE.Vector3(0, 0.05, 0)), rug.clone().multiplyScalar(0.7).addScaledVector(links, z).add(new THREE.Vector3(0, -0.2, 0)));
+      boeiMesh.visible = true;
+      boeiMesh.position.copy(schutter.plek("DEF-handL")).lerp(schutter.plek("DEF-handR"), 0.5).add(new THREE.Vector3(0, 0.03, 0));
+      boeiMesh.rotation.y = L.richting;
+    } else if (boeiMesh) boeiMesh.visible = false;
     if (ding) {
       const fx = Math.sin(kijkt), fz = Math.cos(kijkt);
       if (ding === pistool && richtend) {

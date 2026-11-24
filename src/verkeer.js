@@ -605,8 +605,22 @@ export class Agent {
     this.richting += h * 0.25;
     return true;
   }
+  /** Je slaat een agent: hij vecht terug (en na een paar klappen ligt hij even). */
+  ruzie(naar, slaat, klap, geraakt, zwaar) {
+    if (this.boeit || this.afdruipen) return false;
+    this.vechter = true; this.grijp = 0;
+    if (this.conditie === undefined) this.conditie = this.rol === "agent" ? 4 : 3;
+    return beginRuzie(this, naar, true, klap, geraakt, zwaar);
+  }
   stap(dt, spel) {
     const doel = spel.speler;
+    if (this.boeit) {
+      // hij slaat je in de boeien: achter je, handen aan je polsen
+      this.m.zet("staan"); this.m.mixer.update(dt);
+      this.groep.position.copy(this.pos); this.groep.rotation.y = this.richting;
+      return;
+    }
+    if (doel && !this.afdruipen && stapRuzie(this, dt)) return;
     if (this.afdruipen || !doel) {
       // klaar: rustig weglopen en dan verdwijnen
       this.afT = (this.afT ?? 9) - dt; this.ziet = false;
@@ -640,7 +654,9 @@ export class Agent {
       if (d > 1.1 && !this.loop(tx - this.pos.x, tz - this.pos.z, this.v * dt)) this.herT = 0;
       this.snelheid = Math.hypot(this.pos.x - ox, this.pos.z - oz) / Math.max(dt, 1e-3);
       this.m.zet(this.snelheid > 3.8 ? "sprinten" : this.snelheid > 0.5 ? "rennen" : "staan", this.snelheid > 3.8 ? this.snelheid / 5.6 : Math.max(0.7, this.snelheid / 3.3));
-      if (d < 1.25) spel.aangehouden?.(this);
+      // vastpakken: een tel naast je staan en je bent erbij. Sla je hem van je af of ren je weg, dan begint hij opnieuw.
+      if (d < 1.45) { this.grijp = (this.grijp ?? 0) + dt; if (this.grijp > 1) { this.grijp = 0; spel.aangehouden?.(this); } }
+      else this.grijp = Math.max(0, (this.grijp ?? 0) - dt * 2);
     }
     this.m.mixer.update(dt);
     this.groep.position.copy(this.pos); this.groep.rotation.y = this.richting;
