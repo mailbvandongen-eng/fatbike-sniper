@@ -303,7 +303,7 @@ function zichtVrij(a, b) {
   zichtRay.set(van, naar.normalize()); zichtRay.far = d - 0.3;
   return !zichtRay.intersectObjects(wereld.botsers, false).length;
 }
-function zetWapen(w) { loop.wapen = w; if (w !== "pistool") zetMikken(false); for (const el of document.querySelectorAll("#wapen svg")) el.style.display = el.dataset.w === w ? "" : "none"; }
+function zetWapen(w) { loop.wapen = w; if (w !== "pistool") zetMikken(false); toonWapen(w); }
 function zetMikken(aan) { loop.mikken = aan && loop.wapen === "pistool"; document.body.classList.toggle("mikt", loop.mikken); }
 /** Mikhulp: de band van de fatbike die het dichtst bij het kruisje staat (ruimer als je richt). */
 function zoekDoel() {
@@ -355,15 +355,26 @@ function gooi() {
   schutter.zet("gooien", 1.4, 0);
   geluid.sis();
   // het ding verlaat je hand halverwege de worp
-  setTimeout(() => {
-    if (!loop.aan) return;
-    const van = schutter.plek("DEF-handR").clone(), T = 0.55 + van.distanceTo(naar) * 0.035;
-    const m = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.1, 8), new THREE.MeshStandardMaterial({ color: "#c0261d", emissive: "#ff7a1a", emissiveIntensity: 0.5 }));
-    m.position.copy(van); scene.add(m);
-    vuurwerk.push({ m, v: new THREE.Vector3((naar.x - van.x) / T, (0.04 - van.y) / T + 4.9 * T, (naar.z - van.z) / T), knetter: -1, tik: 0 });
-    geluid.zwiep(0.5);
-  }, 330);
+  setTimeout(() => { if (loop.aan) lanceer(schutter.plek("DEF-handR").clone(), naar); }, 330);
 }
+function lanceer(van, naar) {
+  const T = 0.55 + van.distanceTo(naar) * 0.035;
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.1, 8), new THREE.MeshStandardMaterial({ color: "#c0261d", emissive: "#ff7a1a", emissiveIntensity: 0.5 }));
+  m.position.copy(van); scene.add(m);
+  vuurwerk.push({ m, v: new THREE.Vector3((naar.x - van.x) / T, (0.04 - van.y) / T + 4.9 * T, (naar.z - van.z) / T), knetter: -1, tik: 0 });
+  geluid.zwiep(0.5);
+}
+/** Uit het raam: naar de plek waar het kruisje op staat (hoogstens 45 m ver). */
+function gooiRaam() {
+  if (!spel.bezig || herlaad > 0 || filmCam || wisselt()) return;
+  herlaad = 0.9;
+  const p = richtPunt(), dx = p.x - oog.x, dz = p.z - oog.z, d = Math.hypot(dx, dz) || 1, r = Math.min(d, 45);
+  const fx = Math.sin(kijk.yaw), fz = Math.cos(kijk.yaw);
+  geluid.sis();
+  lanceer(new THREE.Vector3(oog.x + fx * 0.5, oog.y - 0.1, oog.z + fz * 0.5), new THREE.Vector3(oog.x + (dx / d) * r, 0, oog.z + (dz / d) * r));
+}
+/** Bij het raam (in het level met vuurwerk): wisselen tussen het geweer en vuurwerk. */
+function toonWapen(w) { for (const el of document.querySelectorAll("#wapen svg")) el.style.display = el.dataset.w === w ? "" : "none"; }
 function stapVuurwerk(dt) {
   for (const w of [...vuurwerk]) {
     if (w.knetter < 0) {
@@ -394,6 +405,7 @@ function volgendWapen() { const w = wapens(); zetWapen(w[(w.indexOf(loop.wapen) 
 /** De actieknop: bij je raam schieten met het geweer; lopend het wapen dat je in je hand hebt. */
 function actie() {
   if (loop.boeien > 0) return;
+  if (!loop.aan && loop.raamVuurwerk && karateka) return gooiRaam();
   if (rij.aan) return geluid.toeter(1); // in de auto: de claxon
   if (!loop.aan || loop.wapen === "pistool") return schiet();
   if (loop.wapen === "vuurwerk") return gooi();
@@ -417,7 +429,7 @@ function zetLopen(aan, gedwongen = false) {
       // buiten in karatepak, binnen weer met het geweer
       schutter.object.visible = false;
       schutter = aan ? karateka : sluiper;
-      if (aan) zetWapen("vuist");
+      if (aan) zetWapen("vuist"); else toonWapen(loop.raamVuurwerk ? "vuurwerk" : "pistool");
     }
     zetZoom(1);
     if (aan) {
@@ -738,6 +750,14 @@ function arresteer(agent) {
 function klapKrijgen(wie = null) {
   if (loop.neer > 0 || !loop.aan || rij.aan || loop.boeien > 0) return; // in de auto zit je veilig
   if (wie?.pos && loop.veilig > 0) return; // net geraakt: je krijgt even de tijd om terug te komen
+  // karate: sta je stil in kamae (je slaat of loopt niet), dan blok je de klap
+  if (wie?.pos && schutter === karateka && loop.slag <= 0 && loop.wankel <= 0 && loop.snelheid < 0.4) {
+    loop.veilig = 0.7; loop.richting = Math.atan2(wie.pos.x - loop.pos.x, wie.pos.z - loop.pos.z);
+    Object.assign(loop, { slag: 0.45, slagRaakOp: -1, slagRaak: true, slagSoort: "blok", slagStraks: null, comboT: 0 });
+    schutter.zet(Math.random() < 0.5 ? "k_block" : "k_gedan_barai", 2.2, 0.12);
+    geluid.tik(1); geluid.zwiep(0.4);
+    return;
+  }
   loop.veilig = 1.1;
   loop.conditie -= 1; loop.herstel = 5;
   loop.slag = 0; loop.slagStraks = null; loop.comboT = 0;
@@ -1506,7 +1526,7 @@ const knop = (sel, neer, op) => {
 knop("#vuur", () => actie());
 knop("#hoger", () => wisselStand(1));
 knop("#loopKnop", () => zetLopen(!loop.aan));
-knop("#wapen", () => volgendWapen());
+knop("#wapen", () => { if (loop.aan) return volgendWapen(); loop.raamVuurwerk = !loop.raamVuurwerk; toonWapen(loop.raamVuurwerk ? "vuurwerk" : "pistool"); });
 knop("#instap", () => (rij.aan ? stapUit() : stapIn()));
 addEventListener("keydown", (e) => { if (!e.repeat && e.code === "KeyT" && loop.aan) rij.aan ? stapUit() : stapIn(); });
 knop("#richt", () => (schutter === karateka ? sla("trap") : zetMikken(!loop.mikken)));

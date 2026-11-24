@@ -183,14 +183,33 @@ function band(m) {
   const o = m.object; o.updateMatrixWorld(true);
   let heup = null;
   o.traverse((b) => { if (b.isBone && b.name === "DEF-hips") heup = b; });
-  if (!heup) return;
-  const s = m.schaal, hp = heup.getWorldPosition(new THREE.Vector3());
+  if (!heup || !m.hoog) return;
+  const s = m.schaal, hp = heup.getWorldPosition(new THREE.Vector3()), y0 = hp.y + 0.07 * s, H = 0.048 * s;
+  // de omtrek van het middel meten: per richting het verste punt van het pak op deze hoogte (armen tellen niet mee)
+  const N = 28, straal = new Float32Array(N), v = new THREE.Vector3(), P = m.hoog.geometry.attributes.position;
+  for (let i = 0; i < P.count; i++) {
+    m.hoog.getVertexPosition(i, v).applyMatrix4(m.hoog.matrixWorld);
+    if (Math.abs(v.y - y0) > 0.05 * s) continue;
+    const dx = v.x - hp.x, dz = v.z - hp.z, r = Math.hypot(dx, dz);
+    if (r > 0.26 * s) continue;
+    const k = Math.round(((Math.atan2(dx, dz) + Math.PI * 2) % (Math.PI * 2)) / (Math.PI * 2) * N) % N;
+    if (r > straal[k]) straal[k] = r;
+  }
+  // gaten opvullen en gladstrijken, zodat de band strak om het lijf ligt
+  const gem = straal.reduce((a, b) => a + b, 0) / Math.max(1, straal.filter((r) => r > 0).length) || 0.15 * s;
+  for (let i = 0; i < N; i++) if (!straal[i]) straal[i] = gem;
+  const glad = Float32Array.from(straal, (r, i) => Math.max(r, (straal[(i + N - 1) % N] + r * 2 + straal[(i + 1) % N]) / 4) + 0.008 * s);
+  const pos = [], idx = [];
+  for (let i = 0; i <= N; i++) { const h = (i / N) * Math.PI * 2, r = glad[i % N]; for (const dy of [-H / 2, H / 2]) pos.push(Math.sin(h) * r, dy, Math.cos(h) * r); }
+  for (let i = 0; i < N; i++) { const a = i * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+  const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+  const stof = BAND.clone(); stof.side = THREE.DoubleSide;
   const zet = (mesh, p) => { mesh.position.copy(p); mesh.castShadow = true; o.add(mesh); mesh.updateMatrixWorld(true); heup.attach(mesh); };
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.168 * s, 0.026 * s, 6, 18), BAND);
-  ring.rotation.x = Math.PI / 2; ring.scale.set(1, 0.72, 1.6);
-  zet(ring, new THREE.Vector3(hp.x, hp.y + 0.09 * s, hp.z + 0.005 * s));
-  zet(new THREE.Mesh(new THREE.BoxGeometry(0.07 * s, 0.05 * s, 0.035 * s), BAND), new THREE.Vector3(hp.x, hp.y + 0.09 * s, hp.z + 0.135 * s));
-  for (const k of [-1, 1]) { const e = new THREE.Mesh(new THREE.BoxGeometry(0.04 * s, 0.24 * s, 0.012 * s), BAND); e.rotation.z = k * 0.22; zet(e, new THREE.Vector3(hp.x + k * 0.04 * s, hp.y - 0.04 * s, hp.z + 0.14 * s)); }
+  zet(new THREE.Mesh(g, stof), new THREE.Vector3(hp.x, y0, hp.z));
+  // de knoop voor op de buik, met twee afhangende uiteinden
+  const voor = glad[0];
+  zet(new THREE.Mesh(new THREE.BoxGeometry(0.06 * s, 0.05 * s, 0.03 * s), BAND), new THREE.Vector3(hp.x, y0, hp.z + voor + 0.008 * s));
+  for (const k of [-1, 1]) { const e = new THREE.Mesh(new THREE.BoxGeometry(0.04 * s, 0.2 * s, 0.01 * s), BAND); e.rotation.z = k * 0.2; zet(e, new THREE.Vector3(hp.x + k * 0.035 * s, y0 - 0.11 * s, hp.z + voor + 0.012 * s)); }
 }
 /** Pet en hesje voor handhaving (geel hesje) en politie (donker vest met gele band); ze bewegen mee met hoofd en romp. */
 function uniform(m, rol) {

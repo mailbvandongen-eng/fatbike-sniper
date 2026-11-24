@@ -25,8 +25,10 @@ function anatFrame(p, s) {
 
 /** De technieken: naam, soort (stoot of trap), wanneer hij raakt en hoe lang hij duurt (seconden), en of het een zware is. */
 export const TECHNIEK = {};
-export const STOTEN = ["jab", "gyaku", "shita", "jodan_tsuki"], TRAPPEN = ["gedan", "mae", "chudan_mawashi", "jodan_mawashi", "ushiro_mawashi"];
-const ZWAAR = new Set(["jodan_tsuki", "jodan_mawashi", "ushiro_mawashi", "hiza"]);
+// alle aanvallen uit het vechtspel: vijf met de armen (stoten en de elleboog), negen met de benen (trappen en de knie)
+export const STOTEN = ["jab", "gyaku", "shita", "hiji", "jodan_tsuki"];
+export const TRAPPEN = ["gedan", "mae", "chudan_mawashi", "hiza", "jodan_mawashi", "ushiro_geri", "kakato", "ushiro_mawashi", "rol"];
+const ZWAAR = new Set(["jodan_tsuki", "hiji", "hiza", "jodan_mawashi", "ushiro_geri", "kakato", "ushiro_mawashi", "rol"]);
 
 export async function laadKarate() {
   const j = await (await fetch(`assets/karate/clips.json?v=${window.VERSIE ?? ""}`)).json();

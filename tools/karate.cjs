@@ -29,7 +29,7 @@ const T = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javasc
   // elke techniek: stilgezet op het moment van raken, van opzij bekeken
   const namen = await p.evaluate(() => { const s = window.__spel; return s.karate(); });
   console.log("technieken:", JSON.stringify(namen));
-  for (const [soort, n] of [["vuist", 4], ["trap", 5]]) for (let i = 0; i < n; i++) {
+  for (const [soort, n] of [["vuist", 5], ["trap", 9]]) for (let i = 0; i < n; i++) {
     const r = await p.evaluate(([soort, i]) => {
       const s = window.__spel, l = s.loop;
       l.slag = 0; l.comboT = i ? 1 : 0; l.combo = i - 1; l.wankel = 0; l.neer = 0;
