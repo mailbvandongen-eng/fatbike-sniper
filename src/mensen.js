@@ -8,7 +8,7 @@ const ROLLEN = {
   voetganger: ["m_wit", "m_spijker", "m_jas", "m_streep", "m_pak", "m_groen", "v_spijker", "v_kort", "v_net", "v_lang"],
   fatbiker: ["f_zwart", "f_grijs", "f_sport"],
   schutter: ["schutter"],
-  handhaver: ["handhaver"], agent: ["agent"],
+  handhaver: ["handhaver"], agent: ["agent"], karateka: ["karateka"],
 };
 // houding in het spel -> beweging uit de bibliotheek
 const CLIP = {
@@ -23,6 +23,8 @@ const CLIP = {
 const EENMALIG = new Set(["Hit_Chest", "Death01", "LayToIdle", "Hit_Knockback", "Punch_Cross", "Punch_Jab", "Hit_Head", "Punch_Enter"]);
 
 let modellen = {}, clips = {}, zithoogte = {};
+/** Een beweging van buitenaf toevoegen (karate). */
+export function registreerClip(naam, clip, eenmalig) { clips[naam] = clip; if (eenmalig) EENMALIG.add(naam); }
 const KLEIN = matchMedia("(pointer: coarse)").matches;
 const v1 = new THREE.Vector3(), v2 = new THREE.Vector3(), v3 = new THREE.Vector3(), v4 = new THREE.Vector3(), v5 = new THREE.Vector3(),
   v6 = new THREE.Vector3(), v7 = new THREE.Vector3(), v8 = new THREE.Vector3(), q1 = new THREE.Quaternion(), q2 = new THREE.Quaternion();
@@ -147,6 +149,7 @@ export function maakMens(rol = "voetganger") {
   };
   m.detail(false, false);
   if (rol === "handhaver" || rol === "agent") uniform(m, rol);
+  if (rol === "karateka") band(m);
   if (zwart) hoodie(m, Math.random() < 0.8);
   return m;
 }
@@ -173,6 +176,21 @@ function hoodie(m, op) {
   const kraag = new THREE.Mesh(new THREE.TorusGeometry(0.075 * s, 0.035 * s, 6, 12), STOF);
   kraag.rotation.x = Math.PI / 2;
   zet(romp, kraag, new THREE.Vector3(hp.x, top - 0.275 * s, hp.z + 0.005 * s));
+}
+/** De band om het karatepak: zwart, met een knoop en twee uiteinden aan de voorkant. */
+const BAND = new THREE.MeshStandardMaterial({ color: "#111113", roughness: 0.9 });
+function band(m) {
+  const o = m.object; o.updateMatrixWorld(true);
+  let heup = null;
+  o.traverse((b) => { if (b.isBone && b.name === "DEF-hips") heup = b; });
+  if (!heup) return;
+  const s = m.schaal, hp = heup.getWorldPosition(new THREE.Vector3());
+  const zet = (mesh, p) => { mesh.position.copy(p); mesh.castShadow = true; o.add(mesh); mesh.updateMatrixWorld(true); heup.attach(mesh); };
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.168 * s, 0.026 * s, 6, 18), BAND);
+  ring.rotation.x = Math.PI / 2; ring.scale.set(1, 0.72, 1.6);
+  zet(ring, new THREE.Vector3(hp.x, hp.y + 0.09 * s, hp.z + 0.005 * s));
+  zet(new THREE.Mesh(new THREE.BoxGeometry(0.07 * s, 0.05 * s, 0.035 * s), BAND), new THREE.Vector3(hp.x, hp.y + 0.09 * s, hp.z + 0.135 * s));
+  for (const k of [-1, 1]) { const e = new THREE.Mesh(new THREE.BoxGeometry(0.04 * s, 0.24 * s, 0.012 * s), BAND); e.rotation.z = k * 0.22; zet(e, new THREE.Vector3(hp.x + k * 0.04 * s, hp.y - 0.04 * s, hp.z + 0.14 * s)); }
 }
 /** Pet en hesje voor handhaving (geel hesje) en politie (donker vest met gele band); ze bewegen mee met hoofd en romp. */
 function uniform(m, rol) {

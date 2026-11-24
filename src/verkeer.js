@@ -156,6 +156,7 @@ class Reiziger {
  * geraakt = hij krijgt een klap van jou (zwaar = de laatste van een reeks). Na een paar klappen gaat hij neer;
  * daarna krabbelt hij op en maakt dat hij wegkomt. Niemand raakt gewond.
  */
+const vechters = new Set(); // wie er nu met je vecht: ze halen om de beurt uit, niet allemaal tegelijk
 function beginRuzie(wie, naar, slaat, klap, geraakt = false, zwaar = false) {
   if (wie.groep.visible === false || wie.ruzieNeer > 0) return false;
   if (geraakt) {
@@ -183,6 +184,7 @@ function stapRuzie(wie, dt) {
   if (wie.ruzieKoel > 0) wie.ruzieKoel -= dt;
   if (!(wie.ruzieT > 0)) return false;
   wie.ruzieT -= dt;
+  if (wie.ruzieSlaat) vechters.add(wie);
   const vrij = (x, z) => !(wie.g?.blok?.(x, z, 0.3) || wie.g?.heg?.(x, z, 0.1) || wie.g?.uitAuto?.(x, z, 0.25));
   const dx = wie.ruzieNaar.x - wie.pos.x, dz = wie.ruzieNaar.z - wie.pos.z, d = Math.hypot(dx, dz) || 1;
   // achteruit door de klap
@@ -219,13 +221,17 @@ function stapRuzie(wie, dt) {
           if (d > 9) wie.ruzieT = 0;
         } else wie.m.zet("vechtklaar");
         wie.uithaalT -= dt;
-        if (wie.uithaalT <= 0 && d < 1.6) { wie.slagT = 0.78; wie.ruzieGegeven = false; wie.m.zet(Math.random() < 0.5 ? "stomp" : "jab", 1.05, 0); wie.zwiep?.(); }
+        if (wie.uithaalT <= 0 && d < 1.6) {
+          wie.slagT = 0.78; wie.ruzieGegeven = false; wie.m.zet(Math.random() < 0.5 ? "stomp" : "jab", 1.05, 0); wie.zwiep?.();
+          for (const v of vechters) if (v !== wie && !(v.slagT > 0)) v.uithaalT = Math.max(v.uithaalT, tussen(1.1, 1.8));
+        }
       }
     } else if (wie.m.huidig !== "Idle_No_Loop") wie.m.zet("boos");
   }
   wie.m.mixer.update(dt);
   wie.groep.position.copy(wie.pos); wie.groep.rotation.y = wie.richting;
   if (wie.ruzieT <= 0) {
+    vechters.delete(wie);
     wie.ruzieT = 0; wie.ruzieKoel = 20; wie.wacht = 0; wie.duwX = wie.duwZ = 0;
     // verder vanaf het dichtstbijzijnde punt van de stoep (hij kan een eind van zijn route zijn geraakt)
     if (wie.g && wie.plaats && !wie.lijn) {
@@ -358,8 +364,8 @@ export class Boodschapper extends Voetganger {
 
 // ---------- mensen die blijven staan of zitten (groepjes, bankjes) ----------
 export class Staander {
-  constructor(scene, x, z, richting, zit = false) {
-    this.m = maakMens("voetganger"); this.mens = this.m.object;
+  constructor(scene, x, z, richting, zit = false, rol = "voetganger") {
+    this.m = maakMens(rol); this.mens = this.m.object;
     this.groep = new THREE.Group(); this.groep.add(this.mens);
     this.pos = new THREE.Vector3(x, 0, z); this.pad = this.pos; this.richting = richting; this.zit = zit;
     this.groep.position.copy(this.pos); this.groep.rotation.y = richting;

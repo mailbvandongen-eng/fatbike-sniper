@@ -84,6 +84,7 @@ body.loopt #loopKnop{top:calc(max(10px,var(--sat)) + 52px);border-color:var(--ge
 body.loopt #instap.kan,body.rijdt #instap{display:grid;border-color:var(--groen);color:var(--groen)}
 body.rijdt #wapen,body.rijdt #richt,body.rijdt #sprint,body.rijdt #vuur{display:none!important}
 #gas,#rem,#claxon{display:none}
+#richt .trap{display:none}body.karate.loopt #richt .trap{display:block}body.karate.loopt #richt .mik{display:none}body.karate.loopt #wapen{display:none!important}
 body.rijdt #gas,body.rijdt #rem,body.rijdt #claxon{display:grid}
 #gas{right:max(22px,calc(var(--sar) + 14px));bottom:max(28px,calc(var(--sab) + 18px));width:92px;height:112px;border-radius:22px;background:#1f5a2cd8;border-color:#8dffa080}
 #rem{right:max(128px,calc(var(--sar) + 120px));bottom:max(28px,calc(var(--sab) + 18px));width:80px;height:88px;border-radius:20px;background:#7a1c17d8;border-color:#ff8a7a80}
@@ -206,7 +207,7 @@ body.gepakt #wissel{opacity:1}body.gepakt #wissel svg{opacity:.9}
     <svg data-w="vuist" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" style="display:none"><path d="M6 11V8a1.5 1.5 0 013 0v-1a1.5 1.5 0 013 0v1a1.5 1.5 0 013 0v1a1.5 1.5 0 013 0v5c0 4-3 6-6.5 6S5 19 5 15v-2a1.5 1.5 0 011-2z"/></svg>
     <svg data-w="mes" viewBox="0 0 24 24" fill="currentColor" style="display:none"><path d="M21 3c-6 1-11 5-13 10l3 3c5-2 9-7 10-13zM7 14l-4 4 3 3 4-4z"/></svg>
   </div>
-  <div class="knop" id="richt" aria-label="Richten"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg></div>
+  <div class="knop" id="richt" aria-label="Richten of trappen"><svg class="trap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4v7l5 3 4 3h5a1.5 1.5 0 000-3h-3l-3-3V4"/><path d="M5 11h9"/></svg><svg class="mik" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg></div>
   <div class="knop" id="sprint" aria-label="Sprinten"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17l5-5-5-5M12 17l5-5-5-5"/></svg></div>
   <div class="knop klein" id="lager" aria-label="Lager"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></div>
   <div class="knop" id="vuur" aria-label="Schiet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2" fill="currentColor"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/></svg></div>
@@ -237,7 +238,7 @@ body.gepakt #wissel{opacity:1}body.gepakt #wissel svg{opacity:.9}
       <div id="levels"><button data-level="julianaplein">Julianaplein</button><button data-level="steelaan">Bonus: Van Steelaan</button><button data-level="buskenhuet">Busken Huethove</button></div>
       <button class="groot" id="begin">Begin</button>
       <p class="klein" id="startBest"></p>
-      <p class="klein">Gebouwen: 3D BAG (CC BY 4.0) · Kaart: © OpenStreetMap-bijdragers · Mensen: MakeHuman, Quaternius (CC0) · Fatbike: GokuSSJB, fiets: Fairyflosslord7, winkelwagen: adrianxy, auto's: NNXST, scailman, VertexVendingMac, tonielpro520, speeltoestel: 99.Miles (Sketchfab, CC BY 4.0), tutusho (Sketchfab Standard)</p>
+      <p class="klein">Gebouwen: 3D BAG (CC BY 4.0) · Kaart: © OpenStreetMap-bijdragers · Mensen: MakeHuman, Quaternius (CC0) · Fatbike: GokuSSJB, fiets: Fairyflosslord7, winkelwagen: adrianxy, auto's: NNXST, scailman, VertexVendingMac, tonielpro520, speeltoestel: 99.Miles (Sketchfab, CC BY 4.0) · Karatebewegingen: ACCAD/The Ohio State University (CC BY 3.0), Kyokushin-dataset Szczęsna e.a. (CC0), tutusho (Sketchfab Standard)</p>
       <p class="klein" id="versie"></p>
     </div>
   </div>
@@ -254,9 +255,9 @@ body.gepakt #wissel{opacity:1}body.gepakt #wissel svg{opacity:.9}
 </div>
 
 <!-- versie -->
-<script>window.VERSIE = "01494dd431"; window.VERSIE_DATUM = "24-11, 17:44";</script>
-<script type="importmap">{"imports":{"three":"./lib/three.module.js?v=01494dd431","./lib/three.module.js":"./lib/three.module.js?v=01494dd431","./lib/meshopt_decoder.mjs":"./lib/meshopt_decoder.mjs?v=01494dd431","./lib/three-addons.js":"./lib/three-addons.js?v=01494dd431","./src/autos.js":"./src/autos.js?v=01494dd431","./src/effecten.js":"./src/effecten.js?v=01494dd431","./src/figuren.js":"./src/figuren.js?v=01494dd431","./src/geluid.js":"./src/geluid.js?v=01494dd431","./src/main.js":"./src/main.js?v=01494dd431","./src/mensen.js":"./src/mensen.js?v=01494dd431","./src/straat.js":"./src/straat.js?v=01494dd431","./src/verkeer.js":"./src/verkeer.js?v=01494dd431","./src/wereld.js":"./src/wereld.js?v=01494dd431"}}</script>
-<script type="module" src="./src/main.js?v=01494dd431"></script>
+<script>window.VERSIE = "2df948df54"; window.VERSIE_DATUM = "24-11, 18:40";</script>
+<script type="importmap">{"imports":{"three":"./lib/three.module.js?v=2df948df54","./lib/three.module.js":"./lib/three.module.js?v=2df948df54","./lib/meshopt_decoder.mjs":"./lib/meshopt_decoder.mjs?v=2df948df54","./lib/three-addons.js":"./lib/three-addons.js?v=2df948df54","./src/autos.js":"./src/autos.js?v=2df948df54","./src/effecten.js":"./src/effecten.js?v=2df948df54","./src/figuren.js":"./src/figuren.js?v=2df948df54","./src/geluid.js":"./src/geluid.js?v=2df948df54","./src/karate.js":"./src/karate.js?v=2df948df54","./src/main.js":"./src/main.js?v=2df948df54","./src/mensen.js":"./src/mensen.js?v=2df948df54","./src/straat.js":"./src/straat.js?v=2df948df54","./src/verkeer.js":"./src/verkeer.js?v=2df948df54","./src/wereld.js":"./src/wereld.js?v=2df948df54"}}</script>
+<script type="module" src="./src/main.js?v=2df948df54"></script>
 <!-- /versie -->
 </body>
 </html>

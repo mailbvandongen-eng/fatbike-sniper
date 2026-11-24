@@ -352,7 +352,7 @@ for (const w of wegen) {
 const standplaatsen = [];
 const [gx, gz] = [beste.m[0], beste.m[1]], [gnx, gnz] = beste.nrm;
 const uitGevel = L.uit ?? 0.9; // hoe ver je voor de gevel staat (balkondiepte)
-for (const [v, naam] of L.verdiepingen ?? [[1, "1e verdieping"], [4, "4e verdieping"], [7, "7e verdieping"]]) standplaatsen.push({ naam: `${L.flat ?? ""}${L.flat ? ", " : ""}${naam}`, soort: L.uit ? "diep" : "balkon", pos: [r1(gx + gnx * uitGevel), r1(verdiepingHoogte(v)), r1(gz + gnz * uitGevel)], normaal: [r1(gnx), r1(gnz)], kijk: sluipschutter.kijk });
+for (const [v, naam] of L.verdiepingen ?? [[1, "1e verdieping"], [4, "4e verdieping"], [7, "7e verdieping"]]) standplaatsen.push({ naam: `${L.flat ?? ""}${L.flat ? ", " : ""}${naam}`, soort: L.raamStand ? "raam" : L.uit ? "diep" : "balkon", pos: [r1(gx + gnx * uitGevel), r1(verdiepingHoogte(v)), r1(gz + gnz * uitGevel)], normaal: [r1(gnx), r1(gnz)], kijk: sluipschutter.kijk });
 if (L.dak !== false) standplaatsen.push({ naam: `${L.flat}, dak`, soort: "dak", pos: [r1(gx - gnx * 0.45), r1(sluip.dak - H0 + 1.6), r1(gz - gnz * 0.45)], normaal: [r1(gnx), r1(gnz)], kijk: sluipschutter.kijk });
 const opMuur = (doel, naam) => {
   let best = null;
@@ -429,11 +429,12 @@ for (const v of vlakken) if (v.s.startsWith("speel")) {
   const c = v.r.reduce((m, q) => [m[0] + q[0] / v.r.length, m[1] + q[1] / v.r.length], [0, 0]);
   const straal = Math.min(...v.r.map((q) => Math.hypot(q[0] - c[0], q[1] - c[1])));
   speeltuinen.push([r1(c[0]), r1(c[1]), r1(straal)]);
-  if (Math.hypot(...c) < 90) hangplekken.push([r1(c[0] + straal + 1.5), r1(c[1])]);
+  // hangjeugd: groepjes rondom, net buiten de rand en op het kunstgras
+  if (Math.hypot(...c) < 90) for (let i = 0; i < (L.hangjeugd ? 7 : 1); i++) { const h = i * 0.9 + 0.3, r = i === 6 ? straal * 0.55 : straal + 1.6; hangplekken.push([r1(c[0] + Math.cos(h) * r), r1(c[1] + Math.sin(h) * r)]); }
 }
 
 const uit = {
-  naam: L.naam, kort: L.kort, modus: L.modus ?? "rondes", seizoen: L.seizoen ?? "zomer", tijd: L.tijd, grond: L.grond, druk: L.druk, bron: "3D BAG (CC BY 4.0), © OpenStreetMap-bijdragers (ODbL)",
+  naam: L.naam, kort: L.kort, modus: L.modus ?? "rondes", seizoen: L.seizoen ?? "zomer", tijd: L.tijd, grond: L.grond, druk: L.druk, karate: L.karate, hangjeugd: L.hangjeugd, fatDruk: L.fatDruk, bron: "3D BAG (CC BY 4.0), © OpenStreetMap-bijdragers (ODbL)",
   sluipschutter, muren, daken, voetafdrukken: voetafdrukken.filter((v) => Math.hypot(...v.ring[0]) < VER + 20),
   vlakken, lijnen, bomen, heggen, dingen, plekken: plekken.filter((p) => !p.bezet), vasteAutos, winkels, oversteken, muurtjes, standplaatsen, startStand, bogen, dakboog, hangplekken, speeltuinen, graaf: { knopen, kanten },
 };

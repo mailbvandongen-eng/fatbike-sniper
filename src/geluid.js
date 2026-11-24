@@ -160,6 +160,16 @@ export class Geluid {
     o.connect(f); f.connect(g); g.connect(this.uit); o.start(t); o.stop(t + 0.3);
     this.ruisStoot({ duur: 0.16, filter: "bandpass", freq: 900, q: 1, gain: 0.12 * v, start: 0.03 });
   }
+  /** Kiai: de korte kreet bij een zware techniek. */
+  kiai() {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = this.t, laag = 190 + Math.random() * 40;
+    const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    o.type = "sawtooth"; o.frequency.setValueAtTime(laag, t); o.frequency.exponentialRampToValueAtTime(laag * 1.5, t + 0.07); o.frequency.exponentialRampToValueAtTime(laag * 1.1, t + 0.24);
+    f.type = "bandpass"; f.Q.value = 2.5; f.frequency.setValueAtTime(900, t); f.frequency.exponentialRampToValueAtTime(1400, t + 0.2);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.4, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.26);
+    o.connect(f); f.connect(g); g.connect(this.uit); o.start(t); o.stop(t + 0.3);
+  }
   /** Met je vuist op het plaatwerk van een auto. */
   bonk() { this.ruisStoot({ duur: 0.12, freq: 700, freq2: 160, gain: 1.1 }); this.toon({ freq: 190, freq2: 120, duur: 0.22, type: "triangle", gain: 0.5 }); }
   /** Een aanrijding: blik, plastic en bij een harde klap glas. v = 0..1 naar de snelheid. */

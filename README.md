@@ -72,6 +72,12 @@ Kiezen op het startscherm (onthouden in de browser) of met `?level=steelaan`. Ee
 
 - **Busken Huethove** (`buskenhuet`, Zoetermeer): een hofje met rijtjeshuizen uit 1976 (plat dak, stijl `jaren70`) rond een rond speeltuintje met kunstgras. Je schiet vanuit de slaapkamer van het hoekhuis of vanaf het dak. Gewone rondes. Het is er rustig (`druk: 0.3`) en de grond is gras (`grond: "gras"`). Fatbikes hangen bij het speeltuintje. Het speeltoestel is [Low Poly Kids Playground](https://sketchfab.com/3d-models/61c6f6f70db14bbb89ecdfa04b99bbc6) door 99.Miles (CC BY 4.0), verwerkt met `tools/speel/bouw.sh`. Dit level ligt 9 km van de andere twee en is een eigen wereld.
 
+  In dit level:
+  - **Uit het raam hangen:** de standplaats `raam` (in `bouwDecor`): je ziet de slaapkamer van binnen, met een open raam; je buigt in je heup over de vensterbank (`m.buig`).
+  - **Hangjeugd** (`hangjeugd: true`): groepjes met capuchons rond het speeltuintje en op de bankjes (`nieuweGroep`), en veel meer fatbikes die af en aan rijden (`fatDruk`). Wie wegrent komt na een tijdje terug. Het zijn volwassen modellen; er lopen geen kinderen rond.
+  - **Karate** (`karate: true`, `src/karate.js`): buiten loop je in een wit pak met zwarte band (model `karateka`). De grote knop is stoten, de knop erboven trappen (pc: J en K). De bewegingen komen uit het vechtspel van Dojo Hokori Meiyo (`assets/karate/clips.json`, 28 opnames van echte vechtsporters): per bot per beeld een *anatomisch frame*, dat bij het laden wordt omgerekend naar ons skelet en daarna als gewone animatie afspeelt. Stoten: jab, gyaku zuki, shita zuki, jodan tsuki. Trappen: gedan mawashi, mae geri, chudan mawashi, jodan mawashi, ushiro mawashi. Hoge technieken zijn de zware (met kiai). Hangjeugd vecht terug en er komen hoogstens twee vrienden bij; ze halen om de beurt uit. Niemand raakt gewond: wie neergaat staat weer op.
+  - Testen: `node tools/karate.cjs` (maakt van elke techniek een beeld op het moment van raken).
+
 ## Auto's
 
 Echte modellen van Sketchfab (CC BY 4.0), verwerkt met `tools/autos/bouw.sh` (`auto.py`: maat, losse wielen, lichte versie voor ver weg):

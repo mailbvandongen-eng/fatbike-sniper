@@ -59,9 +59,12 @@ export const LOCATIES = {
     flatPand: "0637100000128543",
     flat: "Hoekhuis",
     parterre: 2.75, // vloer van de slaapkamer
-    uit: 1.1,
+    uit: 0.35, raamStand: true, // je hangt uit het open raam
     verdieping: 1,
     verdiepingen: [[1, "Slaapkamer"]],
+    karate: true, // buiten loop je in karatepak, met de technieken uit het vechtspel van de dojo
+    hangjeugd: true, // groepjes bij het speeltuintje, en fatbikes die af en aan rijden
+    fatDruk: 1.7,
     kijkpunt: [92875, 453162], // het speeltuintje
     grond: "gras", // een hofje: gras tussen de paden, geen plein
     druk: 0.3, // en het is er rustig
