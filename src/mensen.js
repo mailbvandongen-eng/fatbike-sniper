@@ -18,9 +18,9 @@ const CLIP = {
   zitten: "Sitting_Idle_Loop", zittenPraten: "Sitting_Talking_Loop", fietsen: "Driving_Loop", achterop: "Sitting_Idle_Loop",
   schrik: "Hit_Chest", vliegen: "Jump_Loop", klap: "Hit_Knockback", liggen: "Death01", opstaan: "LayToIdle", boos: "Idle_No_Loop",
   hurken: "Crouch_Idle_Loop", richten: "Pistol_Aim_Neutral",
-  stomp: "Punch_Cross", jab: "Punch_Jab", klapHoofd: "Hit_Head",
+  stomp: "Punch_Cross", jab: "Punch_Jab", klapHoofd: "Hit_Head", vechtklaar: "Punch_Enter",
 };
-const EENMALIG = new Set(["Hit_Chest", "Death01", "LayToIdle", "Hit_Knockback", "Punch_Cross", "Punch_Jab", "Hit_Head"]);
+const EENMALIG = new Set(["Hit_Chest", "Death01", "LayToIdle", "Hit_Knockback", "Punch_Cross", "Punch_Jab", "Hit_Head", "Punch_Enter"]);
 
 let modellen = {}, clips = {}, zithoogte = {};
 const KLEIN = matchMedia("(pointer: coarse)").matches;
@@ -73,7 +73,9 @@ export async function laadMensen(voortgang) {
 
 /** Een nieuwe mens. rol = voetganger | fatbiker | schutter, of een vaste naam. */
 export function maakMens(rol = "voetganger") {
-  const naam = modellen[rol] ? rol : ROLLEN[rol][(Math.random() * ROLLEN[rol].length) | 0];
+  // fatbikers: de meesten in het zwart met een capuchon, zoals op straat
+  const zwart = rol === "fatbiker" && Math.random() < 0.75;
+  const naam = modellen[rol] ? rol : zwart ? "f_zwart" : ROLLEN[rol][(Math.random() * ROLLEN[rol].length) | 0];
   const object = SkeletonUtils.clone(modellen[naam]);
   let hoog = null, laag = null;
   object.traverse((o) => { if (o.isMesh) { if (o.name.includes("Laag")) laag = o; else hoog = o; } });
@@ -135,7 +137,32 @@ export function maakMens(rol = "voetganger") {
   };
   m.detail(false, false);
   if (rol === "handhaver" || rol === "agent") uniform(m, rol);
+  if (zwart) hoodie(m, Math.random() < 0.8);
   return m;
+}
+/** Zwarte hoodie: de capuchon op het hoofd (of afgezakt in de nek), en een dikke kraag. Beweegt mee met hoofd en romp. */
+const STOF = new THREE.MeshStandardMaterial({ color: "#0c0c0e", roughness: 1, side: THREE.DoubleSide });
+function hoodie(m, op) {
+  const o = m.object; o.updateMatrixWorld(true);
+  let hoofd = null, romp = null;
+  o.traverse((b) => { if (b.isBone && b.name === "DEF-head") hoofd = b; if (b.isBone && b.name === "DEF-spine003") romp = b; });
+  if (!hoofd || !romp) return;
+  const s = m.schaal, top = new THREE.Box3().setFromObject(m.hoog ?? o).max.y, hp = hoofd.getWorldPosition(new THREE.Vector3());
+  const zet = (bot, mesh, p) => { mesh.position.copy(p); mesh.castShadow = true; o.add(mesh); mesh.updateMatrixWorld(true); bot.attach(mesh); };
+  if (op) {
+    // om het hoofd, open aan de voorkant (+z): een bolschil van kruin tot nek
+    const kap = new THREE.Mesh(new THREE.SphereGeometry(0.128 * s, 14, 10, Math.PI / 2 + 0.85, Math.PI * 2 - 1.7, 0, 2.35), STOF);
+    kap.scale.set(1, 1.12, 1.1);
+    zet(hoofd, kap, new THREE.Vector3(hp.x, top - 0.125 * s, hp.z - 0.012 * s));
+  } else {
+    // afgezakt: een prop stof in de nek
+    const prop = new THREE.Mesh(new THREE.SphereGeometry(0.1 * s, 10, 8), STOF);
+    prop.scale.set(1.25, 0.6, 0.8);
+    zet(romp, prop, new THREE.Vector3(hp.x, top - 0.3 * s, hp.z - 0.1 * s));
+  }
+  const kraag = new THREE.Mesh(new THREE.TorusGeometry(0.075 * s, 0.035 * s, 6, 12), STOF);
+  kraag.rotation.x = Math.PI / 2;
+  zet(romp, kraag, new THREE.Vector3(hp.x, top - 0.275 * s, hp.z + 0.005 * s));
 }
 /** Pet en hesje voor handhaving (geel hesje) en politie (donker vest met gele band); ze bewegen mee met hoofd en romp. */
 function uniform(m, rol) {

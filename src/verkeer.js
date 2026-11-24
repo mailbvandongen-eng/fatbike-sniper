@@ -88,7 +88,7 @@ class Reiziger {
     const a = this.g.k[this.van], b = this.g.k[this.naar];
     const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1;
     // rechts houden (vanuit de rijrichting gezien), naar de breedte van de weg
-    const off = this.zij(this.breed);
+    const off = this.zij(this.breed) + (this.uitwijk ?? 0);
     this.pad.set(a[0] + dx * this.t - (dz / l) * off, 0, a[1] + dz * this.t + (dx / l) * off);
     // niet tegen of in een gevel: dan over het midden van het pad
     if (off && (this.g.blok?.(this.pad.x, this.pad.z, 0.3) || this.g.heg?.(this.pad.x, this.pad.z, 0.1))) this.pad.set(a[0] + dx * this.t, 0, a[1] + dz * this.t);
@@ -122,6 +122,16 @@ class Reiziger {
     this.pos.lerp(this.pad, k);
     // een afgesneden bocht mag niet door een muur gaan: dan recht het routepunt achterna
     if (this.g.blok?.(this.pos.x, this.pos.z, 0.2) && !this.g.blok(this.pad.x, this.pad.z)) this.pos.set(ox, 0, oz).lerp(this.pad, Math.min(1, k * 4));
+    // te voet haal je nooit meer dan een sprint (ook niet als je na een ruzie terug moet naar je route)
+    if (this.bit === VOET) {
+      const sx = this.pos.x - ox, sz = this.pos.z - oz, sl = Math.hypot(sx, sz), max = 4.2 * dt;
+      if (sl > max) this.pos.set(ox + (sx / sl) * max, 0, oz + (sz / sl) * max);
+    }
+    // om geparkeerde auto's heen (ook met de winkelwagen die je voor je uit duwt)
+    if (this.bit !== AUTO && this.g.uitAuto) {
+      const u = this.g.uitAuto(this.pos.x, this.pos.z, 0.32) ?? (this.kar ? this.g.uitAuto(this.pos.x + Math.sin(this.richting) * 0.85, this.pos.z + Math.cos(this.richting) * 0.85, 0.3) : null);
+      if (u) { this.pos.x += u[0]; this.pos.z += u[1]; }
+    }
     const mx = this.pos.x - ox, mz = this.pos.z - oz;
     const oud = this.richting;
     if (mx * mx + mz * mz > 1e-6) {
@@ -140,34 +150,91 @@ class Reiziger {
   verAf() { return Math.hypot(this.pos.x - this.g.c[0], this.pos.z - this.g.c[1]) > this.bereik() * 1.35; }
 }
 
-// ---------- ruzie: iemand tegen wie je oploopt (of die je een duw geeft) ----------
-/** Begin een ruzie. slaat = hij haalt aan het eind uit; klap() = wat er dan met jou gebeurt; geraakt = hij kreeg zelf een tik. */
-function beginRuzie(wie, naar, slaat, klap, geraakt = false) {
-  if (wie.ruzieT > 0 || wie.ruzieKoel > 0 || wie.schrik > 0 || wie.groep.visible === false) return false;
-  wie.ruzieT = tussen(2.2, 3.4); wie.ruzieNaar = naar; wie.ruzieSlaat = slaat; wie.ruzieKlap = klap; wie.ruzieGegeven = false;
-  wie.m.zet(geraakt ? "schrik" : "boos", 1, 0);
-  wie.ruzieStart = geraakt ? 0.7 : 0;
+// ---------- ruzie en vechten: iemand tegen wie je oploopt, of die je een klap geeft ----------
+/**
+ * Begin een ruzie, of deel een klap uit. slaat = hij vecht terug; klap(wie) = wat er met jou gebeurt als hij raakt.
+ * geraakt = hij krijgt een klap van jou (zwaar = de laatste van een reeks). Na een paar klappen gaat hij neer;
+ * daarna krabbelt hij op en maakt dat hij wegkomt. Niemand raakt gewond.
+ */
+function beginRuzie(wie, naar, slaat, klap, geraakt = false, zwaar = false) {
+  if (wie.groep.visible === false || wie.ruzieNeer > 0) return false;
+  if (geraakt) {
+    wie.conditie = (wie.conditie ?? 3) - (zwaar ? 2 : 1);
+    wie.ruzieNaar = naar; wie.ruzieKlap = klap; wie.slagT = 0; wie.schrik = 0;
+    // de klap duwt hem achteruit
+    const dx = wie.pos.x - naar.x, dz = wie.pos.z - naar.z, d = Math.hypot(dx, dz) || 1, kracht = zwaar ? 3.4 : 1.7;
+    wie.duwX = (dx / d) * kracht; wie.duwZ = (dz / d) * kracht;
+    if (wie.conditie <= 0) { wie.ruzieNeer = 4.4; wie.ruzieT = 4.4; wie.m.zet("liggen", 1, 0); return true; }
+    // niet iedereen vecht terug: wie niet durft, rent weg zodra hij weer recht staat
+    if (!(wie.ruzieT > 0)) wie.ruzieSlaat = wie.vechter ??= Math.random() < 0.6;
+    wie.wankel = 0.5; wie.m.zet("klapHoofd", 1, 0);
+    wie.ruzieT = wie.ruzieSlaat ? tussen(7, 10) : 0.5;
+    wie.uithaalT = tussen(0.25, 0.9);
+    return true;
+  }
+  if (wie.ruzieT > 0 || wie.ruzieKoel > 0 || wie.schrik > 0) return false;
+  wie.ruzieT = slaat ? tussen(5, 7) : tussen(2.2, 3.4); wie.ruzieNaar = naar; wie.ruzieSlaat = slaat; wie.ruzieKlap = klap;
+  wie.wankel = 0; wie.slagT = 0; wie.duwX = wie.duwZ = 0; wie.uithaalT = tussen(1.4, 2);
+  wie.m.zet("boos", 1, 0);
   return true;
 }
 /** Eén stap van de ruzie; geeft true zolang hij duurt. */
 function stapRuzie(wie, dt) {
   if (wie.ruzieKoel > 0) wie.ruzieKoel -= dt;
   if (!(wie.ruzieT > 0)) return false;
-  wie.ruzieT -= dt; wie.ruzieStart -= dt;
-  // naar je toe draaien
-  const doel = Math.atan2(wie.ruzieNaar.x - wie.pos.x, wie.ruzieNaar.z - wie.pos.z);
-  let d = doel - wie.richting; d = Math.atan2(Math.sin(d), Math.cos(d));
-  wie.richting += d * Math.min(1, dt * 7);
-  if (wie.ruzieSlaat && wie.ruzieT < 0.75) {
-    wie.m.zet("stomp");
-    if (wie.ruzieT < 0.4 && !wie.ruzieGegeven) {
-      wie.ruzieGegeven = true;
-      if (Math.hypot(wie.ruzieNaar.x - wie.pos.x, wie.ruzieNaar.z - wie.pos.z) < 1.8) wie.ruzieKlap?.();
-    }
-  } else if (wie.ruzieStart <= 0) wie.m.zet("boos");
+  wie.ruzieT -= dt;
+  const vrij = (x, z) => !(wie.g?.blok?.(x, z, 0.3) || wie.g?.heg?.(x, z, 0.1) || wie.g?.uitAuto?.(x, z, 0.25));
+  const dx = wie.ruzieNaar.x - wie.pos.x, dz = wie.ruzieNaar.z - wie.pos.z, d = Math.hypot(dx, dz) || 1;
+  // achteruit door de klap
+  if (wie.duwX || wie.duwZ) {
+    const nx = wie.pos.x + wie.duwX * dt, nz = wie.pos.z + wie.duwZ * dt, rem = Math.exp(-dt * 7);
+    if (vrij(nx, nz)) wie.pos.set(nx, 0, nz);
+    wie.duwX *= rem; wie.duwZ *= rem;
+    if (Math.abs(wie.duwX) + Math.abs(wie.duwZ) < 0.05) wie.duwX = wie.duwZ = 0;
+  }
+  let weg = false;
+  if (wie.ruzieNeer > 0) {
+    // neer: liggen, opstaan en wegwezen
+    const voor = wie.ruzieNeer; wie.ruzieNeer -= dt;
+    if (voor > 1.5 && wie.ruzieNeer <= 1.5) wie.m.zet("opstaan", 1, 0);
+    if (wie.ruzieNeer <= 0) { wie.ruzieNeer = 0; wie.ruzieT = 0; wie.conditie = 3; weg = true; }
+  } else {
+    let h = Math.atan2(dx, dz) - wie.richting; h = Math.atan2(Math.sin(h), Math.cos(h));
+    wie.richting += h * Math.min(1, dt * 8);
+    if (wie.wankel > 0) {
+      wie.wankel -= dt;
+      if (wie.wankel <= 0 && !wie.ruzieSlaat) { wie.ruzieT = 0; weg = true; }
+    } else if (wie.ruzieSlaat) {
+      if (wie.slagT > 0) {
+        // de uithaal: je ziet hem aankomen; stap je op tijd achteruit, dan slaat hij mis
+        wie.slagT -= dt;
+        if (wie.slagT < 0.36 && !wie.ruzieGegeven) { wie.ruzieGegeven = true; if (d < 1.75) wie.ruzieKlap?.(wie); }
+        if (wie.slagT <= 0) wie.uithaalT = tussen(0.8, 1.6);
+      } else {
+        // op armlengte blijven; loop je weg, dan komt hij even achter je aan en laat het dan zitten
+        if (d > 1.3) {
+          const st = Math.min(d - 1.2, 2.6 * dt), nx = wie.pos.x + (dx / d) * st, nz = wie.pos.z + (dz / d) * st;
+          if (vrij(nx, nz)) wie.pos.set(nx, 0, nz);
+          wie.m.zet("rennen", 0.8);
+          if (d > 9) wie.ruzieT = 0;
+        } else wie.m.zet("vechtklaar");
+        wie.uithaalT -= dt;
+        if (wie.uithaalT <= 0 && d < 1.6) { wie.slagT = 0.78; wie.ruzieGegeven = false; wie.m.zet(Math.random() < 0.5 ? "stomp" : "jab", 1.05, 0); wie.zwiep?.(); }
+      }
+    } else if (wie.m.huidig !== "Idle_No_Loop") wie.m.zet("boos");
+  }
   wie.m.mixer.update(dt);
   wie.groep.position.copy(wie.pos); wie.groep.rotation.y = wie.richting;
-  if (wie.ruzieT <= 0) { wie.ruzieKoel = 20; wie.wacht = 0; }
+  if (wie.ruzieT <= 0) {
+    wie.ruzieT = 0; wie.ruzieKoel = 20; wie.wacht = 0; wie.duwX = wie.duwZ = 0;
+    // verder vanaf het dichtstbijzijnde punt van de stoep (hij kan een eind van zijn route zijn geraakt)
+    if (wie.g && wie.plaats && !wie.lijn) {
+      wie.van = wie.g.dichtbij(wie.pos.x, wie.pos.z, wie.bit);
+      const v = wie.g.volgende(-1, wie.van, wie.bit, 1, wie.straal);
+      if (v) { wie.naar = v.n; wie.breed = v.breed; wie.t = 0; wie.plaats(false); }
+    }
+    if (weg) { wie.schrik = 4.3; if (!wie.g) wie.richting = Math.atan2(-dx, -dz); } // hij rent weg (van je af)
+  }
   return true;
 }
 
@@ -212,7 +279,7 @@ export class Voetganger extends Reiziger {
       this.m.arm(k, doel, omlaag.clone().add(new THREE.Vector3(Math.sign(x) * 0.4, 0, -0.4).applyQuaternion(this.groep.quaternion)));
     }
   }
-  ruzie(naar, slaat, klap, geraakt) { return beginRuzie(this, naar, slaat, klap, geraakt); }
+  ruzie(naar, slaat, klap, geraakt, zwaar) { return beginRuzie(this, naar, slaat, klap, geraakt, zwaar); }
   stap(dt) {
     if (stapRuzie(this, dt)) return;
     if (this.schrik > 0) {
@@ -274,7 +341,8 @@ export class Boodschapper extends Voetganger {
       else { this.pad.x += (dx / d) * rest; this.pad.z += (dz / d) * rest; rest = 0; }
     }
     this.glad(dt);
-    if (this.i >= this.lijn.length - 1 && this.pos.distanceTo(this.pad) < 0.3) {
+    // terug bij de auto: ernaast blijven staan (niet erin)
+    if (this.i >= this.lijn.length - 1 && this.pos.distanceTo(this.pad) < (this.fase2 === "heen" ? 0.3 : 2.7)) {
       if (this.fase2 === "heen") { this.fase2 = "binnen"; this.binnen = tussen(20, 70); this.groep.visible = false; }
       else { this.fase2 = "inladen"; this.binnen = tussen(3, 7); }
     }
@@ -300,7 +368,7 @@ export class Staander {
     this.raak = [{ deel: "mens", min: new THREE.Vector3(-0.25, 0, -0.25), max: new THREE.Vector3(0.25, zit ? 1.35 : 1.8, 0.25) }];
     scene.add(this.groep);
   }
-  ruzie(naar, slaat, klap, geraakt) { return this.zit ? false : beginRuzie(this, naar, slaat, klap, geraakt); }
+  ruzie(naar, slaat, klap, geraakt, zwaar) { return this.zit ? false : beginRuzie(this, naar, slaat, klap, geraakt, zwaar); }
   stap(dt) {
     if (stapRuzie(this, dt)) return;
     if (this.schrik > 0) {
@@ -340,9 +408,9 @@ export class Fietser extends Reiziger {
     if (fat && Math.random() < (ronde > 1 ? 0.45 : 0.3)) this.berijders.push(maakMens("fatbiker"));
     this.berijders.forEach((m, i) => {
       // de heup (zoals in de rijbeweging) op het zadel; de bestuurder leunt voorover naar het stuur
-      const h = m.zithoogte(), leun = i ? 0.05 : fat ? 0.22 : 0.3;
+      const h = m.zithoogte(), leun = i ? 0.14 : fat ? 0.22 : 0.3;
       m.leun = leun;
-      m.object.position.set(0, fu.zadel + 0.07 - h * Math.cos(leun), fu.zadelZ - h * Math.sin(leun) - i * 0.45);
+      m.object.position.set(0, fu.zadel + 0.07 - h * Math.cos(leun), fu.zadelZ - h * Math.sin(leun) - i * 0.33);
       this.groep.add(m.object);
     });
     this.vlucht = 0;
@@ -366,7 +434,7 @@ export class Fietser extends Reiziger {
     else super.stap(dt);
     for (const w of this.fiets.userData.wielen) w.rotation.x += (this.snelheid * dt) / this.fiets.userData.rW;
     const rijdt = this.snelheid > 0.4;
-    this.berijders.forEach((m, i) => { m.zet(i ? "achterop" : rijdt ? "fietsen" : "zittenPraten"); m.mixer.update(dt); });
+    this.berijders.forEach((m, i) => { m.zet(i ? "fietsen" : rijdt ? "fietsen" : "zittenPraten"); m.mixer.update(dt); });
     // scheef in de bocht: naar de draaisnelheid en de vaart
     this.groep.position.copy(this.pos);
     this.groep.rotation.set(0, this.richting, 0);
@@ -385,6 +453,18 @@ export class Fietser extends Reiziger {
       if (d > 0.6) { m.object.position.z += Math.min(0.05, (d - 0.58) * 0.5); m.object.position.y -= Math.min(0.01, (d - 0.58) * 0.08); }
       else m.bijgesteld = true;
       if ((m.stappen = (m.stappen ?? 0) + 1) > 40) m.bijgesteld = true;
+    }
+    // wie achterop zit, zit strak achter de bestuurder op het zadel en houdt hem vast
+    const p = this.berijders[1];
+    if (p && m) {
+      p.object.position.z = m.object.position.z - 0.33;
+      p.object.position.y = this.fiets.userData.zadel + 0.07 - p.zithoogte() * Math.cos(p.leun);
+      if (p.hoog.visible) {
+        this.groep.updateMatrixWorld(true);
+        const heup = m.plek("DEF-hips"), q = this.groep.quaternion;
+        const omlaag = new THREE.Vector3(0, -1, -0.3).applyQuaternion(q);
+        for (const [k, x] of [["L", 0.17], ["R", -0.17]]) p.arm(k, heup.clone().add(new THREE.Vector3(x, 0.2, 0.02).applyQuaternion(q)), omlaag.clone().add(new THREE.Vector3(x * 4, 0, 0).applyQuaternion(q)));
+      }
     }
     if (m?.hoog.visible) {
       this.groep.updateMatrixWorld(true);
@@ -448,6 +528,16 @@ export class Auto extends Reiziger {
       const voor = dx * fx + dz * fz, zij = Math.abs(dx * fz - dz * fx);
       if (voor > 0 && voor < 7 && zij < 1.6) rem = Math.min(rem, (voor - 2.6) / 4.4);
     }
+    // een auto die jij op de weg hebt laten staan: langzaam eromheen
+    let uit = 0;
+    for (const o of spel.verlaten ?? []) {
+      const dx = o.position.x - this.pos.x, dz = o.position.z - this.pos.z, voor = dx * fx + dz * fz, links = dx * fz - dz * fx;
+      if (voor < -4 || voor > 12 || Math.abs(links) > 3.4) continue;
+      const pl = links - (this.uitwijk ?? 0); // waar hij staat ten opzichte van de gewone rijlijn (links = +)
+      uit = pl >= -0.4 ? Math.max(0, 2.5 - pl) : Math.min(0, -2.5 - pl);
+      rem = Math.min(rem, 0.5);
+    }
+    this.uitwijk = (this.uitwijk ?? 0) + (uit - (this.uitwijk ?? 0)) * Math.min(1, dt * 1.6);
     const sp = spel.speler; // waar je loopt (null als je bij je raam staat)
     if (this.boos > 0 && sp) {
       // kwaad (je schoot op hem of sloeg tegen de auto): recht op je af, zonder te remmen

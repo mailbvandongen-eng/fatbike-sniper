@@ -82,7 +82,14 @@ body.loopt #loopKnop{top:calc(max(10px,var(--sat)) + 52px);border-color:var(--ge
 /* instappen: alleen te zien als je naast een auto staat (of erin zit) */
 #instap{left:calc(max(12px,var(--sal)) + 128px);top:calc(max(10px,var(--sat)) + 102px);display:none}
 body.loopt #instap.kan,body.rijdt #instap{display:grid;border-color:var(--groen);color:var(--groen)}
-body.rijdt #wapen,body.rijdt #richt,body.rijdt #sprint{display:none!important}
+body.rijdt #wapen,body.rijdt #richt,body.rijdt #sprint,body.rijdt #vuur{display:none!important}
+#gas,#rem,#claxon{display:none}
+body.rijdt #gas,body.rijdt #rem,body.rijdt #claxon{display:grid}
+#gas{right:max(22px,calc(var(--sar) + 14px));bottom:max(28px,calc(var(--sab) + 18px));width:92px;height:112px;border-radius:22px;background:#1f5a2cd8;border-color:#8dffa080}
+#rem{right:max(128px,calc(var(--sar) + 120px));bottom:max(28px,calc(var(--sab) + 18px));width:80px;height:88px;border-radius:20px;background:#7a1c17d8;border-color:#ff8a7a80}
+#claxon{right:max(38px,calc(var(--sar) + 30px));bottom:calc(max(28px,var(--sab) + 18px) + 126px);width:58px;height:58px}
+#gas.in,#rem.in{filter:brightness(1.5);transform:scale(.96)}
+#pijn{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .25s;background:radial-gradient(ellipse at center,#0000 55%,#b3140fb0 100%)}
 body.rijdt #loopKnop{opacity:.3;pointer-events:none}
 /* de markering op het doelwit van de mikhulp */
 #slot{position:absolute;left:0;top:0;width:0;height:0;pointer-events:none}
@@ -184,6 +191,7 @@ body.gepakt #wissel{opacity:1}body.gepakt #wissel svg{opacity:.9}
     <div class="pil" id="fouten"></div>
     <div class="pil" id="score">0</div>
   </div>
+  <div id="pijn"></div>
   <div id="raakteken"></div>
   <div class="pil" id="missie" hidden></div>
   <div class="knop klein" id="hoger" aria-label="Hoger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg></div>
@@ -202,6 +210,9 @@ body.gepakt #wissel{opacity:1}body.gepakt #wissel svg{opacity:.9}
   <div class="knop" id="sprint" aria-label="Sprinten"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17l5-5-5-5M12 17l5-5-5-5"/></svg></div>
   <div class="knop klein" id="lager" aria-label="Lager"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></div>
   <div class="knop" id="vuur" aria-label="Schiet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2" fill="currentColor"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/></svg></div>
+  <div class="knop" id="rem" aria-label="Remmen en achteruit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8l6 7 6-7"/><path d="M6 19h12"/></svg></div>
+  <div class="knop" id="gas" aria-label="Gas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16l6-7 6 7"/><path d="M6 20h0M12 20h0M18 20h0"/></svg></div>
+  <div class="knop" id="claxon" aria-label="Claxon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4h3l6 4V6l-6 4z"/><path d="M17 9a4 4 0 010 6M19.5 6.5a8 8 0 010 11"/></svg></div>
   <div id="zoom" role="slider" aria-label="Inzoomen"><div id="zoomDuim"></div></div>
 </div>
 
@@ -243,9 +254,9 @@ body.gepakt #wissel{opacity:1}body.gepakt #wissel svg{opacity:.9}
 </div>
 
 <!-- versie -->
-<script>window.VERSIE = "77e8617ccd"; window.VERSIE_DATUM = "24-11, 13:01";</script>
-<script type="importmap">{"imports":{"three":"./lib/three.module.js?v=77e8617ccd","./lib/three.module.js":"./lib/three.module.js?v=77e8617ccd","./lib/meshopt_decoder.mjs":"./lib/meshopt_decoder.mjs?v=77e8617ccd","./lib/three-addons.js":"./lib/three-addons.js?v=77e8617ccd","./src/autos.js":"./src/autos.js?v=77e8617ccd","./src/effecten.js":"./src/effecten.js?v=77e8617ccd","./src/figuren.js":"./src/figuren.js?v=77e8617ccd","./src/geluid.js":"./src/geluid.js?v=77e8617ccd","./src/main.js":"./src/main.js?v=77e8617ccd","./src/mensen.js":"./src/mensen.js?v=77e8617ccd","./src/straat.js":"./src/straat.js?v=77e8617ccd","./src/verkeer.js":"./src/verkeer.js?v=77e8617ccd","./src/wereld.js":"./src/wereld.js?v=77e8617ccd"}}</script>
-<script type="module" src="./src/main.js?v=77e8617ccd"></script>
+<script>window.VERSIE = "58113daa94"; window.VERSIE_DATUM = "24-11, 14:08";</script>
+<script type="importmap">{"imports":{"three":"./lib/three.module.js?v=58113daa94","./lib/three.module.js":"./lib/three.module.js?v=58113daa94","./lib/meshopt_decoder.mjs":"./lib/meshopt_decoder.mjs?v=58113daa94","./lib/three-addons.js":"./lib/three-addons.js?v=58113daa94","./src/autos.js":"./src/autos.js?v=58113daa94","./src/effecten.js":"./src/effecten.js?v=58113daa94","./src/figuren.js":"./src/figuren.js?v=58113daa94","./src/geluid.js":"./src/geluid.js?v=58113daa94","./src/main.js":"./src/main.js?v=58113daa94","./src/mensen.js":"./src/mensen.js?v=58113daa94","./src/straat.js":"./src/straat.js?v=58113daa94","./src/verkeer.js":"./src/verkeer.js?v=58113daa94","./src/wereld.js":"./src/wereld.js?v=58113daa94"}}</script>
+<script type="module" src="./src/main.js?v=58113daa94"></script>
 <!-- /versie -->
 </body>
 </html>

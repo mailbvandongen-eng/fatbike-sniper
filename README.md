@@ -61,6 +61,8 @@ Echte modellen van Sketchfab (CC BY 4.0, naamsvermelding verplicht):
 
 `tools/fietsen/bouw.sh` haalt ze op en maakt er spelmodellen van (`fiets.py`): echte maat, losse draaiende wielen, het frame in een vervangbare kleur, minder driehoeken. De afmetingen (wielen, handvatten, zadel) staan in `assets/fietsen/*.json`. Fietsen ver weg in de rekken gebruiken een licht model.
 
+Fatbikers dragen meestal een zwarte hoodie met de capuchon op (`hoodie` in `src/mensen.js`). Wie achterop zit, zit strak achter de bestuurder en houdt hem vast.
+
 ## Levels
 
 - **Julianaplein** (`julianaplein`): rondes, geen klok, beperkt aantal kogels.
@@ -98,11 +100,30 @@ Met het loop-icoon ga je de straat op, in derde persoon. De opzet is afgekeken v
 Sta je naast een geparkeerde auto, dan verschijnt een groene knop (of T) om in te stappen.
 - **Je eigen auto** (de zwarte RAV4 voor de deur aan de Van Steelaan) gaat van het slot en je stapt in: geen schade, geen straf. De plek ervoor blijft leeg, zodat je zo wegrijdt.
 - **Andere auto's** steel je: ruit in, alarm, en het telt als strafbaar (0,8). Een auto die je al open hebt, stap je daarna gewoon weer in.
-- **Rijden:** stuurknuppel naar voren = gas, naar achteren = remmen en achteruit, links en rechts = sturen (pc: WASD). Bij hoge snelheid stuur je minder scherp. Top 50 km/u (bestelbus 40). De grote knop is de claxon.
-- **Botsen:** gebouwen, heggen, bomen, muurtjes en geparkeerde auto's houden je tegen (je stuitert terug). Fatbikes die je aanrijdt gaan onderuit (dat telt als treffer), voetgangers springen opzij (vlak langs ze scheren is strafbaar), agenten staan even stil.
+- **Rijden (zoals GTA op de telefoon):** links alleen sturen met de stuurknuppel; rechts een groen gaspedaal en een rode rem (stilstaand is de rem achteruit), daarboven de claxon. Pc: WASD. Het stuur draait soepel en gaat op snelheid minder ver (zoveel als de banden houden: `maxHoek` in `stapRijden`); vol sturen of hard remmen op snelheid laat de banden piepen. Top 50 km/u (bestelbus 40).
+- **Botsen:** gebouwen, heggen, bomen, muurtjes, geparkeerde auto's én rijdend verkeer zijn massief. Raak je iets met één hoek, dan draait de neus weg en schuur je erlangs; recht ertegenaan sta je stil (met een klap). Tegen een rijdende auto: die toetert en het is strafbaar. Fatbikes die je aanrijdt gaan onderuit (dat telt als treffer), voetgangers springen opzij (vlak langs ze scheren is strafbaar), agenten staan even stil.
+- **Je achtergelaten auto:** het verkeer rijdt er langzaam omheen (`spel.verlaten`, `uitwijk` in `Auto.stap`).
 - **Uitstappen:** dezelfde knop; de auto blijft staan waar je hem laat. Uit een rijdende auto kunnen agenten je niet halen.
 
-Een geparkeerde auto is een getekende kopie (`InstancedMesh`); bij het instappen wordt die vervangen door een echte auto met wielen (`echtInstappen` in `src/main.js`). Testen: `node tools/rijden.cjs`.
+Een geparkeerde auto is een getekende kopie (`InstancedMesh`); bij het instappen wordt die vervangen door een echte auto met wielen (`echtInstappen` in `src/main.js`). Testen: `node tools/rijden.cjs` en `node tools/gevecht.cjs`.
+
+### Vechten
+
+Met je vuisten (wapenknop) sla je een reeks: twee snelle klappen en dan een zware. Tik je door, dan volgt de volgende klap vanzelf. Je draait naar je tegenstander en doet een stap in.
+- **Tegenstanders** hebben drie klappen conditie (de zware telt voor twee). Ze wankelen en worden achteruit geduwd; ongeveer zes op de tien vechten terug: ze komen op armlengte staan, nemen een vechthouding aan en halen uit. Je ziet de klap aankomen: stap je op tijd achteruit, dan slaan ze mis. De rest rent weg.
+- **Neer** is nooit gewond: wie neergaat krabbelt na een paar tellen op en maakt dat hij wegkomt. Omstanders rennen weg zodra er geslagen wordt.
+- **Jij** wankelt bij een klap en gaat pas na drie klappen neer (rode rand = hoeveel je gehad hebt; het herstelt vanzelf). Een auto die je schept legt je meteen neer.
+- Fatbikers sla je met één klap van hun fiets; het mes is alleen voor banden.
+
+De code staat in `beginRuzie`/`stapRuzie` (`src/verkeer.js`) en `sla`/`raakMens`/`klapKrijgen` (`src/main.js`).
+
+### Om auto's heen
+
+Voetgangers (ook met winkelwagen), fietsers en fatbikes lopen en rijden niet door geparkeerde auto's: `uitAuto` (in `src/main.js`, met een rooster van 6 m) duwt ze langs de kortste weg naar buiten; `Reiziger.glad` roept het elke stap aan. Jij loopt ook niet door stilstaand verkeer heen.
+
+### Geluid
+
+Alles komt uit `src/geluid.js` (Web Audio, geen bestanden): motor met versnellingen, piepende banden, botsen en schuren, portier, claxon, pistool (anders dan het geweer), vuistslagen met "oef", het zoemen van een fatbike vlakbij (zo hoor je ze aankomen), en vogels (zomer) of kraaien (winter).
 
 ### Missies en gezocht worden (`src/straat.js`)
 

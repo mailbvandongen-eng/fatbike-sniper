@@ -75,7 +75,9 @@ const TYPE = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/jav
   });
   await page.waitForTimeout(4000);
   await page.screenshot({ path: `${UIT}/4-ruzie.png` });
-  await page.waitForFunction(() => window.__spel.loop.neer > 0, null, { timeout: 200000 }).then(() => console.log("klap gekregen: neer")).catch(() => console.log("GEEN klap gekregen"));
+  await page.waitForFunction(() => window.__spel.loop.conditie < 3 || window.__spel.loop.neer > 0, null, { timeout: 200000 }).then(() => console.log("klap gekregen: wankelt")).catch(() => console.log("GEEN klap gekregen"));
+  await page.evaluate(() => window.__spel.klapKrijgen()); // en een harde klap (zoals van een auto): neer
+  await page.waitForFunction(() => window.__spel.loop.neer > 0, null, { timeout: 200000 }).then(() => console.log("harde klap: neer")).catch(() => console.log("NIET neer"));
   await page.waitForTimeout(6000);
   await page.screenshot({ path: `${UIT}/4b-neer.png` });
   await page.waitForFunction(() => window.__spel.loop.neer <= 0, null, { timeout: 300000 }).then(() => console.log("weer opgestaan")).catch(() => console.log("NIET opgestaan"));
