@@ -70,6 +70,8 @@ Fatbikers dragen meestal een zwarte hoodie met de capuchon op (`hoodie` in `src/
 
 Kiezen op het startscherm (onthouden in de browser) of met `?level=steelaan`. Een nieuw level: zet het in `tools/locaties.mjs` (pand, raam, verdiepingen, kijkpunt, modus, seizoen), draai `haal` en `bouw`, en voeg het toe aan `LEVELS` in `src/main.js` en aan `#levels` in `index.html`. Testen: `node tools/bonus.cjs`.
 
+- **Busken Huethove** (`buskenhuet`, Zoetermeer): een hofje met rijtjeshuizen uit 1976 (plat dak, stijl `jaren70`) rond een rond speeltuintje met kunstgras. Je schiet vanuit de slaapkamer van het hoekhuis of vanaf het dak. Gewone rondes. Het is er rustig (`druk: 0.3`) en de grond is gras (`grond: "gras"`). Fatbikes hangen bij het speeltuintje. Het speeltoestel is [Low Poly Kids Playground](https://sketchfab.com/3d-models/61c6f6f70db14bbb89ecdfa04b99bbc6) door 99.Miles (CC BY 4.0), verwerkt met `tools/speel/bouw.sh`. Dit level ligt 9 km van de andere twee en is een eigen wereld.
+
 ## Auto's
 
 Echte modellen van Sketchfab (CC BY 4.0), verwerkt met `tools/autos/bouw.sh` (`auto.py`: maat, losse wielen, lichte versie voor ver weg):

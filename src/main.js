@@ -1,6 +1,6 @@
 // Fatbike Sniper: hoofdlus, camera, besturing, schieten, rondes.
 import * as THREE from "three";
-import { bouwWereld, zetFietsenInRekken, bevries } from "./wereld.js";
+import { bouwWereld, zetFietsenInRekken, bevries, laadSpeeltoestel } from "./wereld.js";
 import { Graaf, Voetganger, Fietser, Auto, Boodschapper, Staander } from "./verkeer.js";
 import { kies, tussen, maakGeweer, maakPistool, maakMes, MAT, laadFietsen } from "./figuren.js";
 import { laadMensen, maakMens } from "./mensen.js";
@@ -11,7 +11,7 @@ import { Geluid } from "./geluid.js";
 
 const $ = (s) => document.querySelector(s);
 // het level: uit het adres (?level=), anders de laatste keuze, anders het Julianaplein
-const LEVELS = { julianaplein: "Julianaplein", steelaan: "Van Steelaan" };
+const LEVELS = { julianaplein: "Julianaplein", steelaan: "Van Steelaan", buskenhuet: "Busken Huethove" };
 const gevraagd = new URLSearchParams(location.search).get("level") ?? localStorage.getItem("fbs-level");
 const LOCATIE = LEVELS[gevraagd] ? gevraagd : "julianaplein";
 localStorage.setItem("fbs-level", LOCATIE);
@@ -124,7 +124,7 @@ async function laad() {
       }
     }
   }
-  await Promise.all([laadMensen((v) => $("#laden").style.setProperty("--v", v)), laadFietsen(), laadAutos((data.vasteAutos ?? []).map((a) => a[4]))]);
+  await Promise.all([laadMensen((v) => $("#laden").style.setProperty("--v", v)), laadFietsen(), laadAutos((data.vasteAutos ?? []).map((a) => a[4])), data.speeltuinen?.length ? laadSpeeltoestel() : null]);
   wereld = bouwWereld(data, scene);
   graaf = new Graaf(data.graaf);
   blokken = data.voetafdrukken.map((v) => ({ r: v.ring, x0: Math.min(...v.ring.map((p) => p[0])), x1: Math.max(...v.ring.map((p) => p[0])), z0: Math.min(...v.ring.map((p) => p[1])), z1: Math.max(...v.ring.map((p) => p[1])) }));
@@ -153,7 +153,9 @@ async function laad() {
   zetFietsenInRekken(wereld, scene, (f) => stil.push({ object: f, raak: f.userData.raak, soort: "fiets" }));
   bevries(stil.filter((s) => s.soort === "fiets").map((s) => s.object), scene); // de auto's zijn al in één keer getekend
   // druk plein: veel mensen dicht bij de parkeerplaats, boodschappers, groepjes en mensen op bankjes
-  for (let i = 0; i < (licht ? 30 : telefoon ? 55 : 75); i++) reizigers.push(new Voetganger(graaf, scene));
+  graaf.geenKar = !data.winkels?.length; // zonder winkels in de buurt loopt niemand met een winkelwagen
+  const druk = data.druk ?? 1; // een hofje is rustiger dan een winkelplein
+  for (let i = 0; i < (licht ? 30 : telefoon ? 55 : 75) * druk; i++) reizigers.push(new Voetganger(graaf, scene));
   for (let i = 0; i < (licht ? 6 : telefoon ? 12 : 16); i++) nieuweBoodschapper();
   for (const h of spel.hangplekken.slice(0, 4)) {
     const n = 2 + ((Math.random() * 2) | 0);
@@ -163,8 +165,8 @@ async function laad() {
     }
   }
   for (const [soort, x, z] of data.dingen) if (soort === "bank" && Math.hypot(x, z) < 75 && Math.random() < 0.6) reizigers.push(new Staander(scene, x + tussen(-0.5, 0.5), z, Math.random() * Math.PI * 2, true));
-  for (let i = 0; i < (licht ? 8 : 14); i++) reizigers.push(new Fietser(graaf, scene, kies(["fiets", "fiets", "fiets", "ebike", "ebike", "bakfiets"])));
-  for (let i = 0; i < (licht ? 7 : 12); i++) reizigers.push(new Auto(graaf, scene));
+  for (let i = 0; i < (licht ? 8 : 14) * Math.min(1, druk * 1.5); i++) reizigers.push(new Fietser(graaf, scene, kies(["fiets", "fiets", "fiets", "ebike", "ebike", "bakfiets"])));
+  for (let i = 0; i < (licht ? 7 : 12) * Math.min(1, druk * 1.5); i++) reizigers.push(new Auto(graaf, scene));
   $("#laden").hidden = true;
   $("#start").hidden = false;
   toonStart();
@@ -387,6 +389,7 @@ function geblokkeerd(x, z) {
   if (inGebouw(x, z, 0.45)) return true; // je bent zelf ook breed: niet half de muur in
   if (inHeg(x, z, 0.15)) return true; // door een heg loop je niet heen
   for (const [bx, bz] of wereld.bomen) if ((x - bx) ** 2 + (z - bz) ** 2 < 0.3) return true; // boomstammen
+  for (const [rx, rz, rr] of wereld.rond) if ((x - rx) ** 2 + (z - rz) ** 2 < rr * rr) return true; // speeltoestel
   for (const m of data.muurtjes ?? []) for (let i = 0; i < m.length - 1; i++) {
     const [a, b] = [m[i], m[i + 1]], dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz || 1;
     const t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / L2));

@@ -248,7 +248,7 @@ export class Voetganger extends Reiziger {
     super(graaf, VOET, tussen(1.1, 1.5), (b) => kant * (b > 4 ? b / 2 + 1.0 + wiebel : wiebel), 0.35, 4, straal);
     this.m = maakMens("voetganger");
     this.mens = this.m.object;
-    this.kar = Math.random() < 0.15 ? maakKar() : null;
+    this.kar = !graaf.geenKar && Math.random() < 0.15 ? maakKar() : null;
     this.groep = new THREE.Group();
     this.groep.add(this.mens);
     if (this.kar) { this.kar.position.z = 0.62; this.groep.add(this.kar); this.v *= 0.85; }

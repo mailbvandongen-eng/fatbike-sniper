@@ -49,4 +49,21 @@ export const LOCATIES = {
     tijd: 180,
     seizoen: "winter",
   },
+  buskenhuet: {
+    naam: "Busken Huethove, Zoetermeer",
+    kort: "Busken Huethove",
+    midden: [92872, 453160], // het ronde speeltuintje op het hofje
+    straalGebouwen: 300,
+    osmBbox: [52.0604, 4.4766, 52.0660, 4.4858],
+    // Sluipschutter: rijtjeshuis uit 1976 met plat dak, op de hoek bij het speeltuintje; slaapkamer boven en het dak.
+    flatPand: "0637100000128543",
+    flat: "Hoekhuis",
+    parterre: 2.75, // vloer van de slaapkamer
+    uit: 1.1,
+    verdieping: 1,
+    verdiepingen: [[1, "Slaapkamer"]],
+    kijkpunt: [92875, 453162], // het speeltuintje
+    grond: "gras", // een hofje: gras tussen de paden, geen plein
+    druk: 0.3, // en het is er rustig
+  },
 };

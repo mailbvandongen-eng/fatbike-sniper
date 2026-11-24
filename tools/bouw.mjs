@@ -66,7 +66,7 @@ const maaivelden = [];
 //   jaren50 roodbruine baksteen · jaren60 gele baksteen · galerij beton met witte schotten (hoogbouw 1960-1980)
 //   kop rode kopgevel van die galerijflats · winkel glazen pui met lichte luifelband · huis rijtjeshuis
 //   modern licht metselwerk (1990-2010) · nieuw donker metselwerk (na 2010)
-const stijlen = ["jaren50", "bruinwit", "portiek", "geel", "creme", "zeilschip", "galerij", "kop", "winkel", "huis", "modern", "nieuw"];
+const stijlen = ["jaren50", "bruinwit", "portiek", "geel", "creme", "zeilschip", "galerij", "kop", "winkel", "huis", "modern", "nieuw", "jaren70"];
 const muren = Object.fromEntries(stijlen.map((s) => [s, { pos: [], uv: [] }]));
 const daken = { plat: { pos: [] }, pannen: { pos: [] } };
 const voetafdrukken = [];
@@ -93,7 +93,9 @@ for (const f of panden) {
     const lagen = +(og?.t["building:levels"] ?? a.b3_bouwlagen ?? 2);
     const jaar = +(a.oorspronkelijkbouwjaar ?? og?.t.start_date?.slice(0, 4) ?? 1958);
     let stijl = "jaren50";
-    if (["retail", "commercial", "industrial"].includes(og?.t.building) || (lagen <= 2 && jaar >= 1960 && jaar < 1990 && a.b3_dak_type !== "slanted")) stijl = "winkel";
+    const woonhuis = ["house", "terrace", "residential", "apartments", "detached", "semidetached_house"].includes(og?.t.building);
+    if (["retail", "commercial", "industrial"].includes(og?.t.building) || (!woonhuis && lagen <= 2 && jaar >= 1960 && jaar < 1990 && a.b3_dak_type !== "slanted")) stijl = "winkel";
+    else if (woonhuis && jaar >= 1965 && jaar < 1990 && a.b3_dak_type !== "slanted" && lagen <= 4) stijl = "jaren70"; // rijtjeshuizen en lage flats met plat dak
     else if (og?.t.building === "house" || (lagen <= 3 && a.b3_dak_type === "slanted" && jaar >= 1960)) stijl = "huis";
     else if (jaar >= 2010) stijl = "nieuw";
     else if (jaar >= 1990) stijl = "modern";
@@ -188,7 +190,7 @@ for (const w of wegen) {
     else if (t.landuse === "grass" || t.leisure === "garden" || t.landuse === "forest" || t.leisure === "park") soort = "gras";
     else if (t.natural === "shrubbery" || t.man_made === "planter") soort = "struik";
     else if (t["area:highway"] === "traffic_island") soort = "eiland";
-    else if (t.leisure === "playground") soort = "speel";
+    else if (t.leisure === "playground") soort = t.surface === "artificial_turf" ? "speelgroen" : "speel";
     else if (t.amenity === "bicycle_parking") soort = "fietsvlak";
     if (soort) vlakken.push({ s: soort, r: p });
     if (soort === "struik") heggen.push({ r: p, h: 0.9 });
@@ -421,11 +423,19 @@ for (const va of GEDEELD.vasteAutos) {
 const hangplekken = [];
 for (const w of winkels) if (["Jumbo", "Bon Appetit", "Albert Heijn", "HEMA", "Action"].includes(w[0])) hangplekken.push([r1(w[1] + Math.sin(w[3]) * 3), r1(w[2] + Math.cos(w[3]) * 3)]);
 for (const [s2, x, z] of dingen) if (s2 === "rek" && Math.hypot(x, z) < 70) hangplekken.push([x, z]);
+// en bij een speeltuintje
+const speeltuinen = [];
+for (const v of vlakken) if (v.s.startsWith("speel")) {
+  const c = v.r.reduce((m, q) => [m[0] + q[0] / v.r.length, m[1] + q[1] / v.r.length], [0, 0]);
+  const straal = Math.min(...v.r.map((q) => Math.hypot(q[0] - c[0], q[1] - c[1])));
+  speeltuinen.push([r1(c[0]), r1(c[1]), r1(straal)]);
+  if (Math.hypot(...c) < 90) hangplekken.push([r1(c[0] + straal + 1.5), r1(c[1])]);
+}
 
 const uit = {
-  naam: L.naam, kort: L.kort, modus: L.modus ?? "rondes", seizoen: L.seizoen ?? "zomer", tijd: L.tijd, bron: "3D BAG (CC BY 4.0), © OpenStreetMap-bijdragers (ODbL)",
+  naam: L.naam, kort: L.kort, modus: L.modus ?? "rondes", seizoen: L.seizoen ?? "zomer", tijd: L.tijd, grond: L.grond, druk: L.druk, bron: "3D BAG (CC BY 4.0), © OpenStreetMap-bijdragers (ODbL)",
   sluipschutter, muren, daken, voetafdrukken: voetafdrukken.filter((v) => Math.hypot(...v.ring[0]) < VER + 20),
-  vlakken, lijnen, bomen, heggen, dingen, plekken: plekken.filter((p) => !p.bezet), vasteAutos, winkels, oversteken, muurtjes, standplaatsen, startStand, bogen, dakboog, hangplekken, graaf: { knopen, kanten },
+  vlakken, lijnen, bomen, heggen, dingen, plekken: plekken.filter((p) => !p.bezet), vasteAutos, winkels, oversteken, muurtjes, standplaatsen, startStand, bogen, dakboog, hangplekken, speeltuinen, graaf: { knopen, kanten },
 };
 writeFileSync(`data/${id}.json`, JSON.stringify(uit));
 const tri = Object.values(muren).reduce((s, m) => s + m.pos.length / 9, 0) + Object.values(daken).reduce((s, m) => s + m.pos.length / 9, 0);

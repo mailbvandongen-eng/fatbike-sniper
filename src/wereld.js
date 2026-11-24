@@ -23,6 +23,8 @@ const GEVEL = {
   winkel: { b: 5.0, h: 3.7, winkel: true },
   huis: { b: 2.7, h: 2.7, steen: ["#8e4630", "#9a5238", "#7f3d29"], voeg: "#c9b9a8", raam: [1.3, 1.35], kozijn: "#f5f3ee", latei: "#d8d2c6" },
   modern: { b: 3.4, h: 2.9, steen: ["#cbb999", "#d6c6a6", "#c2b08f"], voeg: "#e6dcc8", raam: [1.9, 1.7], kozijn: "#4a4d50", latei: "#bfb3a0" },
+  // rijtjeshuis uit de jaren 70 met plat dak: geelbruine baksteen, brede ramen, donkerbruine houten band
+  jaren70: { b: 2.75, h: 2.7, steen: ["#b08a5a", "#a88252", "#b89262", "#9c784c"], voeg: "#c9b79a", raam: [1.9, 1.45], kozijn: "#efece4", latei: "#4a3528" },
   nieuw: { b: 3.0, h: 3.0, steen: ["#4d423c", "#5a4b44", "#463c37"], voeg: "#6d625b", raam: [1.3, 2.1], kozijn: "#2b2b2b", latei: "#3a3330" },
 };
 const KOL = 4, LAAG = 3, PX = 48;
@@ -247,7 +249,7 @@ function maakOverkappingen(lijnen, scene) {
 const GRONDKLEUR = {
   // naar de luchtfoto: straten en parkeerplaats van roodbruine klinkers, stoepen beige, fietspad rood asfalt
   basis: "#b5a88f", plein: "#cdb98e", stoep: "#d2be8f", weg: "#86645e", asfalt: "#4d4e52", parkeer: "#86604f", vak: "#5f5d5d", fietspad: "#93524c",
-  gras: "#5f7f42", struik: "#3f5f2f", eiland: "#a59f93", speel: "#c4ad7f", fietsvlak: "#a9a196", tram: "#6d6a63", gebouw: "#3c3a37",
+  gras: "#5f7f42", struik: "#3f5f2f", eiland: "#a59f93", speel: "#c4ad7f", speelgroen: "#5f9c7c", fietsvlak: "#a9a196", tram: "#6d6a63", gebouw: "#3c3a37",
 };
 export function tekenGrond(d, midden, maat, px) {
   const c = document.createElement("canvas");
@@ -255,12 +257,14 @@ export function tekenGrond(d, midden, maat, px) {
   const x = c.getContext("2d");
   const s = px / maat, o = maat / 2;
   const P = ([a, b]) => [(a - midden[0] + o) * s, (b - midden[1] + o) * s];
-  x.fillStyle = GRONDKLEUR.basis; x.fillRect(0, 0, px, px);
+  x.fillStyle = d.grond === "gras" ? GRONDKLEUR.gras : GRONDKLEUR.basis; x.fillRect(0, 0, px, px);
   // klinkers: fijne ruis
   const ruis = x.createImageData(px, px);
   for (let i = 0; i < ruis.data.length; i += 4) { const v = Math.random() * 30; ruis.data[i] = ruis.data[i + 1] = ruis.data[i + 2] = v; ruis.data[i + 3] = 40; }
   const vlak = (ring, kl) => { x.fillStyle = kl; x.beginPath(); ring.forEach((p, i) => x[i ? "lineTo" : "moveTo"](...P(p))); x.closePath(); x.fill(); };
-  for (const v of d.vlakken) if (["gras", "speel", "plein"].includes(v.s)) vlak(v.r, GRONDKLEUR[v.s]);
+  // een speeltuintje met kunstgras heeft een rand van tegels
+  for (const v of d.vlakken) if (v.s === "speelgroen") { x.strokeStyle = GRONDKLEUR.eiland; x.lineWidth = 1.6 * s; x.lineJoin = "round"; x.beginPath(); v.r.forEach((p, i) => x[i ? "lineTo" : "moveTo"](...P(p))); x.closePath(); x.stroke(); }
+  for (const v of d.vlakken) if (["gras", "speel", "speelgroen", "plein"].includes(v.s)) vlak(v.r, GRONDKLEUR[v.s]);
   x.lineCap = x.lineJoin = "round";
   const lijn = (l, kl, b) => { x.strokeStyle = kl; x.lineWidth = b * s; x.beginPath(); l.p.forEach((p, i) => x[i ? "lineTo" : "moveTo"](...P(p))); x.stroke(); };
   const wegKleur = (l) => (l.asfalt ? GRONDKLEUR.asfalt : GRONDKLEUR.weg);
@@ -474,8 +478,26 @@ function bladPatroon(mat) {
   return mat;
 }
 
+// ---------- speeltoestel (Sketchfab, CC BY 4.0; zie tools/speel) ----------
+let speeltoestel = null;
+export async function laadSpeeltoestel() {
+  const [{ GLTFLoader }, { MeshoptDecoder }] = await Promise.all([import("../lib/three-addons.js"), import("../lib/meshopt_decoder.mjs")]);
+  const g = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(`assets/speel/toestel.glb?v=${window.VERSIE ?? ""}`);
+  g.scene.traverse((o) => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; if (o.material.transparent) Object.assign(o.material, { transparent: false, alphaTest: 0.5, depthWrite: true, side: THREE.DoubleSide }); } });
+  speeltoestel = g.scene;
+}
+
 export function bouwWereld(d, scene) {
-  const wereld = { botsers: [], statisch: [], gevels: [] };
+  const wereld = { botsers: [], statisch: [], gevels: [], rond: [] };
+  // speeltuintjes: het toestel in het midden, passend binnen de rand
+  if (speeltoestel) for (const [x, z, straal] of d.speeltuinen ?? []) {
+    if (Math.hypot(x, z) > 300 || straal < 3) continue;
+    const t = speeltoestel.clone(), maat = Math.min(1, (straal * 1.5) / 7);
+    t.position.set(x, 0, z); t.rotation.y = (x * 0.37 + z * 0.91) % 6.283; t.scale.setScalar(maat);
+    t.updateMatrixWorld(true);
+    scene.add(t); t.traverse((o) => { if (o.isMesh) wereld.botsers.push(o); });
+    wereld.rond.push([x, z, 2.6 * maat]);
+  }
   // gebouwen
   for (const [stijl, m] of Object.entries(d.muren)) {
     if (!m.pos.length) continue;
