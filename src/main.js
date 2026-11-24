@@ -162,8 +162,8 @@ async function laad() {
     }
   }
   for (const [soort, x, z] of data.dingen) if (soort === "bank" && Math.hypot(x, z) < 75 && Math.random() < 0.6) reizigers.push(new Staander(scene, x + tussen(-0.5, 0.5), z, Math.random() * Math.PI * 2, true));
-  for (let i = 0; i < 12; i++) reizigers.push(new Fietser(graaf, scene, kies(["fiets", "fiets", "fiets", "ebike", "ebike", "bakfiets"])));
-  for (let i = 0; i < 9; i++) reizigers.push(new Auto(graaf, scene));
+  for (let i = 0; i < (licht ? 8 : 14); i++) reizigers.push(new Fietser(graaf, scene, kies(["fiets", "fiets", "fiets", "ebike", "ebike", "bakfiets"])));
+  for (let i = 0; i < (licht ? 7 : 12); i++) reizigers.push(new Auto(graaf, scene));
   $("#laden").hidden = true;
   $("#start").hidden = false;
   toonStart();
@@ -725,7 +725,8 @@ function nieuweBoodschapper() {
   const [cx, cz] = graaf.c;
   const autos = wereld.geparkeerd.filter((a) => Math.hypot(a.position.x - cx, a.position.z - cz) < 70);
   const winkels = data.winkels.filter((w) => ["Jumbo", "Jumbo", "Jumbo", "Albert Heijn", "HEMA", "Action", "Kruidvat", "Etos", "Bruna", "Blokker", "Bon Appetit"].includes(w[0]) && Math.hypot(w[1] - cx, w[2] - cz) < 120);
-  if (!autos.length || !winkels.length) return;
+  // geen winkel of auto in de buurt (je bent van het plein af): dan een gewone voorbijganger
+  if (!autos.length || !winkels.length) return void reizigers.push(new Voetganger(graaf, scene));
   const w = kies(winkels.concat(winkels.filter((x) => x[0] === "Jumbo")));
   // de deur: iets voor het bord, op straatniveau
   reizigers.push(new Boodschapper(graaf, scene, kies(autos).position, [w[1] + Math.sin(w[3]) * 1.2, w[2] + Math.cos(w[3]) * 1.2]));
@@ -1320,9 +1321,16 @@ function lus() {
   for (const r of reizigers) {
     r.stap(dt, spel);
     if (r.verAf?.() && !(r.toestand && r.toestand !== "rijden")) {
-      // terug naar het speelgebied
-      r.van = graaf.startKnoop(r.bit, r.straal * 0.95, r.fat ? r.straal * 0.6 : 0);
-      const v = graaf.volgende(-1, r.van, r.bit, 1, r.straal);
+      // te ver achtergebleven: opnieuw de buurt in, bij voorkeur buiten beeld (achter je, of ver genoeg weg)
+      const R = r.bereik(), min = r.mens ? (loop.aan ? 18 : 0) : R * 0.6;
+      const cyw = Math.sin(kijk.yaw), czw = Math.cos(kijk.yaw);
+      for (let i = 0; i < 8; i++) {
+        r.van = graaf.startKnoop(r.bit, R * 0.95, min);
+        if (!loop.aan) break;
+        const dx = graaf.k[r.van][0] - loop.pos.x, dz = graaf.k[r.van][1] - loop.pos.z, d = Math.hypot(dx, dz) || 1;
+        if (d > 34 || (dx * cyw + dz * czw) / d < 0.35) break;
+      }
+      const v = graaf.volgende(-1, r.van, r.bit, 1, R);
       if (v) { r.naar = v.n; r.breed = v.breed; r.t = 0; r.plaats(true); }
     }
     if (!r.fat && r instanceof Fietser && Math.random() < dt * 0.01) geluid.bel(afstandVol(r.pos));
@@ -1340,6 +1348,7 @@ function lus() {
   straat.stap(echt, tijd);
   tekenRadar();
   // de wereld schuift met je mee als je loopt: scherpe grond, geparkeerde auto's en de drukte op straat
+  graaf.krap = loop.aan ? 0.62 : 1; // op straat blijft de drukte dicht om je heen; vanaf het balkon verspreid over het plein
   if (loop.aan) { wereld.bij(loop.pos.x, loop.pos.z); graaf.c[0] = loop.pos.x; graaf.c[1] = loop.pos.z; }
   else if (graaf.c[0] || graaf.c[1]) { graaf.c[0] = graaf.c[1] = 0; wereld.bij(0, 0, true); }
   zetDetail();

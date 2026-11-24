@@ -131,4 +131,5 @@ Valt het beeld weg (`webglcontextlost`: de telefoon pakt het grafisch geheugen a
 
 Beide levels zijn dezelfde wijk; je kunt lopend van het Julianaplein naar de Van Steelaan (ongeveer 200 m) en terug. Daarom:
 - wat er staat is voor alle levels hetzelfde (`GEDEELD` in `tools/locaties.mjs`: gevels per pand, gevelstijl per gebied, vaste auto's bij een adres), en elke kaart bevat alles tot 320 m;
+- op straat blijft de drukte dicht om je heen (`graaf.krap` = 0,62: voetgangers binnen ±45 m, fatbikes ±40 m, verkeer ±70 m); wie achterblijft, komt opnieuw de buurt in, bij voorkeur buiten beeld. Vanaf het balkon is alles verspreid over het plein;
 - de wereld schuift met je mee (`wereld.bij(x, z)`): de scherpe grondtekening (170 m) wordt opnieuw getekend als je 45 m verder bent, de geparkeerde auto's worden alleen rond je getekend (heel model tot 50 m, licht model tot 115 m), en mensen en verkeer bewegen rond jou (`graaf.c`). Terug bij het raam ligt alles weer rond het level.

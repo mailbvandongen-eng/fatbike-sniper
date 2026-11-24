@@ -105,7 +105,7 @@ class Reiziger {
         if (afstand < rest) { this.t += afstand / this.lengte; break; }
         afstand -= rest;
         const nu = this.naar;
-        const vlg = this.g.volgende(this.van, nu, this.bit, this.trek ?? 1, this.straal);
+        const vlg = this.g.volgende(this.van, nu, this.bit, this.trek ?? 1, this.bereik());
         if (!vlg) { this.van = nu; this.naar = this.van; this.t = 0; break; }
         this.van = nu; this.naar = vlg.n; this.breed = vlg.breed; this.t = 0;
         const a = this.g.k[this.van], b = this.g.k[this.naar];
@@ -135,7 +135,9 @@ class Reiziger {
     const w = dt > 0 ? Math.atan2(Math.sin(this.richting - oud), Math.cos(this.richting - oud)) / dt : 0;
     this.draaiing += (w - this.draaiing) * Math.min(1, dt * 4);
   }
-  verAf() { return Math.hypot(this.pos.x - this.g.c[0], this.pos.z - this.g.c[1]) > this.straal * 1.35; }
+  /** Hoe ver van het midden van de drukte hij blijft. Loop je op straat, dan blijft iedereen dichter om je heen (g.krap). */
+  bereik() { return this.straal * (this.g.krap ?? 1); }
+  verAf() { return Math.hypot(this.pos.x - this.g.c[0], this.pos.z - this.g.c[1]) > this.bereik() * 1.35; }
 }
 
 // ---------- ruzie: iemand tegen wie je oploopt (of die je een duw geeft) ----------
