@@ -565,6 +565,18 @@ export function maakPistool() {
   return m;
 }
 /** Mes, lemmet langs +z, heft bij de oorsprong. */
+/** Honkbalknuppel van essenhout: gedraaid profiel (knop, dunne greep, dikke kop), 84 cm, langs +z vanuit de hand. */
+export function maakKnuppel() {
+  const prof = [[0, -0.1], [0.024, -0.1], [0.026, -0.085], [0.014, -0.07], [0.0135, 0.12], [0.017, 0.3], [0.027, 0.5], [0.033, 0.62], [0.033, 0.7], [0.027, 0.735], [0, 0.74]];
+  const g = new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(r, y)), 14);
+  g.rotateX(Math.PI / 2); // de lengte langs +z
+  const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: "#c9a26b", roughness: 0.55 }));
+  // zwarte tape om de greep
+  const tape = new THREE.Mesh(new THREE.CylinderGeometry(0.0155, 0.0155, 0.2, 10), new THREE.MeshStandardMaterial({ color: "#1b1b1d", roughness: 0.9 }));
+  tape.rotation.x = Math.PI / 2; tape.position.z = 0.03; m.add(tape);
+  m.castShadow = true;
+  return m;
+}
 export function maakMes() {
   const bak = [];
   blok(bak, 0.026, 0.03, 0.11, V(0, 0, -0.02), "#2a2018");                    // heft

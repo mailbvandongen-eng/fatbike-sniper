@@ -59,6 +59,23 @@ const T = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javasc
   });
   console.log("gevecht:", JSON.stringify(v));
   await p.waitForTimeout(3000); await p.screenshot({ path: `${UIT}/6-gevecht.png` });
+  // de honkbalknuppel: fatbike aan gort, berijder rent weg; mensen sla je er niet mee, die schrikken en rennen
+  const k = await p.evaluate(() => {
+    const s = window.__spel, l = s.loop; l.neer = 0; l.wankel = 0; l.slag = 0; l.conditie = 3;
+    for (const r of s.reizigers) if (r.hang) { r.ruzieT = 0; r.ruzieNeer = 0; }
+    s.zetWapen("knuppel");
+    const f = s.reizigers.find((r) => r.fat && r.toestand === "rijden"), g0 = s.spel.geraakt;
+    const fx = Math.sin(s.kijk.yaw), fz = Math.cos(s.kijk.yaw);
+    l.pos.set(40, 0, 40); f.pos.set(40 + fx * 1.8, 0, 40 + fz * 1.8); f.pad.copy(f.pos); f.wacht = 1e9;
+    s.sla("knuppel"); for (let t = 0; t < 0.9; t += 0.05) s.stapLopen(0.05);
+    const fiets = s.spel.geraakt - g0;
+    const h = s.reizigers.find((r) => r.hang && !r.zit && !(r.schrik > 0)); const c0 = h.conditie;
+    l.pos.set(h.pos.x - 1.3, 0, h.pos.z); l.slag = 0;
+    s.sla("knuppel"); for (let t = 0; t < 0.9; t += 0.05) s.stapLopen(0.05);
+    return { wapen: l.wapen, fatbikeKapot: fiets, mensGeraakt: h.conditie !== c0, mensRentWeg: h.schrik > 0, rennenWeg: s.reizigers.filter((r) => r.hang && r.schrik > 0).length, d: +h.pos.distanceTo(l.pos).toFixed(1), hoek: +(Math.atan2(h.pos.x - l.pos.x, h.pos.z - l.pos.z) - l.richting).toFixed(2), slagSoort: l.slagSoort };
+  });
+  console.log("knuppel:", JSON.stringify(k));
+  await p.waitForTimeout(2500); await p.screenshot({ path: `${UIT}/7-knuppel.png` });
   console.log(fout.join("\n") || "geen fouten");
   await b.close();
 })();

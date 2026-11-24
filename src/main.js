@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { laadKarate, TECHNIEK, STOTEN, TRAPPEN } from "./karate.js";
 import { bouwWereld, zetFietsenInRekken, bevries, laadSpeeltoestel } from "./wereld.js";
 import { Graaf, Voetganger, Fietser, Auto, Boodschapper, Staander } from "./verkeer.js";
-import { kies, tussen, maakGeweer, maakPistool, maakMes, MAT, laadFietsen } from "./figuren.js";
+import { kies, tussen, maakGeweer, maakPistool, maakMes, maakKnuppel, MAT, laadFietsen } from "./figuren.js";
 import { laadMensen, maakMens } from "./mensen.js";
 import { laadAutos, maakAuto } from "./autos.js";
 import { maakStraat } from "./straat.js";
@@ -141,7 +141,7 @@ async function laad() {
   schutter = maakMens("schutter");
   geweer = maakGeweer();
   scene.add(geweer); // los in de wereld: elk beeld tegen de schouder gelegd, in de kijkrichting
-  pistool = maakPistool(); mes = maakMes(); pistool.visible = mes.visible = false;
+  pistool = maakPistool(); mes = maakMes(); knuppel = maakKnuppel(); pistool.visible = mes.visible = knuppel.visible = false; scene.add(knuppel);
   scene.add(pistool, mes);
   zetWapen("pistool");
   straat = maakStraat({ scene, reizigers, loop, spel, graaf, data, geluid, $, vrij: (x, z) => !geblokkeerd(x, z), naarBinnen: () => zetLopen(false, true), tekenHud, weg });
@@ -273,7 +273,7 @@ function wisselStand(richting) {
 const loop = { aan: false, pos: new THREE.Vector3(), richting: 0, snelheid: 0, stick: { x: 0, y: 0 }, toets: {}, slag: 0, slagRaak: false, neer: 0, richt: 0, wapen: "pistool", keek: 0, vx: 0, vz: 0, pas: 0, sprint: false, mikken: false, doel: null, camDoel: new THREE.Vector3(), camAfst: 3.2, conditie: 3, wankel: 0, combo: 0, comboT: 0, herstel: 0 };
 const WAPENS = ["pistool", "vuist", "mes"];
 let blokken = null; // gebouwen (met omhullende rechthoek) waar je niet doorheen kunt
-let pistool = null, mes = null;
+let pistool = null, mes = null, knuppel = null;
 let straat = null; // gezocht-niveau en missies (src/straat.js)
 const zichtRay = new THREE.Raycaster();
 /** Is er vrij zicht tussen twee mensen (op ooghoogte)? */
@@ -311,7 +311,9 @@ function zoekDoel() {
   }
   return null;
 }
-function volgendWapen() { zetWapen(WAPENS[(WAPENS.indexOf(loop.wapen) + 1) % WAPENS.length]); }
+/** Wat je bij je hebt: gewoon pistool, vuisten en mes; in karatepak je vuisten en voeten, of een honkbalknuppel. */
+const wapens = () => (schutter === karateka ? ["vuist", "knuppel"] : WAPENS);
+function volgendWapen() { const w = wapens(); zetWapen(w[(w.indexOf(loop.wapen) + 1) % w.length]); }
 /** De actieknop: bij je raam schieten met het geweer; lopend het wapen dat je in je hand hebt. */
 function actie() {
   if (rij.aan) return geluid.toeter(1); // in de auto: de claxon
@@ -657,7 +659,7 @@ function slagDoel() {
 function sla(soort = "vuist") {
   if (!loop.aan || loop.neer > 0 || loop.wankel > 0) return;
   if (loop.slag > 0) { loop.slagStraks = soort; return; } // tik je door, dan volgt de volgende klap meteen
-  const karate = schutter === karateka && soort !== "mes";
+  const karate = schutter === karateka && soort !== "mes" && soort !== "knuppel";
   let nr, beweging, duur, raak, tempo, zwaar, ver = 0.95;
   if (karate) {
     // karate: stoten en trappen uit het vechtspel van de dojo, in een vaste volgorde
@@ -668,10 +670,11 @@ function sla(soort = "vuist") {
     if (zwaar) geluid.kiai();
   } else {
     nr = soort !== "mes" && loop.comboT > 0 ? (loop.combo + 1) % 3 : 0;
-    [beweging, duur, raak, tempo] = soort === "mes" ? ["jab", 0.5, 0.24, 1.4] : SLAGEN[nr];
+    [beweging, duur, raak, tempo] = soort === "mes" ? ["jab", 0.5, 0.24, 1.4] : soort === "knuppel" ? ["zwaai", 0.75, 0.36, 1.25] : SLAGEN[nr];
     zwaar = nr === 2;
+    if (soort === "knuppel") { nr = 0; ver = 1.35; }
   }
-  Object.assign(loop, { slag: duur, slagRaakOp: duur - raak, slagRaak: false, slagSoort: soort === "mes" ? "mes" : "vuist", slagZwaar: zwaar, combo: nr, slagStraks: null });
+  Object.assign(loop, { slag: duur, slagRaakOp: duur - raak, slagRaak: false, slagSoort: soort === "mes" || soort === "knuppel" ? soort : "vuist", slagZwaar: zwaar, combo: nr, slagStraks: null });
   // je draait vanzelf naar je tegenstander en doet een stap in, zodat je klap aankomt
   const doel = slagDoel();
   loop.doelwit = doel?.r ?? null;
@@ -788,6 +791,15 @@ function stapLopen(dt) {
             const w = fat.fiets.userData.wielen.map((x) => x.getWorldPosition(new THREE.Vector3())).sort((a, b) => a.distanceTo(L.pos) - b.distanceTo(L.pos))[0];
             fatbikeGeraakt(fat, "band", w);
           }
+        } else if (L.slagSoort === "knuppel") {
+          // de knuppel is voor fatbikes (en blik): de fiets gaat aan gort, de berijder valt, krabbelt op en rent weg.
+          // Mensen sla je er niet mee: wie voor je staat schrikt en maakt dat hij wegkomt.
+          const auto = dichtst(reizigers.filter((r) => r.wordBoos), 3.4), kapot = dichtst(reizigers.filter((r) => r.fat && r.toestand === "rijden"), 3.2);
+          if (kapot) { geluid.bonk(); geluid.botsing(0.5); fatbikeGeraakt(kapot, "klap", kapot.pos.clone().setY(0.7)); terugslag = 0.6; }
+          else if (auto) { geluid.bonk(); geluid.botsing(0.4); auto.wordBoos(); straat.strafbaar(0.4); }
+          let geschrokken = 0;
+          for (const r of reizigers) if (r.ruzie && r.soort !== "agent" && voorJe(r, 3.2) < Infinity) { r.ruzieT = 0; r.schrikken?.(); geschrokken++; }
+          if (geschrokken) straat.strafbaar(0.3);
         } else {
           // wie je bij het uithalen voor je had, krijgt de klap (niet de fatbike die er toevallig naast staat)
           const mens = L.doelwit?.ruzie && !L.doelwit.fat && L.doelwit.soort !== "agent" && !(L.doelwit.ruzieNeer > 0) && voorJe(L.doelwit, 2.2) < Infinity ? L.doelwit : null;
@@ -1364,7 +1376,7 @@ addEventListener("keydown", (e) => {
   if (e.code === "KeyX" || e.code === "ControlLeft") zetMikken(!loop.mikken);
   if (e.code === "Tab" || e.code === "KeyR") { e.preventDefault(); volgendWapen(); }
   const nr = ["Digit1", "Digit2", "Digit3"].indexOf(e.code);
-  if (nr >= 0) zetWapen(WAPENS[nr]);
+  if (nr >= 0 && wapens()[nr]) zetWapen(wapens()[nr]);
 });
 addEventListener("keyup", (e) => { loop.toets[e.code] = false; });
 const knop = (sel, neer, op) => {
@@ -1610,7 +1622,7 @@ function lus() {
     schutter.zet("fietsen"); schutter.mixer.update(echt);
     schutter.object.position.copy(a.localToWorld(new THREE.Vector3(sx, sy - schutter.zithoogte(), -sz)));
     schutter.object.rotation.set(0, rij.richting, 0);
-    schutter.object.visible = true; geweer.visible = pistool.visible = mes.visible = false; $("#slot").hidden = true;
+    schutter.object.visible = true; geweer.visible = pistool.visible = mes.visible = knuppel.visible = false; $("#slot").hidden = true;
     const cy = Math.sin(kijk.yaw), cz = Math.cos(kijk.yaw), cp = Math.cos(kijk.pitch);
     loop.camDoel.lerp(new THREE.Vector3(a.position.x, 1.5, a.position.z), 1 - Math.exp(-echt * 12));
     const terug = new THREE.Vector3(-cy * cp, -Math.sin(kijk.pitch), -cz * cp);
@@ -1631,6 +1643,7 @@ function lus() {
     if (L.neer <= 0 && L.slag <= 0 && L.wankel <= 0) {
       const v = L.snelheid;
       if (richtend && L.wapen === "pistool" && v <= 0.25) schutter.zet("richten");
+      else if (L.wapen === "knuppel" && v <= 0.25) schutter.zet("knuppel");
       else if (schutter === karateka && v <= 0.25 && reizigers.some((r) => r.ruzieT > 0 && !(r.ruzieNeer > 0) && r.pos.distanceToSquared(L.pos) < 36)) schutter.zet("k_idle"); // kamae: klaar voor de volgende
       else if (v > 4.6) schutter.zet("sprinten", v / 5.6); else if (v > 2.3) schutter.zet("rennen", v / 3.3); else if (v > 0.25) schutter.zet("lopen", THREE.MathUtils.clamp(v / 1.4, 0.7, 1.5)); else schutter.zet("staan");
     }
@@ -1639,8 +1652,8 @@ function lus() {
     schutter.object.visible = true;
     // het geweer blijft bij het raam; in je hand heb je het pistool of het mes (of niets: vuisten)
     geweer.visible = false;
-    const ding = L.neer > 0 ? null : L.wapen === "pistool" ? pistool : L.wapen === "mes" ? mes : null;
-    pistool.visible = ding === pistool; mes.visible = ding === mes;
+    const ding = L.neer > 0 ? null : L.wapen === "pistool" ? pistool : L.wapen === "mes" ? mes : L.wapen === "knuppel" ? knuppel : null;
+    pistool.visible = ding === pistool; mes.visible = ding === mes; knuppel.visible = ding === knuppel;
     schutter.los("DEF-spine002"); schutter.los("DEF-shoulderR");
     if (ding) {
       const fx = Math.sin(kijkt), fz = Math.cos(kijkt);
@@ -1659,6 +1672,12 @@ function lus() {
         schutter.arm("L", schutter.plek("DEF-handR").addScaledVector(links, 0.05).add(new THREE.Vector3(0, -0.03, 0)), new THREE.Vector3(0, -1, 0).addScaledVector(links, 0.6));
         ding.position.copy(schutter.plek("DEF-handR")).addScaledVector(dir, 0.06);
         ding.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
+      } else if (ding === knuppel) {
+        // in de vuist, dwars op de hand (zoals je een knuppel of een zwaard vasthoudt)
+        let hb = null; schutter.object.traverse((o) => { if (o.isBone && o.name === "DEF-handR") hb = o; });
+        const q = hb.getWorldQuaternion(new THREE.Quaternion()), as = new THREE.Vector3(0, 0, 1).applyQuaternion(q);
+        ding.position.copy(schutter.plek("DEF-handR")).addScaledVector(new THREE.Vector3(0, 1, 0).applyQuaternion(q), 0.07);
+        ding.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), as);
       } else {
         // in de hand, in het verlengde van je onderarm
         const hand = schutter.plek("DEF-handR"), elleboog = schutter.plek("DEF-forearmR");
@@ -1719,7 +1738,7 @@ function lus() {
     schutter.arm("R", geweer.localToWorld(new THREE.Vector3(0, -0.06, 0.2)), omlaag.clone().addScaledVector(links, -0.6));
     schutter.arm("L", geweer.localToWorld(new THREE.Vector3(0, -0.04, 0.44)), omlaag.clone().addScaledVector(links, 0.4));
     schutter.object.visible = geweer.visible = !scoop;
-    pistool.visible = mes.visible = false;
+    pistool.visible = mes.visible = knuppel.visible = false;
     $("#slot").hidden = true;
     if (scoop) camera.position.copy(oog);
     else {
@@ -1738,4 +1757,4 @@ function lus() {
 }
 zetZoom(1);
 laad().then(() => requestAnimationFrame(lus)).catch((e) => { $("#laden").textContent = "Laden mislukt: " + e.message; console.error(e); });
-window.__spel = { karate: () => Object.keys(TECHNIEK), spel, reizigers, stil, uitAuto, verlaten, get herlaad() { return herlaad; }, kijk, camera, oog, loop, rij, stapIn, stapUit, stapLopen, get straat() { return straat; }, get graaf() { return graaf; }, zetLopen, sla, actie, zetWapen, klapKrijgen, vallers, schiet, begin, zetZoom, draai, scene, renderer, stand: () => standen[standNr]?.naam };
+window.__spel = { get schutter() { return schutter; }, karate: () => Object.keys(TECHNIEK), spel, reizigers, stil, uitAuto, verlaten, get herlaad() { return herlaad; }, kijk, camera, oog, loop, rij, stapIn, stapUit, stapLopen, get straat() { return straat; }, get graaf() { return graaf; }, zetLopen, sla, actie, zetWapen, klapKrijgen, vallers, schiet, begin, zetZoom, draai, scene, renderer, stand: () => standen[standNr]?.naam };
