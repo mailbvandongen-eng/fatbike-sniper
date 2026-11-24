@@ -1545,7 +1545,8 @@ function lus() {
     // de beweging loopt op het tempo van je vaart, zodat je voeten niet over de grond glijden
     if (L.neer <= 0 && L.slag <= 0 && L.wankel <= 0) {
       const v = L.snelheid;
-      if (v > 4.6) schutter.zet("sprinten", v / 5.6); else if (v > 2.3) schutter.zet("rennen", v / 3.3); else if (v > 0.25) schutter.zet("lopen", THREE.MathUtils.clamp(v / 1.4, 0.7, 1.5)); else schutter.zet("staan");
+      if (richtend && L.wapen === "pistool" && v <= 0.25) schutter.zet("richten");
+      else if (v > 4.6) schutter.zet("sprinten", v / 5.6); else if (v > 2.3) schutter.zet("rennen", v / 3.3); else if (v > 0.25) schutter.zet("lopen", THREE.MathUtils.clamp(v / 1.4, 0.7, 1.5)); else schutter.zet("staan");
     }
     schutter.mixer.update(echt);
     schutter.object.updateMatrixWorld(true);
@@ -1554,13 +1555,22 @@ function lus() {
     geweer.visible = false;
     const ding = L.neer > 0 ? null : L.wapen === "pistool" ? pistool : L.wapen === "mes" ? mes : null;
     pistool.visible = ding === pistool; mes.visible = ding === mes;
+    schutter.los("DEF-spine002"); schutter.los("DEF-shoulderR");
     if (ding) {
       const fx = Math.sin(kijkt), fz = Math.cos(kijkt);
       if (ding === pistool && richtend) {
         // arm gestrekt naar waar je mikt
         const dir = new THREE.Vector3(fx * Math.cos(kijk.pitch), Math.sin(kijk.pitch), fz * Math.cos(kijk.pitch));
+        // je bovenlijf gaat mee omhoog of omlaag, en je schouder komt naar voren: zo komt de arm echt uit je schouder
+        const plat = new THREE.Vector3(fx, 0, fz);
+        schutter.buig("DEF-spine002", plat, plat.clone().lerp(dir, 0.45));
+        const sleutel = schutter.plek("DEF-shoulderR"), kop = schutter.plek("DEF-upper_armR").sub(sleutel);
+        schutter.buig("DEF-shoulderR", kop, kop.clone().addScaledVector(dir, kop.length() * 0.55));
         const schouder = schutter.plek("DEF-upper_armR");
-        schutter.arm("R", schouder.clone().addScaledVector(dir, 0.56), new THREE.Vector3(0, -1, 0).addScaledVector(new THREE.Vector3(fz, 0, -fx), -0.5));
+        // met twee handen, het pistool iets naar het midden
+        const links = new THREE.Vector3(fz, 0, -fx);
+        schutter.arm("R", schouder.clone().addScaledVector(dir, 0.52).addScaledVector(links, 0.13), new THREE.Vector3(0, -1, 0).addScaledVector(links, -0.5));
+        schutter.arm("L", schutter.plek("DEF-handR").addScaledVector(links, 0.05).add(new THREE.Vector3(0, -0.03, 0)), new THREE.Vector3(0, -1, 0).addScaledVector(links, 0.6));
         ding.position.copy(schutter.plek("DEF-handR")).addScaledVector(dir, 0.06);
         ding.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
       } else {

@@ -111,6 +111,16 @@ export function maakMens(rol = "voetganger") {
     zithoogte: () => zithoogte[naam] ?? 0.55,
     /** Waar een bot nu in de wereld staat (na mixer.update en updateMatrixWorld). */
     plek: (n, uit = new THREE.Vector3()) => bot[n].getWorldPosition(uit),
+    /** Draai een bot (in de wereld) zo dat de richting van naar naar wijst; alles eronder draait mee. */
+    buig(n, van, naar) {
+      const b = bot[n]; if (!b) return;
+      const u = b.userData;
+      u.voor = (u.voor ?? new THREE.Quaternion()).copy(b.quaternion);
+      draaiBot(b, v7.copy(van), v8.copy(naar)); b.updateWorldMatrix(false, true);
+      u.na = (u.na ?? new THREE.Quaternion()).copy(b.quaternion);
+    },
+    /** Maak een eerdere buig ongedaan. Nodig omdat de mixer een bot dat in de beweging stilstaat niet opnieuw zet. */
+    los(n) { const b = bot[n], u = b?.userData; if (u?.na && b.quaternion.equals(u.na)) { b.quaternion.copy(u.voor); b.updateWorldMatrix(false, true); } if (u) u.na = null; },
     /**
      * Armsturing (twee botten): zet de hand (kant "L" of "R") op het punt doel (wereld).
      * buig = richting (wereld) waarheen de elleboog wijst. Roep aan na mixer.update().
