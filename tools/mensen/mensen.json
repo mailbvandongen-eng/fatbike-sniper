@@ -196,11 +196,8 @@
    "pak": "male_casualsuit05",
    "pakTint": "#2f3329",
    "schoenen": "shoes03",
-   "haar": "ponytail01",
-   "haarTint": "#dcb96a",
-   "ogen": "brown",
-   "zijkantenKaal": true,
-   "staartKort": 0.3
+   "haar": null,
+   "ogen": "brown"
   },
   {
    "naam": "handhaver",

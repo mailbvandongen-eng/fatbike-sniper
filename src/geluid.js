@@ -16,16 +16,36 @@ export class Geluid {
     this.ruis = ctx.createBuffer(1, n, ctx.sampleRate);
     const d = this.ruis.getChannelData(0);
     for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
-    // bruine ruis voor de stad
-    this.bruin = ctx.createBuffer(1, n, ctx.sampleRate);
-    const b = this.bruin.getChannelData(0);
-    let l = 0;
-    for (let i = 0; i < n; i++) { l = (l + 0.02 * (Math.random() * 2 - 1)) / 1.02; b[i] = l * 3.5; }
-    const stad = ctx.createBufferSource(); stad.buffer = this.bruin; stad.loop = true;
-    const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 500;
-    this.sfeer = ctx.createGain(); this.sfeer.gain.value = 0.22;
-    stad.connect(f); f.connect(this.sfeer); this.sfeer.connect(this.uit); stad.start();
+    this.laadOpnames();
   }
+  /** Echte opnames voor de achtergrond (Wikimedia Commons, publiek domein en CC0; zie tools/geluid). Geen ruis meer. */
+  async laadOpnames() {
+    const ctx = this.ctx, v = window.VERSIE ?? "";
+    this.opname = {};
+    this.sfeer = ctx.createGain(); this.sfeer.gain.value = 1; this.sfeer.connect(this.uit);
+    await Promise.all(["straat", "mensen", "auto1", "auto2", "meeuw"].map(async (n) => {
+      try {
+        const data = await (await fetch(`assets/geluid/${n}.mp3?v=${v}`)).arrayBuffer();
+        this.opname[n] = await new Promise((ok, mis) => ctx.decodeAudioData(data, ok, mis));
+      } catch { /* zonder deze opname is het hier gewoon stil */ }
+    }));
+    // twee doorlopende lagen: de straat (vogels, verkeer in de verte) en pratende mensen (harder waar het druk is)
+    const laag = (n, sterkte) => {
+      if (!this.opname[n]) return null;
+      const s = ctx.createBufferSource(), g = ctx.createGain(); s.buffer = this.opname[n]; s.loop = true; g.gain.value = sterkte;
+      s.connect(g); g.connect(this.sfeer); s.start(0, Math.random() * s.buffer.duration);
+      return g;
+    };
+    this.straatLaag = laag("straat", 0.55); this.mensenLaag = laag("mensen", 0);
+  }
+  /** Speel een opname één keer af. */
+  speel(n, sterkte = 1, tempo = 1) {
+    if (!this.ctx || !this.opname?.[n]) return;
+    const s = this.ctx.createBufferSource(), g = this.ctx.createGain(); s.buffer = this.opname[n]; s.playbackRate.value = tempo; g.gain.value = sterkte;
+    s.connect(g); g.connect(this.sfeer); s.start();
+  }
+  /** Hoe druk het om je heen is (0..1): zo hard klinkt het geroezemoes. */
+  drukte(d) { if (this.mensenLaag) this.mensenLaag.gain.setTargetAtTime(Math.min(1, d) * 0.6, this.t, 0.8); }
   get t() { return this.ctx.currentTime; }
   ruisStoot({ duur, filter = "lowpass", freq = 2000, freq2, q = 0.7, gain = 1, echo = 0, start = 0, buffer }) {
     if (!this.ctx) return;
@@ -46,15 +66,16 @@ export class Geluid {
     const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + duur);
     o.connect(g); g.connect(this.uit); o.start(t); o.stop(t + duur + 0.05);
   }
+  /** Geweer met demper: een droge, doffe plof en het mechaniek. Geen knal en geen galm. */
   schot() {
-    this.ruisStoot({ duur: 0.35, freq: 4500, freq2: 300, gain: 1.4, echo: 0.9 });
-    this.toon({ freq: 120, freq2: 38, duur: 0.3, gain: 0.9 });
-    this.ruisStoot({ duur: 1.2, freq: 700, freq2: 120, gain: 0.25, echo: 0.6, start: 0.05 });
+    this.ruisStoot({ duur: 0.07, freq: 1500, freq2: 260, gain: 1.2 });
+    this.ruisStoot({ duur: 0.16, filter: "bandpass", freq: 520, q: 0.8, gain: 0.5, start: 0.01 });
+    this.toon({ freq: 150, freq2: 70, duur: 0.07, gain: 0.45 });
+    this.ruisStoot({ duur: 0.02, filter: "bandpass", freq: 3400, q: 5, gain: 0.3, start: 0.05 }); // het sluitstuk
   }
   herladen() {
-    this.ruisStoot({ duur: 0.05, filter: "bandpass", freq: 2500, q: 4, gain: 0.6, start: 0.35 });
-    this.ruisStoot({ duur: 0.06, filter: "bandpass", freq: 1800, q: 4, gain: 0.6, start: 0.6 });
-    this.toon({ freq: 900, duur: 0.04, type: "square", gain: 0.05, start: 0.62 });
+    this.ruisStoot({ duur: 0.05, filter: "bandpass", freq: 2500, q: 4, gain: 0.45, start: 0.35 });
+    this.ruisStoot({ duur: 0.06, filter: "bandpass", freq: 1800, q: 4, gain: 0.45, start: 0.6 });
   }
   /** v = afstandsfactor 0..1 */
   klap(v = 1) {
@@ -121,25 +142,12 @@ export class Geluid {
     z.o.frequency.setTargetAtTime(90 + v * 34, this.t, 0.15); z.o2.frequency.setTargetAtTime(360 + v * 120, this.t, 0.15);
     z.g.gain.setTargetAtTime(sterkte * 0.09, this.t, 0.15);
   }
-  /** Vogels, of kraaien in de winter: af en toe, op wisselende afstand. */
-  sfeerStap(dt, winter = false) {
-    if (!this.ctx) return;
-    this.vogelT = (this.vogelT ?? 3) - dt;
-    if (this.vogelT > 0) return;
-    this.vogelT = winter ? 6 + Math.random() * 14 : 2.5 + Math.random() * 7;
-    const ver = 0.35 + Math.random() * 0.65;
-    if (winter) {
-      // kraai: twee of drie keer een schor "kra"
-      const n = 2 + ((Math.random() * 2) | 0), hoog = 520 + Math.random() * 90;
-      for (let i = 0; i < n; i++) { this.toon({ freq: hoog, freq2: hoog * 0.72, duur: 0.22, type: "sawtooth", gain: 0.035 * ver, start: i * 0.34 }); this.ruisStoot({ duur: 0.2, filter: "bandpass", freq: 1500, q: 2, gain: 0.07 * ver, start: i * 0.34 }); }
-    } else if (Math.random() < 0.6) {
-      // merel of mees: een riedeltje van korte fluittonen
-      const n = 3 + ((Math.random() * 5) | 0), basis = 2400 + Math.random() * 1500;
-      for (let i = 0; i < n; i++) { const f = basis * (0.8 + Math.random() * 0.5); this.toon({ freq: f, freq2: f * (Math.random() < 0.5 ? 1.25 : 0.8), duur: 0.07 + Math.random() * 0.07, gain: 0.03 * ver, start: i * (0.09 + Math.random() * 0.05) }); }
-    } else {
-      // duif: laag koeren
-      for (let i = 0; i < 3; i++) this.toon({ freq: 470, freq2: 400, duur: i === 1 ? 0.42 : 0.2, gain: 0.03 * ver, start: i * 0.3 });
-    }
+  /** Af en toe een auto die langskomt en optrekt, en een meeuw: echte opnames, op wisselende afstand. */
+  sfeerStap(dt) {
+    if (!this.ctx || !this.opname) return;
+    this.autoT = (this.autoT ?? 6) - dt; this.meeuwT = (this.meeuwT ?? 14) - dt;
+    if (this.autoT <= 0) { this.autoT = 9 + Math.random() * 16; this.speel(Math.random() < 0.5 ? "auto1" : "auto2", 0.25 + Math.random() * 0.4, 0.9 + Math.random() * 0.25); }
+    if (this.meeuwT <= 0) { this.meeuwT = 18 + Math.random() * 40; this.speel("meeuw", 0.2 + Math.random() * 0.5, 0.92 + Math.random() * 0.16); }
   }
   /** De lucht die je vuist of het mes verplaatst. */
   zwiep(v = 1) { this.ruisStoot({ duur: 0.14, filter: "bandpass", freq: 450, freq2: 2600, q: 1.4, gain: 0.3 * v }); }
@@ -210,12 +218,11 @@ export class Geluid {
   }
   /** Langs iets schuren met de flank van de auto. */
   schuur(v = 1) { this.ruisStoot({ duur: 0.32, filter: "bandpass", freq: 2100, freq2: 900, q: 3, gain: 0.6 * v }); this.ruisStoot({ duur: 0.3, freq: 400, gain: 0.3 * v }); }
-  /** Pistoolschot op straat: korter en scherper dan het geweer. */
+  /** Pistool met demper: korter en lichter dan het geweer, met de klik van de slede. Geen galm. */
   pistool() {
-    this.ruisStoot({ duur: 0.16, freq: 6000, freq2: 700, gain: 1.3, echo: 0.6 });
-    this.toon({ freq: 240, freq2: 70, duur: 0.12, gain: 0.7 });
-    this.ruisStoot({ duur: 0.6, freq: 900, freq2: 200, gain: 0.16, echo: 0.5, start: 0.04 });
-    this.ruisStoot({ duur: 0.03, filter: "bandpass", freq: 3200, q: 5, gain: 0.3, start: 0.11 }); // de slede
+    this.ruisStoot({ duur: 0.05, freq: 2200, freq2: 380, gain: 1 });
+    this.ruisStoot({ duur: 0.1, filter: "bandpass", freq: 800, q: 0.9, gain: 0.35, start: 0.008 });
+    this.ruisStoot({ duur: 0.018, filter: "bandpass", freq: 3800, q: 5, gain: 0.35, start: 0.045 });
   }
   /** Een portier dat dichtvalt. */
   deur() { this.ruisStoot({ duur: 0.08, freq: 600, freq2: 110, gain: 1 }); this.toon({ freq: 95, freq2: 58, duur: 0.13, gain: 0.5 }); this.ruisStoot({ duur: 0.03, filter: "bandpass", freq: 2400, q: 4, gain: 0.25, start: 0.02 }); }

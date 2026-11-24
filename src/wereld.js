@@ -2,6 +2,7 @@
 import * as THREE from "three";
 import { maakFiets, kies, tussen, plak, stuk, blok, buis, bol, M, V } from "./figuren.js";
 import { parkeer, zetGeparkeerd } from "./autos.js";
+import { VRIJ_ZICHT } from "./config.js";
 
 // ---------- gevels ----------
 // Eén textuur per stijl, 4 traveeën breed en 3 verdiepingen hoog, zodat niet elk raam hetzelfde is.
@@ -557,7 +558,10 @@ export function bouwWereld(d, scene) {
   maakOverkappingen(d.lijnen, scene);
 
   // bomen (instanced): stam + twee kruinen
-  const bomen = d.bomen.filter((b) => Math.hypot(b[0], b[1]) < 300);
+  // bomen pal voor je raam laten we weg: anders kijk je tegen blad aan in plaats van op het plein (VRIJ_ZICHT in config.js)
+  const ramen = (d.standplaatsen ?? []).filter((st) => st.soort !== "grond");
+  const inZicht = (b) => ramen.some((st) => { const dx = b[0] - st.pos[0], dz = b[1] - st.pos[2], l = Math.hypot(dx, dz) || 1; return l < VRIJ_ZICHT.afstand && (dx * st.normaal[0] + dz * st.normaal[1]) / l > VRIJ_ZICHT.hoek; });
+  const bomen = d.bomen.filter((b) => Math.hypot(b[0], b[1]) < 300 && !inZicht(b));
   if (d.seizoen === "winter") {
     // kale bomen: één geometrie, per boom geschaald en gedraaid
     const kaal = new THREE.InstancedMesh(kaleBoom(), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 }), bomen.length);
@@ -631,6 +635,7 @@ export function bouwWereld(d, scene) {
   if (hegBak.length) {
     const heg = new THREE.Mesh(plak(hegBak), bladPatroon(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 })));
     heg.castShadow = heg.receiveShadow = true;
+    wereld.heg = heg; // voor de camera: die mag niet in een heg hangen
     scene.add(heg);
   }
 

@@ -119,11 +119,12 @@ def kleding(pad, tint, vak):
     px[..., 3] = 1; zet(vak, px)
 kleding(f'{S}/clothes/{C["pak"]}/{C["pak"]}_diffuse.png', C.get('pakTint'), 'pak')
 kleding(f'{S}/clothes/{C["schoenen"]}/{C["schoenen"]}_diffuse.png', None, 'schoen')
-haar = laad(sorted(__import__('glob').glob(f'{S}/hair/{C["haar"]}/*diffuse*.png'))[0])
-if C.get('haarTint'):
-    lum = (haar[..., :3] @ np.array([0.3, 0.59, 0.11], dtype=np.float32))[..., None]
-    haar[..., :3] = np.clip(lum / max(1e-3, lum[haar[..., 3] > 0.5].mean()) * hexrgb(C['haarTint']), 0, 1)
-zet('haar', haar)
+if C.get('haar'):   # geen haar = kaal
+    haar = laad(sorted(__import__('glob').glob(f'{S}/hair/{C["haar"]}/*diffuse*.png'))[0])
+    if C.get('haarTint'):
+        lum = (haar[..., :3] @ np.array([0.3, 0.59, 0.11], dtype=np.float32))[..., None]
+        haar[..., :3] = np.clip(lum / max(1e-3, lum[haar[..., 3] > 0.5].mean()) * hexrgb(C['haarTint']), 0, 1)
+    zet('haar', haar)
 oog = laad(f'{S}/eyes/materials/{C.get("ogen", "brown")}_eye.png'); oog[..., 3] = 1; zet('oog', oog)
 zet('wenkbrauw', laad(f'{S}/eyebrows/eyebrow001/eyebrow001.png'))
 
@@ -177,7 +178,7 @@ weg_p = {i for i, r in enumerate(refs) if any(bi in verborgen for bi, bw in r if
 f = [q for q in f if sum(i in weg_p for i, _ in q) < 2]
 print('lijf: vlakken over', len(f), 'verborgen punten', len(weg_p))
 delen.append(deel('lijf', pts, vt, f, refs, 'huid'))
-for map_, naam, vak in [('hair/' + C['haar'], C['haar'], 'haar'), ('eyes/low-poly', 'low-poly', 'oog'), ('eyebrows/eyebrow001', 'eyebrow001', 'wenkbrauw')]:
+for map_, naam, vak in ([('hair/' + C['haar'], C['haar'], 'haar')] if C.get('haar') else []) + [('eyes/low-poly', 'low-poly', 'oog'), ('eyebrows/eyebrow001', 'eyebrow001', 'wenkbrauw')]:
     pts, vt, f, refs, _ = fitfile(f'{S}/{map_}/{naam}.mhclo')
     if vak == 'haar' and C.get('zijkantenKaal'):
         # weggeschoren zijkanten: het haar aan de zijkant van het hoofd (onder de kruin) weglaten

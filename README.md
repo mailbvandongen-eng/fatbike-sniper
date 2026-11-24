@@ -142,28 +142,27 @@ Voetgangers (ook met winkelwagen), fietsers en fatbikes lopen en rijden niet doo
 
 ### Geluid
 
-Alles komt uit `src/geluid.js` (Web Audio, geen bestanden): motor met versnellingen, piepende banden, botsen en schuren, portier, claxon, pistool (anders dan het geweer), vuistslagen met "oef", het zoemen van een fatbike vlakbij (zo hoor je ze aankomen), en vogels (zomer) of kraaien (winter).
+Effecten komen uit `src/geluid.js` (Web Audio): motor met versnellingen, banden, botsen, portier, claxon, vuistslagen, kiai, boeien, vuurwerk. Geweer en pistool zijn **gedempt en droog** (een doffe plof en het mechaniek, geen galm).
 
-### Missies en gezocht worden (`src/straat.js`)
+De achtergrond bestaat uit **echte opnames** (`assets/geluid/*.mp3`, gemaakt met `tools/geluid/maak.py` uit bestanden van Wikimedia Commons; de ruis is weg):
+- `straat` (lus): vogels en langsrijdende auto's, "Birds songs and cars passing by" van ezwa, publiek domein
+- `mensen` (lus): geroezemoes, "1 minute at the alexa mall in berlin" van thore, publiek domein; klinkt harder naarmate er meer mensen om je heen zijn (`geluid.drukte`)
+- `auto1`, `auto2`: een auto die langskomt, uit "Cars passing over bridge" van Dsw4, publiek domein; om de 9 tot 25 s
+- `meeuw`: zilvermeeuw, xeno-canto XC707075 (Sonothèque ADVL), CC0; om de 18 tot 58 s
 
-**Aanhouden en vechten met handhaving:** een handhaver of agent moet een tel naast je staan om je vast te pakken (`grijp` in `Agent.stap`); dan komt hij achter je staan en word je in de boeien geslagen (`arresteer` in `src/main.js`: handen op de rug, boeien, de camera draait om je heen) en pas daarna afgevoerd naar je raam. Je kunt ook vechten: een agent die je slaat vecht terug (`Agent.ruzie`), gaat na een paar klappen even neer en staat weer op. Lig je zelf op de grond met een agent erbij, dan ben je erbij. Het startscherm heeft geen uitleg meer. Testen: `node tools/boeien.cjs`.
+`maak.py` heeft ffmpeg nodig (hier: `npm i @ffmpeg-installer/ffmpeg` in `/root/tools/ffmpeg-npm`).
 
-**Missies** (alleen in het Julianaplein-level, zodra je op straat loopt): er verschijnt een gele lichtzuil (geel vierkant op de radar). Loop erin en de missie begint; je doelen zijn rood (pijl erboven, rood op de radar, rode zuil op de plek). Om de beurt:
-- **hangplek**: drie fatbikes die staan te bellen; raak je er één, dan gaan de anderen ervandoor;
-- **banden**: vier geparkeerde fatbikes; steek de banden lek binnen 80 seconden;
-- **achtervolging**: één vluchter die kriskras door de buurt rijdt; stop hem binnen 110 seconden.
+### Camera, richten en schieten afstellen (`src/config.js`)
 
-De missie staat midden boven in beeld, alleen met tekens en getallen. Gelukt: 500 punten (plus 5 per seconde die over is) en 4 kogels. Doelen van een missie tellen niet mee voor de ronde.
+Alle getallen voor het gevoel staan in `src/config.js`:
+- `CAMERA` (lopen, richten, sprint): `afstand`, `hoogte`, `schouder` (hoger = jij verder links, het midden vrij), `demping`, `fov`
+- `CAMERA_BOTSING`: de camera schuift naar voren voor muren, schuttingen, heggen, speeltoestellen en boomstammen; vier stralen (een "bol") in plaats van één
+- `CAMERA_STAND`: de camera bij het raam per soort standplaats `[achter, rechts, omhoog]`
+- `KIJKEN`: gevoeligheid van slepen (wordt vanzelf fijner als je richt of inzoomt, want de beeldhoek telt mee) en hoe ver je omhoog en omlaag kunt kijken
+- `SCHOT`: tijd tussen schoten (geweer 1,1 s, pistool 0,42 s), terugslag, duur van het mondingsvuur
+- `VRIJ_ZICHT`: bomen pal voor je raam worden weggelaten
 
-**Gezocht**: wat je op straat uithaalt telt op (schieten 0,5; een auto raken 0,7; bijna een mens raken 1; iemand slaan 0,6; iemand omver sprinten 0,2; een fatbike slopen 0,2; een agent slaan 1,2). Vanaf 1 heb je een ster:
-- 1 ster: twee handhavers te voet (je blijft ze joggend voor); 2 en 3 sterren: politie (alleen met sprinten voor te blijven), met sirene;
-- zien ze je vijf tellen niet, dan knipperen de sterren en zakt het niveau, een ster per zeven tellen;
-- zolang ze je zien kun je niet naar binnen; uit het zicht naar binnen gaan is ontsnappen;
-- pakt een agent je, dan sta je weer bij je raam, ben je 250 punten kwijt en is de missie mislukt.
-
-Testen: `node tools/straat.cjs` (zet de spelregels zelf vooruit, omdat de testbrowser traag is).
-
-Alle aanraakbediening loopt via touch-events per vinger (`sleepbaar` in `src/main.js`), zodat lopen, kijken en schieten tegelijk kunnen. Testen: `node tools/loop.cjs`.
+`tools/hud.cjs` controleert op drie telefoonmaten of knoppen elkaar of het midden van het beeld overlappen.
 
 ## Lichte weergave
 

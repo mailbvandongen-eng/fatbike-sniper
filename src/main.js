@@ -1,5 +1,6 @@
 // Fatbike Sniper: hoofdlus, camera, besturing, schieten, rondes.
 import * as THREE from "three";
+import { CAMERA, CAMERA_BOTSING, CAMERA_STAND, KIJKEN, SCHOT } from "./config.js";
 import { laadKarate, TECHNIEK, STOTEN, TRAPPEN } from "./karate.js";
 import { bouwWereld, zetFietsenInRekken, bevries, laadSpeeltoestel } from "./wereld.js";
 import { Graaf, Voetganger, Fietser, Auto, Boodschapper, Staander } from "./verkeer.js";
@@ -23,8 +24,10 @@ const OPTIES = [
   ["kogels", "Onbeperkt kogels", ["uit", "aan"]],
   ["mikhulp", "Mikhulp op straat", ["uit", "aan"]],
   ["geluid", "Geluid", ["uit", "aan"]],
+  ["markeer", "Fatbikes markeren", ["uit", "aan"]],
 ];
-const opties = { handhaving: 1, tijd: null, fatbikes: 0, kogels: 0, mikhulp: 1, geluid: 1 };
+const opties = { handhaving: 1, tijd: null, fatbikes: 0, kogels: 0, mikhulp: 1, geluid: 1, markeer: 0 };
+const merken = [];
 try { Object.assign(opties, JSON.parse(localStorage.getItem("fbs-opties") ?? "{}")); } catch {}
 localStorage.setItem("fbs-level", LOCATIE);
 const KOGEL_V = 850, ZWAARTE = 9.81, NUL_AFSTAND = 75;
@@ -118,7 +121,7 @@ let tijdSchaal = 1, filmCam = null;
 
 // camera-sturing
 const kijk = { yaw: 0, pitch: -0.25, basisYaw: 0, zoom: 1, scoopZoom: 8 };
-let terugslag = 0, herlaad = 0;
+let terugslag = 0, herlaad = 0, flitsT = 0, flits = null; // flits = het mondingsvuur aan de loop
 
 async function laad() {
   data = await (await fetch(`data/${LOCATIE}.json?v=${window.VERSIE ?? ""}`)).json();
@@ -1206,7 +1209,8 @@ function schiet() {
   const v = d.clone().multiplyScalar(KOGEL_V);
   v.y += (0.5 * ZWAARTE * tVal * tVal) / tVal;
   kogels.push({ p: start.clone().addScaledVector(d, 0.6), v, leeftijd: 0 });
-  terugslag = 1; herlaad = 1.1;
+  terugslag = loop.aan ? SCHOT.terugslagPistool : SCHOT.terugslagGeweer; herlaad = loop.aan ? SCHOT.herlaadPistool : SCHOT.herlaadGeweer;
+  flitsT = SCHOT.flitsDuur;
   if (loop.aan) { loop.richt = 1.6; straat.strafbaar(0.5); } // schieten op straat trekt aandacht
   $("#flits").classList.remove("aan"); void $("#flits").offsetWidth; $("#flits").classList.add("aan");
   tekenHud();
@@ -1459,7 +1463,7 @@ function opruimen(obj, na) { setTimeout(() => scene.remove(obj), na * 1000); }
 const RICHT = { pitchMin: -0.95, pitchMax: 0.3, yawMax: 1.35 };
 const vingers = new Map();
 let knijp = null;
-function fov() { return loop.aan ? (rij.aan ? 55 + Math.min(13, Math.abs(rij.v)) : loop.mikken ? 40 : loop.snelheid > 4.5 ? 61 : 55) : 55 / kijk.zoom; }
+function fov() { return loop.aan ? (rij.aan ? 55 + Math.min(13, Math.abs(rij.v)) : loop.mikken ? CAMERA.richten.fov : loop.snelheid > 4.5 ? CAMERA.sprint.fov : CAMERA.lopen.fov) : 55 / kijk.zoom; }
 function zetZoom(z) {
   kijk.zoom = loop.aan ? 1 : THREE.MathUtils.clamp(z, 1, 40); // lopend geen kijker
   if (kijk.zoom > 1.5) kijk.scoopZoom = kijk.zoom;
@@ -1470,8 +1474,8 @@ function zetZoom(z) {
 }
 function draai(dx, dy) {
   const k = (fov() * Math.PI) / 180 / innerHeight;
-  kijk.yaw -= dx * k * 1.05; kijk.pitch -= dy * k * 1.05;
-  if (loop.aan) { kijk.pitch = THREE.MathUtils.clamp(kijk.pitch, -0.7, 0.45); loop.keek = performance.now(); return; } // lopend kijk je vrij rond
+  kijk.yaw -= dx * k * KIJKEN.gevoeligheid; kijk.pitch -= dy * k * KIJKEN.gevoeligheid;
+  if (loop.aan) { kijk.pitch = THREE.MathUtils.clamp(kijk.pitch, KIJKEN.omlaag, KIJKEN.omhoog); loop.keek = performance.now(); return; } // lopend kijk je vrij rond
   let d = kijk.yaw - kijk.basisYaw; d = Math.atan2(Math.sin(d), Math.cos(d));
   kijk.yaw = kijk.basisYaw + THREE.MathUtils.clamp(d, -RICHT.yawMax, RICHT.yawMax);
   const soort = standen[standNr]?.soort;
@@ -1744,7 +1748,14 @@ function lus() {
     }
   }
   // geluid om je heen: vogels (of kraaien in de winter), en het zoemen van een fatbike die dichtbij rijdt
-  geluid.sfeerStap(echt, data.seizoen === "winter");
+  geluid.sfeerStap(echt);
+  if ((spel.drukT = (spel.drukT ?? 0) - echt) <= 0) {
+    // geroezemoes: hoe meer mensen dicht bij je (of bij het plein waar je op uitkijkt), hoe harder
+    spel.drukT = 0.5;
+    const px = loop.aan ? loop.pos.x : graaf.c[0], pz = loop.aan ? loop.pos.z : graaf.c[1], R = loop.aan ? 18 : 45;
+    let n = 0; for (const r of reizigers) if (r.ruzie && Math.hypot(r.pos.x - px, r.pos.z - pz) < R) n++;
+    geluid.drukte((n / (loop.aan ? 14 : 45)) * (loop.aan ? 1 : 0.6));
+  }
   {
     let dichtst = 1e9, vaart = 0;
     if (loop.aan && !rij.aan) for (const r of reizigers) if (r.fat && r.toestand === "rijden" && r.snelheid > 0.5) { const d = r.pos.distanceTo(loop.pos); if (d < dichtst) { dichtst = d; vaart = r.snelheid; } }
@@ -1876,16 +1887,34 @@ function lus() {
     }
     // camera achter je, iets over de rechterschouder. Ze veert mee (loopt een fractie achter), komt dichterbij als je
     // richt, gaat wat verder weg als je sprint, en schuift naar voren als er een muur achter je staat.
+    // De getallen staan in src/config.js (CAMERA en CAMERA_BOTSING).
     const cy = Math.sin(kijk.yaw), cz = Math.cos(kijk.yaw), cp = Math.cos(kijk.pitch);
-    const zij = L.mikken ? 0.62 : 0.45;
-    const doel = new THREE.Vector3(L.pos.x - cz * zij, L.mikken ? 1.6 : 1.65, L.pos.z + cy * zij);
-    L.camDoel.lerp(doel, 1 - Math.exp(-echt * (L.mikken ? 30 : 13)));
+    const C = L.mikken ? CAMERA.richten : L.snelheid > 4.5 ? CAMERA.sprint : CAMERA.lopen, B = CAMERA_BOTSING;
+    L.camZij = (L.camZij ?? C.schouder) + (C.schouder - (L.camZij ?? C.schouder)) * Math.min(1, echt * 8);
+    L.camHoog = (L.camHoog ?? C.hoogte) + (C.hoogte - (L.camHoog ?? C.hoogte)) * Math.min(1, echt * 8);
+    const doel = new THREE.Vector3(L.pos.x - cz * L.camZij, L.camHoog, L.pos.z + cy * L.camZij);
+    // staat er iets tussen jou en het draaipunt (je staat met je rechterschouder tegen een muur), dan schuift het naar je toe
+    const naarZij = doel.clone().sub(new THREE.Vector3(L.pos.x, L.camHoog, L.pos.z)), zl = naarZij.length();
+    if (zl > 0.05) { ray.set(new THREE.Vector3(L.pos.x, L.camHoog, L.pos.z), naarZij.normalize()); ray.far = zl + 0.25; const h = ray.intersectObjects(wereld.botsers, false)[0]; if (h) doel.set(L.pos.x, L.camHoog, L.pos.z).addScaledVector(naarZij, Math.max(0, h.distance - 0.25)); }
+    L.camDoel.lerp(doel, 1 - Math.exp(-echt * C.demping));
     const terug = new THREE.Vector3(-cy * cp, -Math.sin(kijk.pitch), -cz * cp);
-    let afst = L.mikken ? 1.55 : L.snelheid > 4.5 ? 3.7 : 3.2;
-    ray.set(L.camDoel, terug); ray.far = afst + 0.3;
-    const muur = ray.intersectObjects(wereld.botsers, false)[0];
-    if (muur) afst = Math.max(0.6, muur.distance - 0.3);
-    L.camAfst += (afst - L.camAfst) * Math.min(1, echt * (afst < L.camAfst ? 20 : 5)); // snel naar voren, rustig terug
+    let afst = C.afstand;
+    // een "bol" in plaats van één straal: ook stralen links, rechts en boven langs, zodat de camera niet half in een muur hangt
+    const rechts = new THREE.Vector3(-cz, 0, cy);
+    const camBots = (wereld.camBots ??= wereld.heg ? [...wereld.botsers, wereld.heg] : wereld.botsers);
+    for (const [zx, zy] of [[0, 0], [B.bol, 0], [-B.bol, 0], [0, B.bol]]) {
+      ray.set(L.camDoel.clone().addScaledVector(rechts, zx).add(new THREE.Vector3(0, zy, 0)), terug); ray.far = C.afstand + B.marge;
+      const muur = ray.intersectObjects(camBots, false)[0];
+      if (muur) afst = Math.min(afst, muur.distance - B.marge);
+    }
+    // boomstammen (die zitten niet in de botsvormen): niet met de camera in of achter een stam
+    for (const [bx, bz] of wereld.bomen) {
+      const dx = bx - L.camDoel.x, dz = bz - L.camDoel.z, langs = dx * terug.x + dz * terug.z;
+      if (langs < 0.2 || langs > afst + B.boomstam) continue;
+      if (Math.abs(dx * terug.z - dz * terug.x) < B.boomstam) afst = Math.min(afst, langs - B.boomstam);
+    }
+    afst = Math.max(B.minAfstand, afst);
+    L.camAfst += (afst - L.camAfst) * Math.min(1, echt * (afst < L.camAfst ? B.naarVoren : B.terug)); // snel naar voren, rustig terug
     camera.position.copy(L.camDoel).addScaledVector(terug, L.camAfst);
     if (camera.position.y < 0.3) camera.position.y = 0.3;
     // het doelwit van de mikhulp krijgt een markering
@@ -1931,9 +1960,33 @@ function lus() {
     if (scoop) camera.position.copy(oog);
     else {
       // over de schouder: per plek een andere afstand en hoogte (op het dak hoger, anders zie je alleen grind)
-      const [ach, rechts, op] = { balkon: [2.9, 0.75, 0.55], diep: [1.35, 0.55, 0.45], raam: [1.9, 0.5, 0.42], dak: [2.1, 0.6, 1.35], grond: [2.4, 0.6, 0.5] }[st.soort];
+      const [ach, rechts, op] = CAMERA_STAND[st.soort];
       camera.position.set(oog.x - fx * ach - fz * rechts, oog.y + op, oog.z - fz * ach + fx * rechts);
     }
+  }
+  // mondingsvuur: een korte, felle flits aan het eind van de loop
+  if (flitsT > 0) {
+    flitsT -= echt;
+    const wapen = loop.aan ? pistool : geweer;
+    if (!flits) {
+      flits = new THREE.Group();
+      const mat = new THREE.MeshBasicMaterial({ color: "#ffe9a8", transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
+      const kern = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), mat), tong = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.22, 8), mat);
+      tong.rotation.x = Math.PI / 2; tong.position.z = 0.12; flits.add(kern, tong); scene.add(flits);
+    }
+    flits.visible = flitsT > 0 && wapen.visible;
+    if (flits.visible) { wapen.updateMatrixWorld(true); flits.position.copy(wapen.localToWorld(new THREE.Vector3(0, 0.02, loop.aan ? 0.2 : 1.27))); flits.quaternion.copy(wapen.getWorldQuaternion(new THREE.Quaternion())); flits.scale.setScalar((loop.aan ? 0.7 : 1) * (0.7 + Math.random() * 0.6)); }
+  } else if (flits) flits.visible = false;
+  // fatbikes markeren (optie): een geel pijltje boven elke rijdende fatbike
+  if (opties.markeer || merken.length) {
+    let n = 0;
+    if (opties.markeer && spel.bezig) for (const r of reizigers) {
+      if (!r.fat || r.toestand !== "rijden") continue;
+      const m = (merken[n] ??= (() => { const k = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.34, 4), new THREE.MeshBasicMaterial({ color: "#ffc83d", depthTest: false, transparent: true, opacity: 0.9 })); k.rotation.x = Math.PI; k.renderOrder = 9; scene.add(k); return k; })());
+      n++; m.visible = true; m.position.set(r.pos.x, 2.25 + Math.sin(tijd * 4 + n) * 0.06, r.pos.z); m.rotation.y = tijd * 2;
+      const d = m.position.distanceTo(camera.position); m.scale.setScalar(Math.max(1, d / 22) / (kijk.zoom > 1.5 ? Math.sqrt(kijk.zoom) : 1));
+    }
+    for (let i = n; i < merken.length; i++) merken[i].visible = false;
   }
   // alleen voor tests: een vaste camera ergens anders
   const vc = window.__spel?.vrijeCamera;
