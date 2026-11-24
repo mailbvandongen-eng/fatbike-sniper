@@ -79,6 +79,11 @@ body.film::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:4
 #hoger{left:calc(max(12px,var(--sal)) + 178px)}
 #loopKnop{left:calc(max(12px,var(--sal)) + 128px);top:calc(max(10px,var(--sat)) + 102px)}
 body.loopt #loopKnop{top:calc(max(10px,var(--sat)) + 52px);border-color:var(--geel);color:var(--geel)}
+/* instappen: alleen te zien als je naast een auto staat (of erin zit) */
+#instap{left:calc(max(12px,var(--sal)) + 128px);top:calc(max(10px,var(--sat)) + 102px);display:none}
+body.loopt #instap.kan,body.rijdt #instap{display:grid;border-color:var(--groen);color:var(--groen)}
+body.rijdt #wapen,body.rijdt #richt,body.rijdt #sprint{display:none!important}
+body.rijdt #loopKnop{opacity:.3;pointer-events:none}
 /* de markering op het doelwit van de mikhulp */
 #slot{position:absolute;left:0;top:0;width:0;height:0;pointer-events:none}
 #slot i{position:absolute;left:-17px;top:-17px;width:34px;height:34px;border:3px solid var(--geel);border-radius:6px;transform:rotate(45deg);box-shadow:0 0 0 1.5px #000a,inset 0 0 0 1.5px #000a;animation:slot .7s ease-in-out infinite alternate}
@@ -185,6 +190,7 @@ body.gepakt #wissel{opacity:1}body.gepakt #wissel svg{opacity:.9}
   <div class="knop klein" id="loopKnop" aria-label="Lopen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4.5" r="1.8" fill="currentColor"/><path d="M13 8l-3 4 3 3-1 6M10 12l-3 1M13 10l4 2M13 15l3 5"/></svg></div>
   <canvas id="radar" width="232" height="232"></canvas>
   <div id="slot" hidden><i></i></div>
+  <div class="knop klein" id="instap" aria-label="In- of uitstappen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M3 15l1.5-5a2 2 0 012-1.5h8a2 2 0 011.8 1L18 12l2.5.7a1 1 0 01.5 1V16h-2"/><path d="M3 15v1h2M9 16h6"/><circle cx="7" cy="16.5" r="2"/><circle cx="17" cy="16.5" r="2"/></svg></div>
   <div id="loopVlak"></div>
   <div id="stick"><div id="stickDuim"></div></div>
   <div class="knop" id="wapen" aria-label="Ander wapen">
@@ -213,6 +219,7 @@ body.gepakt #wissel{opacity:1}body.gepakt #wissel svg{opacity:.9}
       <p id="uitlegRegel"></p>
       <p>Slepen = kijken · schuif rechts omhoog = inzoomen · ▲▼ linksboven = andere verdieping.</p>
       <p>Het <b>loop-icoon</b> brengt je de straat op: links je duim om te lopen, rechts slepen om te kijken. Knoppen rechts: sprinten, wapen wisselen (pistool, vuisten, mes) en richten. De radar toont de fatbikes als gele stippen.</p>
+      <p><b>Auto:</b> sta je naast een auto, dan verschijnt een groene knop om in te stappen. Je eigen zwarte RAV4 gaat gewoon open; bij een andere sla je de ruit in.</p>
       <p><b>Missies:</b> loop in een gele lichtzuil om er een te beginnen; je doelen zijn rood. <b>Gezocht:</b> maak je herrie, dan komt er handhaving (blauw op de radar). Blijf uit het zicht tot de sterren weg zijn.</p>
     </div>
     <div class="knoppen">
@@ -236,9 +243,9 @@ body.gepakt #wissel{opacity:1}body.gepakt #wissel svg{opacity:.9}
 </div>
 
 <!-- versie -->
-<script>window.VERSIE = "45737ba00d"; window.VERSIE_DATUM = "24-11, 12:19";</script>
-<script type="importmap">{"imports":{"three":"./lib/three.module.js?v=45737ba00d","./lib/three.module.js":"./lib/three.module.js?v=45737ba00d","./lib/meshopt_decoder.mjs":"./lib/meshopt_decoder.mjs?v=45737ba00d","./lib/three-addons.js":"./lib/three-addons.js?v=45737ba00d","./src/autos.js":"./src/autos.js?v=45737ba00d","./src/effecten.js":"./src/effecten.js?v=45737ba00d","./src/figuren.js":"./src/figuren.js?v=45737ba00d","./src/geluid.js":"./src/geluid.js?v=45737ba00d","./src/main.js":"./src/main.js?v=45737ba00d","./src/mensen.js":"./src/mensen.js?v=45737ba00d","./src/straat.js":"./src/straat.js?v=45737ba00d","./src/verkeer.js":"./src/verkeer.js?v=45737ba00d","./src/wereld.js":"./src/wereld.js?v=45737ba00d"}}</script>
-<script type="module" src="./src/main.js?v=45737ba00d"></script>
+<script>window.VERSIE = "6bd3987030"; window.VERSIE_DATUM = "24-11, 12:36";</script>
+<script type="importmap">{"imports":{"three":"./lib/three.module.js?v=6bd3987030","./lib/three.module.js":"./lib/three.module.js?v=6bd3987030","./lib/meshopt_decoder.mjs":"./lib/meshopt_decoder.mjs?v=6bd3987030","./lib/three-addons.js":"./lib/three-addons.js?v=6bd3987030","./src/autos.js":"./src/autos.js?v=6bd3987030","./src/effecten.js":"./src/effecten.js?v=6bd3987030","./src/figuren.js":"./src/figuren.js?v=6bd3987030","./src/geluid.js":"./src/geluid.js?v=6bd3987030","./src/main.js":"./src/main.js?v=6bd3987030","./src/mensen.js":"./src/mensen.js?v=6bd3987030","./src/straat.js":"./src/straat.js?v=6bd3987030","./src/verkeer.js":"./src/verkeer.js?v=6bd3987030","./src/wereld.js":"./src/wereld.js?v=6bd3987030"}}</script>
+<script type="module" src="./src/main.js?v=6bd3987030"></script>
 <!-- /versie -->
 </body>
 </html>

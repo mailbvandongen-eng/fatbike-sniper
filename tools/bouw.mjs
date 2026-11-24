@@ -409,6 +409,12 @@ for (const va of GEDEELD.vasteAutos) {
   if (!vrij) break;
   vrij.bezet = true;
   vasteAutos.push([vrij[0], vrij[1], vrij[2], vrij[3], va.soort, va.kleur]);
+  // de plek recht voor een vaste auto blijft leeg, zodat je er zonder steken uit kunt rijden
+  const [hx, hz] = [Math.sin(vrij[2]), Math.cos(vrij[2])];
+  for (const q of plekken) {
+    const dx = q[0] - vrij[0], dz = q[1] - vrij[1], voor = dx * hx + dz * hz, zij = Math.abs(dx * hz - dz * hx);
+    if (!q.bezet && voor > 1 && voor < 8 && zij < 1.6) q.bezet = true;
+  }
 }
 
 // ---------- hangplekken voor fatbikes ----------

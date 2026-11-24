@@ -127,8 +127,22 @@
       "glas": [
         "material_4"
       ],
-      "glasAchter": 0.05,
-      "vast": true
+      "glasAchter": 0.22,
+      "vast": true,
+      "dakramen": [
+        [
+          -0.43,
+          0.43,
+          -0.22,
+          0.36
+        ],
+        [
+          -0.43,
+          0.43,
+          0.46,
+          1.04
+        ]
+      ]
     }
   }
 }

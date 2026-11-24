@@ -77,7 +77,7 @@ Echte modellen van Sketchfab (CC BY 4.0), verwerkt met `tools/autos/bouw.sh` (`a
 
 Alleen in het bonuslevel, op vaste plekken voor de deur (`vasteAutos` in `tools/locaties.mjs`):
 - zwarte Toyota RAV4: [2021 Toyota RAV4 Hybrid](https://sketchfab.com/3d-models/de74fe4e98004c92b1103947597d1b53) door tonielpro520 (CC BY 4.0), zwart gespoten met zwarte velgen
-- rode Mitsubishi Colt: [Mitsubishi Colt 2004](https://sketchfab.com/3d-models/eb488d59a4ea4afd869ceaec991b43eb) door tutusho (Sketchfab Standard-licentie), met getinte ruiten achter
+- rode Mitsubishi Colt: [Mitsubishi Colt 2004](https://sketchfab.com/3d-models/eb488d59a4ea4afd869ceaec991b43eb) door tutusho (Sketchfab Standard-licentie), met getinte ruiten achter en een dubbel glazen dak (`dakramen` in `tools/autos/autos.json`)
 
 De modellen zijn verkleind met meshopt; daardoor zijn de getallen in het bestand gehele waarden met een eigen schaal. `src/autos.js` leest ze punt voor punt uit en gebruikt de wielassen uit het json-bestand.
 
@@ -92,6 +92,17 @@ Met het loop-icoon ga je de straat op, in derde persoon. De opzet is afgekeken v
 - **Wapens** (knop, of 1/2/3 of Tab): pistool; vuisten (een fatbiker van zijn fiets slaan, hij rent weg); mes (alleen banden lek steken).
 - **Radar:** linksboven de buurt van bovenaf, gedraaid naar je kijkrichting: gele stippen = fatbikes (op de rand als ze verder weg zijn), rood = een kwade automobilist, wit vierkant = je raam.
 - **De wereld reageert:** je loopt niet door mensen heen; loop of jog je tegen iemand op, dan wacht die even; sprint je iemand omver, dan krijg je ruzie (soms een klap: je gaat neer en staat weer op). Bij een schot rennen mensen in de buurt weg. Auto's remmen en toeteren als je in de weg staat; schiet je op een rijdende auto of sla je ertegen, dan rijdt de bestuurder je omver. Gebouwen, muurtjes, heggen, bomen en geparkeerde auto's houden je tegen. Er raakt niemand gewond: iedereen staat weer op.
+
+### Autorijden
+
+Sta je naast een geparkeerde auto, dan verschijnt een groene knop (of T) om in te stappen.
+- **Je eigen auto** (de zwarte RAV4 voor de deur aan de Van Steelaan) gaat van het slot en je stapt in: geen schade, geen straf. De plek ervoor blijft leeg, zodat je zo wegrijdt.
+- **Andere auto's** steel je: ruit in, alarm, en het telt als strafbaar (0,8). Een auto die je al open hebt, stap je daarna gewoon weer in.
+- **Rijden:** stuurknuppel naar voren = gas, naar achteren = remmen en achteruit, links en rechts = sturen (pc: WASD). Bij hoge snelheid stuur je minder scherp. Top 50 km/u (bestelbus 40). De grote knop is de claxon.
+- **Botsen:** gebouwen, heggen, bomen, muurtjes en geparkeerde auto's houden je tegen (je stuitert terug). Fatbikes die je aanrijdt gaan onderuit (dat telt als treffer), voetgangers springen opzij (vlak langs ze scheren is strafbaar), agenten staan even stil.
+- **Uitstappen:** dezelfde knop; de auto blijft staan waar je hem laat. Uit een rijdende auto kunnen agenten je niet halen.
+
+Een geparkeerde auto is een getekende kopie (`InstancedMesh`); bij het instappen wordt die vervangen door een echte auto met wielen (`echtInstappen` in `src/main.js`). Testen: `node tools/rijden.cjs`.
 
 ### Missies en gezocht worden (`src/straat.js`)
 

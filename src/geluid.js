@@ -73,6 +73,23 @@ export class Geluid {
   stappen() { for (let i = 0; i < 6; i++) this.ruisStoot({ duur: 0.07, filter: "bandpass", freq: 500 + Math.random() * 200, q: 1.5, gain: 0.35, start: i * 0.22 }); }
   /** Een voetstap; harder en doffer naarmate je sneller gaat. */
   stap(v = 1.5) { this.ruisStoot({ duur: 0.055, filter: "bandpass", freq: 320 + Math.random() * 160, q: 1.2, gain: Math.min(0.5, 0.12 + v * 0.06) }); }
+  /** Motorgeluid van de auto waarin je rijdt: toonhoogte naar de snelheid; uit = stil. */
+  motor(aan, v = 0) {
+    if (!this.ctx) return;
+    if (!this.mot) {
+      const o = this.ctx.createOscillator(), o2 = this.ctx.createOscillator(), f = this.ctx.createBiquadFilter(), g = this.ctx.createGain();
+      o.type = "sawtooth"; o2.type = "square"; f.type = "lowpass"; f.frequency.value = 420; g.gain.value = 0;
+      o.connect(f); o2.connect(f); f.connect(g); g.connect(this.uit); o.start(); o2.start();
+      this.mot = { o, o2, g };
+    }
+    const t = this.t, toon = 42 + Math.abs(v) * 7.5;
+    this.mot.o.frequency.setTargetAtTime(toon, t, 0.08); this.mot.o2.frequency.setTargetAtTime(toon * 0.5, t, 0.08);
+    this.mot.g.gain.setTargetAtTime(aan ? 0.05 + Math.min(0.05, Math.abs(v) * 0.004) : 0, t, 0.1);
+  }
+  /** Een ruit die sneuvelt. */
+  glas() { this.ruisStoot({ duur: 0.25, filter: "highpass", freq: 3200, gain: 0.9 }); for (let i = 0; i < 5; i++) this.toon({ freq: 2200 + Math.random() * 2600, duur: 0.12, gain: 0.07, start: 0.03 + i * 0.035 }); }
+  /** Je eigen auto gaat van het slot. */
+  slot() { this.toon({ freq: 1500, duur: 0.07, type: "square", gain: 0.06 }); this.toon({ freq: 1500, duur: 0.07, type: "square", gain: 0.06, start: 0.14 }); }
   /** Tweetonige sirene, in de verte. */
   sirene(v = 1) { for (let i = 0; i < 4; i++) this.toon({ freq: i % 2 ? 620 : 470, duur: 0.5, type: "sawtooth", gain: 0.05 * v, start: i * 0.5 }); }
   /** Claxon van een auto die voor je moet stoppen. */

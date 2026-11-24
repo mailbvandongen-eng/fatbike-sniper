@@ -578,7 +578,7 @@ export function bouwWereld(d, scene) {
   let ac = null, gc = [0, 0];
   wereld.bij = (x, z, direct = false) => {
     if (!ac || Math.hypot(x - ac[0], z - ac[1]) > 20) { ac = [x, z]; autosBij(x, z); }
-    if (Math.hypot(x - gc[0], z - gc[1]) > (direct ? 1 : 45)) {
+    if (Math.hypot(x - gc[0], z - gc[1]) > (direct ? 1 : 58)) { // het scherpe stuk is 170 m: ruim voor de rand opnieuw tekenen
       gc = [x, z];
       const oud = wereld.grond.material.map;
       wereld.grond.material.map = tekenGrond(d, gc, 170, 2048);
@@ -587,6 +587,8 @@ export function bouwWereld(d, scene) {
     }
   };
   wereld.bij(0, 0);
+  /** De geparkeerde auto's opnieuw tekenen (er is er een weggereden). */
+  wereld.autosOpnieuw = () => { if (ac) autosBij(ac[0], ac[1]); };
   return wereld;
 }
 

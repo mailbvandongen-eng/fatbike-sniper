@@ -4,7 +4,7 @@ import { bouwWereld, zetFietsenInRekken, bevries } from "./wereld.js";
 import { Graaf, Voetganger, Fietser, Auto, Boodschapper, Staander } from "./verkeer.js";
 import { kies, tussen, maakGeweer, maakPistool, maakMes, MAT, laadFietsen } from "./figuren.js";
 import { laadMensen, maakMens } from "./mensen.js";
-import { laadAutos } from "./autos.js";
+import { laadAutos, maakAuto } from "./autos.js";
 import { maakStraat } from "./straat.js";
 import { Effecten } from "./effecten.js";
 import { Geluid } from "./geluid.js";
@@ -282,11 +282,13 @@ function zoekDoel() {
 function volgendWapen() { zetWapen(WAPENS[(WAPENS.indexOf(loop.wapen) + 1) % WAPENS.length]); }
 /** De actieknop: bij je raam schieten met het geweer; lopend het wapen dat je in je hand hebt. */
 function actie() {
+  if (rij.aan) return geluid.toeter(1); // in de auto is de grote knop de claxon
   if (!loop.aan || loop.wapen === "pistool") return schiet();
   sla(loop.wapen);
 }
 function zetLopen(aan, gedwongen = false) {
   if (!gedwongen && (wisselt() || filmCam || !spel.bezig)) return;
+  if (!aan && rij.aan) { if (!gedwongen) return; stapUitGedwongen(); } // eerst uitstappen (aangehouden: ze halen je eruit)
   // je kunt niet naar binnen glippen terwijl ze je zien
   if (!aan && !gedwongen && straat && !straat.magNaarBinnen()) {
     const el = $("#sterren"); el.classList.remove("schud"); void el.offsetWidth; el.classList.add("schud");
@@ -369,9 +371,155 @@ function geblokkeerd(x, z) {
   }
   return false;
 }
+// ---------- autorijden: je eigen auto (de RAV4) of een gestolen auto ----------
+/** Uit de auto gehaald (aangehouden) of een nieuwe ronde: de auto blijft staan. */
+function stapUitGedwongen() {
+  if (!rij.aan) return;
+  const a = rij.auto;
+  stil.push({ object: a, raak: a.userData.raak, soort: "auto" });
+  rij.aan = false; rij.auto = null; rij.v = 0;
+  geluid.motor(false); document.body.classList.remove("rijdt");
+}
+const rij = { aan: false, auto: null, v: 0, stuur: 0, richting: 0, kans: null, instapT: 0, botsT: 0 };
+/** De auto waar je naast staat (binnen een paar meter), als je kunt instappen. */
+function autoBij() {
+  let best = null;
+  for (const st of stil) {
+    if (st.soort !== "auto") continue;
+    const d = Math.hypot(st.object.position.x - loop.pos.x, st.object.position.z - loop.pos.z);
+    if (d < 3.4 && (!best || d < best.d)) best = { st, d };
+  }
+  return best?.st ?? null;
+}
+/** Instappen. Je eigen auto gaat gewoon open; bij een andere sla je de ruit in (lawaai, alarm, strafbaar). */
+function stapIn() {
+  const st = rij.kans;
+  if (!st || rij.aan || rij.instapT > 0 || loop.neer > 0 || loop.slag > 0) return;
+  const u = st.object.userData, eigen = u.soort === "rav4";
+  if (eigen) geluid.slot();
+  else if (!u.open) {
+    // de ruit in: een klap met de elleboog, glas, alarm
+    loop.slag = 0.6; loop.slagRaak = true; loop.richting = Math.atan2(st.object.position.x - loop.pos.x, st.object.position.z - loop.pos.z);
+    schutter.zet("stomp", 1.25, 0);
+    setTimeout(() => { geluid.glas(); geluid.alarm(0.9); fx.inslag(new THREE.Vector3(loop.pos.x, 1.2, loop.pos.z).lerp(st.object.position.clone().setY(1.2), 0.6), "#dfe9f0"); }, 300);
+    straat.strafbaar(0.8);
+  }
+  rij.instapT = eigen || u.open ? 0.35 : 1.1;
+  rij.straks = st;
+}
+function echtInstappen(st) {
+  // een geparkeerde auto is een getekende kopie: die verdwijnt, en er komt een echte, rijdende auto voor in de plaats
+  let auto = st.object;
+  if (!auto.userData.wielen) {
+    auto = maakAuto({ soort: st.object.userData.soort, kleur: st.object.userData.kleur });
+    auto.position.copy(st.object.position); auto.rotation.y = st.object.rotation.y;
+    st.object.userData.weg = true; wereld.autosOpnieuw();
+    wereld.geparkeerd.splice(wereld.geparkeerd.indexOf(st.object), 1);
+    scene.add(auto);
+  }
+  auto.userData.open = true;
+  stil.splice(stil.indexOf(st), 1);
+  Object.assign(rij, { aan: true, auto, v: 0, stuur: 0, richting: auto.rotation.y, kans: null });
+  zetMikken(false);
+  document.body.classList.add("rijdt");
+  kijk.pitch = -0.18;
+}
+/** Uitstappen: naast de auto; de auto blijft staan waar je hem laat. */
+function stapUit() {
+  if (!rij.aan) return;
+  const a = rij.auto, u = a.userData, c = Math.cos(rij.richting), s = Math.sin(rij.richting);
+  // links van de auto, anders rechts, anders erachter
+  let plek = null;
+  for (const [zij, langs] of [[1, 0], [-1, 0], [0, -1], [0, 1], [1, -1], [-1, -1]]) {
+    const x = a.position.x + c * zij * (u.B / 2 + 0.9) + s * langs * (u.L / 2 + 1), z = a.position.z - s * zij * (u.B / 2 + 0.9) + c * langs * (u.L / 2 + 1);
+    if (!geblokkeerd(x, z)) { plek = [x, z]; break; }
+  }
+  if (!plek) return; // klem: eerst een stukje rijden
+  stil.push({ object: a, raak: u.raak, soort: "auto" });
+  rij.aan = false; rij.auto = null; rij.v = 0;
+  geluid.motor(false);
+  document.body.classList.remove("rijdt");
+  loop.pos.set(plek[0], 0, plek[1]); loop.vx = loop.vz = 0; loop.richting = rij.richting;
+  loop.camDoel.set(loop.pos.x, 1.65, loop.pos.z);
+}
+function stapRijden(dt) {
+  const a = rij.auto, u = a.userData, L = loop;
+  // gas en rem met de stuurknuppel naar voren en achteren, sturen naar links en rechts
+  const gas = THREE.MathUtils.clamp(L.stick.y + (L.toets.KeyW ? 1 : 0) - (L.toets.KeyS ? 1 : 0), -1, 1);
+  const stuur = THREE.MathUtils.clamp(L.stick.x + (L.toets.KeyD ? 1 : 0) - (L.toets.KeyA ? 1 : 0), -1, 1);
+  const top = u.soort === "bus" ? 11 : 14; // m/s: 40 tot 50 km/u, het is een woonwijk
+  if (Math.abs(gas) > 0.1) {
+    const remt = Math.sign(gas) !== Math.sign(rij.v) && Math.abs(rij.v) > 0.3;
+    rij.v += gas * (remt ? 11 : gas > 0 ? 4.6 : 3.2) * dt;
+  } else rij.v -= Math.sign(rij.v) * Math.min(Math.abs(rij.v), 2.2 * dt); // uitrollen
+  rij.v = THREE.MathUtils.clamp(rij.v, -4.5, top);
+  // sturen: bij hoge snelheid minder ver, en het stuur draait soepel
+  const maxHoek = 0.6 / (1 + Math.abs(rij.v) / 6.5);
+  rij.stuur += (stuur * maxHoek - rij.stuur) * Math.min(1, dt * 7);
+  const oudeRichting = rij.richting, ox = a.position.x, oz = a.position.z;
+  rij.richting -= (rij.v * Math.tan(rij.stuur)) / (u.L * 0.62) * dt;
+  const fx = Math.sin(rij.richting), fz = Math.cos(rij.richting);
+  const nx = ox + fx * rij.v * dt, nz = oz + fz * rij.v * dt;
+  // botsen: de vier hoeken en het midden van de neus (of de achterkant als je achteruit rijdt)
+  const hb = u.B / 2 - 0.2, hl = u.L / 2 - 0.3, kant = rij.v >= 0 ? 1 : -1;
+  let vast = false;
+  for (const [px, pz] of [[hb, hl * kant], [-hb, hl * kant], [0, hl * kant], [hb, 0], [-hb, 0]]) {
+    const x = nx + fz * px + fx * pz, z = nz - fx * px + fz * pz;
+    if (inGebouw(x, z, 0.1) || inHeg(x, z) || geblokkeerdDoorDing(x, z)) { vast = true; break; }
+  }
+  if (vast) {
+    if (Math.abs(rij.v) > 2.5 && rij.botsT <= 0) { geluid.tik(1); geluid.klap(0.5); rij.botsT = 0.5; }
+    rij.v *= -0.25; rij.richting = oudeRichting;
+  } else a.position.set(nx, 0, nz);
+  rij.botsT -= dt;
+  a.rotation.y = rij.richting;
+  for (const w of u.wielen) { w.rotation.x += (rij.v * dt) / u.straal; if (w.userData.voor) w.rotation.y = -rij.stuur; }
+  // wat je raakt: mensen springen opzij, fatbikes gaan onderuit, verkeer en agenten merken het
+  const snel = Math.abs(rij.v);
+  if (snel > 1.5) for (const r of [...reizigers]) {
+    const dx = r.pos.x - a.position.x, dz = r.pos.z - a.position.z;
+    const voor = (dx * fx + dz * fz) * kant, zij = Math.abs(dx * fz - dz * fx);
+    if (voor < -1 || voor > hl + 3.5 || zij > hb + 1.2) continue;
+    const raak = voor < hl + 0.7 && zij < hb + 0.3;
+    if (r.fat && r.toestand === "rijden") { if (raak) fatbikeGeraakt(r, "klap", r.pos.clone().setY(0.8)); }
+    else if (r.soort === "agent") { if (raak && !r.afdruipen && r.duwT <= 0) { r.duw(); straat.strafbaar(1); } }
+    else if (r.wordBoos) { if (raak && rij.botsT <= 0) { rij.v *= -0.3; rij.botsT = 0.6; geluid.klap(0.6); geluid.toeter(1); straat.strafbaar(0.3); } }
+    else if (r.ruzie) {
+      // voetgangers zien je komen en maken dat ze wegkomen; scheer je vlak langs ze, dan telt dat
+      r.schrikken?.();
+      if (raak && !(r.bijnaT > performance.now())) { r.bijnaT = performance.now() + 4000; straat.strafbaar(0.5); geluid.toeter(0.6); }
+    } else if (r.fiets && raak && !(r.bijnaT > performance.now())) { r.bijnaT = performance.now() + 4000; r.wacht = 3; straat.strafbaar(0.4); }
+  }
+  geluid.motor(true, rij.v);
+  L.pos.set(a.position.x, 0, a.position.z); L.richting = rij.richting; L.snelheid = snel;
+  oog.set(L.pos.x, 1.3, L.pos.z);
+  // de camera draait achter de auto aan (achteruit rijdend kijk je achterom), tenzij je net zelf hebt rondgekeken
+  if (performance.now() - L.keek > 1200 && snel > 0.6) {
+    let c = rij.richting + (rij.v < -0.6 ? Math.PI : 0) - kijk.yaw; c = Math.atan2(Math.sin(c), Math.cos(c));
+    kijk.yaw += c * Math.min(1, dt * 2.6);
+  }
+}
+/** Bomen, muurtjes en andere auto's (voor het rijden; gebouwen en heggen apart). */
+function geblokkeerdDoorDing(x, z) {
+  for (const [bx, bz] of wereld.bomen) if ((x - bx) ** 2 + (z - bz) ** 2 < 0.2) return true;
+  for (const m of data.muurtjes ?? []) for (let i = 0; i < m.length - 1; i++) {
+    const [p, q] = [m[i], m[i + 1]], dx = q[0] - p[0], dz = q[1] - p[1], L2 = dx * dx + dz * dz || 1;
+    const t = Math.max(0, Math.min(1, ((x - p[0]) * dx + (z - p[1]) * dz) / L2));
+    if (Math.hypot(x - p[0] - dx * t, z - p[1] - dz * t) < 0.25) return true;
+  }
+  for (const st of stil) {
+    if (st.soort !== "auto") continue;
+    const o = st.object, dx = x - o.position.x, dz = z - o.position.z;
+    if (dx * dx + dz * dz > 12) continue;
+    const c = Math.cos(o.rotation.y), sn = Math.sin(o.rotation.y), lx = dx * c - dz * sn, lz = dx * sn + dz * c;
+    if (Math.abs(lx) < o.userData.B / 2 - 0.12 && Math.abs(lz) < o.userData.L / 2 - 0.25) return true; // iets krap: uitparkeren moet te doen zijn
+  }
+  return false;
+}
+
 /** Je krijgt een klap: je gaat neer en krabbelt weer op. */
 function klapKrijgen() {
-  if (loop.neer > 0 || !loop.aan) return;
+  if (loop.neer > 0 || !loop.aan || rij.aan) return; // in de auto zit je veilig
   loop.neer = 3.3; loop.slag = 0;
   schutter.zet("liggen", 1, 0);
   geluid.klap(1);
@@ -389,6 +537,11 @@ function sla(soort = "vuist") {
 }
 function stapLopen(dt) {
   const L = loop;
+  if (rij.aan) return stapRijden(dt);
+  // instappen: even wachten (de ruit, het portier), dan zit je erin
+  if (rij.instapT > 0 && (rij.instapT -= dt) <= 0 && rij.straks) { const st = rij.straks; rij.straks = null; if (stil.includes(st)) return echtInstappen(st); }
+  rij.kans = L.neer > 0 ? null : autoBij();
+  $("#instap").classList.toggle("kan", !!rij.kans);
   L.richt = Math.max(0, L.richt - dt);
   if (L.neer > 0) {
     // neer: vallen, liggen, opstaan
@@ -556,6 +709,7 @@ function toonStart() {
 }
 function begin() {
   geluid.start();
+  stapUitGedwongen();
   if (loop.aan) { loop.aan = false; document.body.classList.remove("loopt"); zetStand(standNr); } // elke ronde begint bij je raam
   straat?.reset();
   const ri = (spel.ri = rondeInstellingen(spel.ronde));
@@ -934,7 +1088,7 @@ function opruimen(obj, na) { setTimeout(() => scene.remove(obj), na * 1000); }
 const RICHT = { pitchMin: -0.95, pitchMax: 0.3, yawMax: 1.35 };
 const vingers = new Map();
 let knijp = null;
-function fov() { return loop.aan ? (loop.mikken ? 40 : loop.snelheid > 4.5 ? 61 : 55) : 55 / kijk.zoom; }
+function fov() { return loop.aan ? (rij.aan ? 55 + Math.min(13, Math.abs(rij.v)) : loop.mikken ? 40 : loop.snelheid > 4.5 ? 61 : 55) : 55 / kijk.zoom; }
 function zetZoom(z) {
   kijk.zoom = loop.aan ? 1 : THREE.MathUtils.clamp(z, 1, 40); // lopend geen kijker
   if (kijk.zoom > 1.5) kijk.scoopZoom = kijk.zoom;
@@ -1027,6 +1181,8 @@ knop("#vuur", () => actie());
 knop("#hoger", () => wisselStand(1));
 knop("#loopKnop", () => zetLopen(!loop.aan));
 knop("#wapen", () => volgendWapen());
+knop("#instap", () => (rij.aan ? stapUit() : stapIn()));
+addEventListener("keydown", (e) => { if (!e.repeat && e.code === "KeyT" && loop.aan) rij.aan ? stapUit() : stapIn(); });
 knop("#richt", () => zetMikken(!loop.mikken));
 knop("#sprint", () => { loop.sprint = !loop.sprint; });
 // stuurknuppel: verschijnt waar je links je duim neerzet (zoals bij GTA op de telefoon)
@@ -1179,7 +1335,8 @@ function lus() {
   // op de grond: je gluurt over het muurtje, met de kijker kom je omhoog
   if (loop.aan) { stapLopen(echt); $("#sprint").classList.toggle("aan", loop.sprint); $("#richt").classList.toggle("aan", loop.mikken); }
   spel.speler = loop.aan ? loop.pos : null; spel.aangereden = klapKrijgen; spel.toeter = () => geluid.toeter(1);
-  spel.zichtVrij = zichtVrij; spel.aangehouden = straat.aangehouden;
+  spel.zichtVrij = zichtVrij;
+  spel.aangehouden = () => { if (!(rij.aan && Math.abs(rij.v) > 1.5)) straat.aangehouden(); }; // uit een rijdende auto halen ze je niet
   straat.stap(echt, tijd);
   tekenRadar();
   // de wereld schuift met je mee als je loopt: scherpe grond, geparkeerde auto's en de drukte op straat
@@ -1223,7 +1380,25 @@ function lus() {
   camera.updateProjectionMatrix();
   // door de kijker kijk je vanuit je eigen ogen; anders sta je in beeld en kijk je over je schouder mee
   const st = standen[standNr];
-  if (schutter && loop.aan) {
+  if (schutter && loop.aan && rij.aan) {
+    // in de auto: je zit achter het stuur; de camera hangt achter de auto en gaat verder weg als je hard rijdt
+    const a = rij.auto, u = a.userData, [sx, sy, sz] = u.stoel ?? [0.36, 0.4, 0];
+    a.updateMatrixWorld(true);
+    schutter.zet("fietsen"); schutter.mixer.update(echt);
+    schutter.object.position.copy(a.localToWorld(new THREE.Vector3(sx, sy - schutter.zithoogte(), -sz)));
+    schutter.object.rotation.set(0, rij.richting, 0);
+    schutter.object.visible = true; geweer.visible = pistool.visible = mes.visible = false; $("#slot").hidden = true;
+    const cy = Math.sin(kijk.yaw), cz = Math.cos(kijk.yaw), cp = Math.cos(kijk.pitch);
+    loop.camDoel.lerp(new THREE.Vector3(a.position.x, 1.5, a.position.z), 1 - Math.exp(-echt * 12));
+    const terug = new THREE.Vector3(-cy * cp, -Math.sin(kijk.pitch), -cz * cp);
+    let afst = 6.2 + Math.abs(rij.v) * 0.14;
+    ray.set(loop.camDoel, terug); ray.far = afst + 0.3;
+    const muur = ray.intersectObjects(wereld.botsers, false)[0];
+    if (muur) afst = Math.max(2.5, muur.distance - 0.3);
+    loop.camAfst += (afst - loop.camAfst) * Math.min(1, echt * (afst < loop.camAfst ? 20 : 4));
+    camera.position.copy(loop.camDoel).addScaledVector(terug, loop.camAfst);
+    if (camera.position.y < 0.4) camera.position.y = 0.4;
+  } else if (schutter && loop.aan) {
     // lopen: je ziet jezelf van achteren; het geweer laag, of in de aanslag vlak na een schot
     const L = loop, richtend = (L.richt > 0 || L.mikken) && L.neer <= 0 && L.slag <= 0;
     const kijkt = richtend || L.slag > 0 ? kijk.yaw : L.richting;
@@ -1320,4 +1495,4 @@ function lus() {
 }
 zetZoom(1);
 laad().then(() => requestAnimationFrame(lus)).catch((e) => { $("#laden").textContent = "Laden mislukt: " + e.message; console.error(e); });
-window.__spel = { spel, reizigers, stil, kijk, camera, oog, loop, stapLopen, get straat() { return straat; }, get graaf() { return graaf; }, zetLopen, sla, actie, zetWapen, klapKrijgen, vallers, schiet, begin, zetZoom, draai, scene, renderer, stand: () => standen[standNr]?.naam };
+window.__spel = { spel, reizigers, stil, kijk, camera, oog, loop, rij, stapIn, stapUit, stapLopen, get straat() { return straat; }, get graaf() { return graaf; }, zetLopen, sla, actie, zetWapen, klapKrijgen, vallers, schiet, begin, zetZoom, draai, scene, renderer, stand: () => standen[standNr]?.naam };

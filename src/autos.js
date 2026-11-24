@@ -61,7 +61,10 @@ export function maakAuto(o = {}) {
   const voeg = (ouder, d) => { const m = new THREE.Mesh(d.geo, d.mat === a.lak ? lak : d.mat); m.applyMatrix4(d.m); m.castShadow = d.mat === a.lak; m.receiveShadow = true; ouder.add(m); };
   for (const d of a.romp) voeg(g, d);
   const wielen = [];
-  for (const w of Object.values(a.wielen)) { const wg = new THREE.Group(); wg.position.copy(w.pos); for (const d of w.delen) voeg(wg, d); g.add(wg); wielen.push(wg); }
+  for (const [wn, w] of Object.entries(a.wielen)) {
+    const wg = new THREE.Group(); wg.position.copy(w.pos); wg.rotation.order = "YXZ"; wg.userData.voor = wn.startsWith("wiel_v"); // voorwielen kunnen sturen
+    for (const d of w.delen) voeg(wg, d); g.add(wg); wielen.push(wg);
+  }
   g.userData = { soort: naam, L: a.L, B: a.B, H: a.H, raak: raakVan(a), wielen, straal: a.meta.straal, stoel: a.stoel };
   return g;
 }
@@ -137,6 +140,7 @@ export function zetGeparkeerd(plekken, scene, grensDicht = 50, grensVer = 115) {
     for (const g of groepen) {
       let nd = 0, nv = 0;
       for (const p of g.alle) {
+        if (p.userData.weg) continue; // meegenomen: die rijdt nu als los voertuig rond
         const d = Math.hypot(p.position.x - cx, p.position.z - cz);
         if (d > grensVer) continue;
         const [lijst, i] = d <= grensDicht ? [g.dicht, nd++] : [g.ver, nv++];

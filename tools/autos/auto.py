@@ -56,11 +56,27 @@ for v in me.vertices:
     v.co = Vector((x, y, (c.z - zmin) * s))
 me.update()
 # getinte ruiten achter: glas achter de voorstoelen krijgt een eigen, donker materiaal
-if 'glasAchter' in C:
+di = None
+if 'glasAchter' in C or 'dakramen' in C:
     donker = bpy.data.materials.new('glas_donker'); me.materials.append(donker); di = len(me.materials) - 1
+if 'glasAchter' in C:
     for p_ in me.polygons:
         m = me.materials[p_.material_index]
-        if m and m.name in C.get('glas', []) and sum(me.vertices[i].co.y for i in p_.vertices) / len(p_.vertices) > C['glasAchter']: p_.material_index = di
+        if m and m.name in C.get('glas', []) and min(me.vertices[i].co.y for i in p_.vertices) > C['glasAchter']: p_.material_index = di   # het hele vlak achter de grens
+# dakramen: donkere glasplaten die de vorm van het dak volgen. Elk [x0, x1, y0, y1] in meters (voorkant = -y).
+dakpunten = []
+if 'dakramen' in C:
+    from mathutils.bvhtree import BVHTree
+    bvh = BVHTree.FromPolygons([v.co.copy() for v in me.vertices], [tuple(p_.vertices) for p_ in me.polygons])
+    N = 4
+    for x0, x1, y0, y1 in C['dakramen']:
+        rooster = []
+        for j in range(N + 1):
+            for i in range(N + 1):
+                x = x0 + (x1 - x0) * i / N; y = y0 + (y1 - y0) * j / N
+                hit = bvh.ray_cast(Vector((x, y, 5)), Vector((0, 0, -1)))
+                rooster.append(Vector((x, y, (hit[0].z if hit[0] else 1.5) + 0.012)))
+        dakpunten.append(rooster)
 # normalen kunnen omgeklapt zijn door de as-wissel
 bm = bmesh.new(); bm.from_mesh(me)
 # test: spiegelt de afbeelding? determinant van de as-afbeelding
@@ -71,6 +87,14 @@ ax[0][breed] = sx; ax[1][lang] = -C.get('voor', 1)
 det = Matrix(ax).determinant()
 if det < 0: bmesh.ops.reverse_faces(bm, faces=bm.faces)
 # ---- wielen: losse delen die rond, smal en laag zijn ----
+for rooster in dakpunten:
+    N = 4; vs = [bm.verts.new(p_) for p_ in rooster]
+    for j in range(N):
+        for i in range(N):
+            f = bm.faces.new((vs[j * (N + 1) + i], vs[j * (N + 1) + i + 1], vs[(j + 1) * (N + 1) + i + 1], vs[(j + 1) * (N + 1) + i]))
+            f.material_index = di; f.smooth = True
+            if f.normal.z < 0: f.normal_flip()
+bm.normal_update()
 tag = bm.verts.layers.int.new('wiel')   # eerst de laag: een nieuwe laag maakt eerdere verwijzingen ongeldig
 bm.verts.ensure_lookup_table(); bm.faces.ensure_lookup_table()
 B = max(abs(v.co.x) for v in bm.verts)
@@ -154,7 +178,7 @@ print('MATERIALEN', sorted({m.name for o in [ob] for m in o.data.materials if m}
 fv = [v.co for v in ob.data.vertices]
 meta = {'wielen': {o.name: [round(c, 3) for c in o.location] for o in wobj.values()}, 'straal': round(sum(w['r'] for w in hoeken.values()) / max(1, len(hoeken)), 3),
         'maat': [round(max(p.x for p in fv) - min(p.x for p in fv), 3), round(max(p.y for p in fv) - min(p.y for p in fv), 3), round(max(p.z for p in fv), 3)],
-        'lak': C.get('lak', []), 'glas': C.get('glas', []), 'glasDonker': ['glas_donker'] if 'glasAchter' in C else [], 'stoel': C.get('stoel')}
+        'lak': C.get('lak', []), 'glas': C.get('glas', []), 'glasDonker': ['glas_donker'] if ('glasAchter' in C or 'dakramen' in C) else [], 'stoel': C.get('stoel')}
 json.dump(meta, open(META, 'w')); print('META', meta)
 if PNG:
     sc = bpy.context.scene; cam = bpy.data.objects.new('c', bpy.data.cameras.new('c')); sc.collection.objects.link(cam); sc.camera = cam

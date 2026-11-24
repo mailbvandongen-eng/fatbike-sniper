@@ -44,6 +44,9 @@ const TYPE = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/jav
       const s = window.__spel;
       const f = s.reizigers.filter((r) => r.fat)[0];
       if (!f) return "geen fatbike";
+      // vrij schootsveld: geparkeerde auto's staan elke keer anders en maken de test anders wisselvallig
+      s.stil.length = 0;
+      for (const r of s.reizigers) if (!r.fat) { r.wacht = 1e9; r.pos.set(500, 0, 500); if (r.pad?.copy && r.pad !== r.pos) r.pad.copy(r.pos); }
       // zet hem stil op een vrije plek op de parkeerplaats, dwars op de kijklijn
       const plek = [[4, -14], [-2, -30], [8, -22], [-12, -24], [-15, -20], [20, -5]][i % 6];
       f.wacht = 1e9; f.vlucht = 0; f.schrikken = () => {}; f.pos.set(plek[0], 0, plek[1]); f.pad.copy(f.pos); f.richting = 1.3;
