@@ -1616,13 +1616,13 @@ function lus() {
     const schouder = schutter.plek("DEF-upper_armR");
     const links = new THREE.Vector3(fz, 0, -fx); // de linkerkant van de schutter (hij kijkt naar +z)
     const dir = new THREE.Vector3(Math.sin(kijk.yaw) * Math.cos(kijk.pitch), Math.sin(kijk.pitch), Math.cos(kijk.yaw) * Math.cos(kijk.pitch));
-    geweer.position.copy(schouder).addScaledVector(links, 0.07).addScaledVector(dir, -0.1).add(new THREE.Vector3(0, 0.03, 0));
+    geweer.position.copy(schouder).addScaledVector(links, 0.06).addScaledVector(dir, 0.13).add(new THREE.Vector3(0, 0.03, 0)); // de kolf ligt vóór de schouder, niet erdoorheen
     geweer.rotation.set(-kijk.pitch, kijk.yaw, 0, "YXZ");
     geweer.updateMatrixWorld(true);
     // handen aan het geweer: rechts om de greep, links onder de voorkant; ellebogen omlaag
     const omlaag = new THREE.Vector3(0, -1, 0);
     schutter.arm("R", geweer.localToWorld(new THREE.Vector3(0, -0.06, 0.2)), omlaag.clone().addScaledVector(links, -0.6));
-    schutter.arm("L", geweer.localToWorld(new THREE.Vector3(0, -0.04, 0.58)), omlaag.clone().addScaledVector(links, 0.4));
+    schutter.arm("L", geweer.localToWorld(new THREE.Vector3(0, -0.04, 0.44)), omlaag.clone().addScaledVector(links, 0.4));
     schutter.object.visible = geweer.visible = !scoop;
     pistool.visible = mes.visible = false;
     $("#slot").hidden = true;
