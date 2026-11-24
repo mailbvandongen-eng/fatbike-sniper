@@ -52,6 +52,11 @@ export class Effecten {
     for (let i = 0; i < 6; i++) this.deeltje(pos, { leven: 0.6 + Math.random() * 0.5, kleur, r0: 0.1, r1: 0.7, v: new THREE.Vector3((Math.random() - 0.5) * 2, Math.random() * 2, (Math.random() - 0.5) * 2), a: 0.7 });
     for (let i = 0; i < 3; i++) this.brok(pos, kleur, 0.04, new THREE.Vector3((Math.random() - 0.5) * 3, 2 + Math.random() * 2, (Math.random() - 0.5) * 3));
   }
+  /** Knetteren van klein vuurwerk: felle vonkjes en een pufje rook. */
+  vonken(pos) {
+    for (let i = 0; i < 5; i++) this.brok(pos, ["#fff3b0", "#ffd24a", "#ff9a2e", "#ffffff"][i % 4], 0.025, new THREE.Vector3((Math.random() - 0.5) * 5, 1.5 + Math.random() * 3.5, (Math.random() - 0.5) * 5));
+    this.deeltje(pos, { leven: 0.7 + Math.random() * 0.5, kleur: "#d9d6cf", r0: 0.08, r1: 0.6, v: new THREE.Vector3((Math.random() - 0.5) * 0.8, 0.6 + Math.random(), (Math.random() - 0.5) * 0.8) });
+  }
   /** Band klapt: rubber en stof. */
   klap(pos) {
     for (let i = 0; i < 10; i++) this.deeltje(pos, { leven: 0.8 + Math.random() * 0.6, kleur: "#c9c1b2", r0: 0.15, r1: 1.2, v: new THREE.Vector3((Math.random() - 0.5) * 3, Math.random() * 1.5, (Math.random() - 0.5) * 3), a: 0.8 });

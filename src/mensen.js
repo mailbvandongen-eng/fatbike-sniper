@@ -18,9 +18,9 @@ const CLIP = {
   zitten: "Sitting_Idle_Loop", zittenPraten: "Sitting_Talking_Loop", fietsen: "Driving_Loop", achterop: "Sitting_Idle_Loop",
   schrik: "Hit_Chest", vliegen: "Jump_Loop", klap: "Hit_Knockback", liggen: "Death01", opstaan: "LayToIdle", boos: "Idle_No_Loop",
   hurken: "Crouch_Idle_Loop", richten: "Pistol_Aim_Neutral",
-  stomp: "Punch_Cross", jab: "Punch_Jab", klapHoofd: "Hit_Head", vechtklaar: "Punch_Enter", zwaai: "Sword_Attack", knuppel: "Sword_Idle",
+  stomp: "Punch_Cross", jab: "Punch_Jab", klapHoofd: "Hit_Head", vechtklaar: "Punch_Enter", zwaai: "Sword_Attack", knuppel: "Sword_Idle", gooien: "OverhandThrow",
 };
-const EENMALIG = new Set(["Hit_Chest", "Death01", "LayToIdle", "Hit_Knockback", "Punch_Cross", "Punch_Jab", "Hit_Head", "Punch_Enter", "Sword_Attack"]);
+const EENMALIG = new Set(["Hit_Chest", "Death01", "LayToIdle", "Hit_Knockback", "Punch_Cross", "Punch_Jab", "Hit_Head", "Punch_Enter", "Sword_Attack", "OverhandThrow"]);
 
 let modellen = {}, clips = {}, zithoogte = {};
 /** Een beweging van buitenaf toevoegen (karate). */

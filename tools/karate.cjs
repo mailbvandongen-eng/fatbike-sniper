@@ -76,6 +76,27 @@ const T = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javasc
   });
   console.log("knuppel:", JSON.stringify(k));
   await p.waitForTimeout(2500); await p.screenshot({ path: `${UIT}/7-knuppel.png` });
+  // klein vuurwerk: gooien naar een groepje, iedereen rent weg en niemand wordt geraakt
+  await p.evaluate(() => {
+    const s = window.__spel, l = s.loop; l.slag = 0; l.neer = 0; l.wankel = 0; s.zetWapen("vuurwerk");
+    const h = s.reizigers.filter((r) => r.hang && !r.zit && !(r.schrik > 0)).sort((a, b) => b.pos.distanceTo(l.pos) - a.pos.distanceTo(l.pos))[0];
+    window.__h = h; const dx = l.pos.x - h.pos.x, dz = l.pos.z - h.pos.z, d = Math.hypot(dx, dz);
+    l.pos.set(h.pos.x + (dx / d) * 9, 0, h.pos.z + (dz / d) * 9); s.kijk.yaw = Math.atan2(-dx, -dz); l.keek = performance.now() + 60000;
+    window.__voor = s.reizigers.filter((r) => r.hang && r.pos.distanceTo(h.pos) < 6 && !(r.schrik > 0)).length;
+    s.actie();
+  });
+  await p.waitForFunction(() => window.__spel.vuurwerk.length > 0, null, { timeout: 30000 }).then(() => console.log("vuurwerk gegooid")).catch(() => console.log("NIET gegooid"));
+  await p.screenshot({ path: `${UIT}/8-gooien.png` });
+  const vw = await p.evaluate(() => {
+    const s = window.__spel, h = window.__h, w = s.vuurwerk[0];
+    let n = 0; while (w.knetter < 0 && n++ < 200) s.stapVuurwerk(0.02);
+    const land = +Math.hypot(w.m.position.x - h.pos.x, w.m.position.z - h.pos.z).toFixed(1);
+    const d0 = h.pos.distanceTo(w.m.position);
+    for (let t = 0; t < 2.5; t += 0.05) { for (const r of s.reizigers) if (r.hang) r.stap(0.05, s.spel); }
+    return { groepje: window.__voor, landtOp: land, rennenWeg: s.reizigers.filter((r) => r.hang && r.schrik > 0).length, wegVanDeKnal: +(h.pos.distanceTo(w.m.position) - d0).toFixed(1), geraakt: s.reizigers.filter((r) => r.hang && r.ruzieNeer > 0).length };
+  });
+  console.log("vuurwerk:", JSON.stringify(vw));
+  await p.waitForTimeout(2500); await p.screenshot({ path: `${UIT}/9-knetter.png` });
   console.log(fout.join("\n") || "geen fouten");
   await b.close();
 })();

@@ -312,12 +312,69 @@ function zoekDoel() {
   return null;
 }
 /** Wat je bij je hebt: gewoon pistool, vuisten en mes; in karatepak je vuisten en voeten, of een honkbalknuppel. */
-const wapens = () => (schutter === karateka ? ["vuist", "knuppel"] : WAPENS);
+const wapens = () => (schutter === karateka ? ["vuist", "knuppel", "vuurwerk"] : WAPENS);
+// Klein vuurwerk (categorie 1: knetteren en vonken, geen schade): je gooit het voor de voeten van de hangjeugd.
+const vuurwerk = [];
+function gooi() {
+  const L = loop;
+  if (!L.aan || L.slag > 0 || L.neer > 0 || L.wankel > 0) return;
+  // naar het groepje waar je naar kijkt (anders een meter of acht voor je uit)
+  const kx = Math.sin(kijk.yaw), kz = Math.cos(kijk.yaw);
+  let doel = null, best = 0.75;
+  for (const r of reizigers) {
+    if (!r.ruzie || r.groep.visible === false) continue;
+    const dx = r.pos.x - L.pos.x, dz = r.pos.z - L.pos.z, d = Math.hypot(dx, dz);
+    if (d < 3 || d > 22) continue;
+    const c = (dx * kx + dz * kz) / d + (r.hang ? 0.08 : 0);
+    if (c > best) { best = c; doel = r.pos; }
+  }
+  const naar = doel ? new THREE.Vector3(doel.x - kx * 1.2, 0, doel.z - kz * 1.2) : new THREE.Vector3(L.pos.x + kx * 8, 0, L.pos.z + kz * 8);
+  L.richting = Math.atan2(naar.x - L.pos.x, naar.z - L.pos.z);
+  Object.assign(L, { slag: 0.95, slagRaakOp: -1, slagRaak: true, slagSoort: "vuurwerk", slagStraks: null, comboT: 0 });
+  schutter.zet("gooien", 1.4, 0);
+  geluid.sis();
+  // het ding verlaat je hand halverwege de worp
+  setTimeout(() => {
+    if (!loop.aan) return;
+    const van = schutter.plek("DEF-handR").clone(), T = 0.55 + van.distanceTo(naar) * 0.035;
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.1, 8), new THREE.MeshStandardMaterial({ color: "#c0261d", emissive: "#ff7a1a", emissiveIntensity: 0.5 }));
+    m.position.copy(van); scene.add(m);
+    vuurwerk.push({ m, v: new THREE.Vector3((naar.x - van.x) / T, (0.04 - van.y) / T + 4.9 * T, (naar.z - van.z) / T), knetter: -1, tik: 0 });
+    geluid.zwiep(0.5);
+  }, 330);
+}
+function stapVuurwerk(dt) {
+  for (const w of [...vuurwerk]) {
+    if (w.knetter < 0) {
+      // door de lucht, met een vonkenspoor
+      w.v.y -= 9.8 * dt; w.m.position.addScaledVector(w.v, dt); w.m.rotation.x += dt * 9; w.m.rotation.z += dt * 6;
+      if (Math.random() < dt * 25) fx.vonken(w.m.position);
+      if (w.m.position.y <= 0.05) {
+        w.m.position.y = 0.05; w.knetter = 2.2; w.m.rotation.set(Math.PI / 2, 0, 0);
+        // iedereen in de buurt schrikt en maakt dat hij wegkomt; wie met je vocht houdt ermee op
+        const p = w.m.position;
+        for (const r of reizigers) {
+          if (Math.hypot(r.pos.x - p.x, r.pos.z - p.z) > 7.5 || r.soort === "agent") continue;
+          if (r.ruzie && !(r.ruzieNeer > 0)) { r.ruzieT = 0; r.ruzieKoel = 20; }
+          if (r.hang) r.richting = Math.atan2(r.pos.x - p.x, r.pos.z - p.z) + Math.PI + tussen(-0.8, 0.8); // hangjeugd rent van de knallen af (schrikken draait hem om)
+          r.schrikken?.();
+        }
+        straat.strafbaar(0.25);
+      }
+    } else {
+      // knetteren op de grond
+      w.knetter -= dt; w.tik -= dt;
+      if (w.tik <= 0) { w.tik = 0.06 + Math.random() * 0.16; geluid.knal(afstandVol(w.m.position) * (0.6 + Math.random() * 0.4)); fx.vonken(w.m.position.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.5, 0.05, (Math.random() - 0.5) * 0.5))); }
+      if (w.knetter <= 0) { scene.remove(w.m); vuurwerk.splice(vuurwerk.indexOf(w), 1); }
+    }
+  }
+}
 function volgendWapen() { const w = wapens(); zetWapen(w[(w.indexOf(loop.wapen) + 1) % w.length]); }
 /** De actieknop: bij je raam schieten met het geweer; lopend het wapen dat je in je hand hebt. */
 function actie() {
   if (rij.aan) return geluid.toeter(1); // in de auto: de claxon
   if (!loop.aan || loop.wapen === "pistool") return schiet();
+  if (loop.wapen === "vuurwerk") return gooi();
   sla(loop.wapen);
 }
 function zetLopen(aan, gedwongen = false) {
@@ -1579,6 +1636,7 @@ function lus() {
   else if (graaf.c[0] || graaf.c[1]) { graaf.c[0] = graaf.c[1] = 0; wereld.bij(0, 0, true); }
   zetDetail();
   stapKogels(dt);
+  stapVuurwerk(dt);
   stapVallers(dt);
   fx.stap(dt);
 
@@ -1757,4 +1815,4 @@ function lus() {
 }
 zetZoom(1);
 laad().then(() => requestAnimationFrame(lus)).catch((e) => { $("#laden").textContent = "Laden mislukt: " + e.message; console.error(e); });
-window.__spel = { get schutter() { return schutter; }, karate: () => Object.keys(TECHNIEK), spel, reizigers, stil, uitAuto, verlaten, get herlaad() { return herlaad; }, kijk, camera, oog, loop, rij, stapIn, stapUit, stapLopen, get straat() { return straat; }, get graaf() { return graaf; }, zetLopen, sla, actie, zetWapen, klapKrijgen, vallers, schiet, begin, zetZoom, draai, scene, renderer, stand: () => standen[standNr]?.naam };
+window.__spel = { get schutter() { return schutter; }, vuurwerk, stapVuurwerk, karate: () => Object.keys(TECHNIEK), spel, reizigers, stil, uitAuto, verlaten, get herlaad() { return herlaad; }, kijk, camera, oog, loop, rij, stapIn, stapUit, stapLopen, get straat() { return straat; }, get graaf() { return graaf; }, zetLopen, sla, actie, zetWapen, klapKrijgen, vallers, schiet, begin, zetZoom, draai, scene, renderer, stand: () => standen[standNr]?.naam };

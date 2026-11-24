@@ -160,6 +160,13 @@ export class Geluid {
     o.connect(f); f.connect(g); g.connect(this.uit); o.start(t); o.stop(t + 0.3);
     this.ruisStoot({ duur: 0.16, filter: "bandpass", freq: 900, q: 1, gain: 0.12 * v, start: 0.03 });
   }
+  /** Eén knalletje van klein vuurwerk (knalerwt, rotje uit een grondbloem): droog en kort. */
+  knal(v = 1) {
+    this.ruisStoot({ duur: 0.05, filter: "highpass", freq: 1800, gain: 1.1 * v, echo: 0.35 });
+    this.ruisStoot({ duur: 0.09, freq: 2600, freq2: 500, gain: 0.6 * v });
+  }
+  /** Het sissen van een lontje. */
+  sis() { this.ruisStoot({ duur: 0.55, filter: "bandpass", freq: 5200, q: 1.5, gain: 0.18 }); }
   /** Kiai: de korte kreet bij een zware techniek. */
   kiai() {
     if (!this.ctx) return;
