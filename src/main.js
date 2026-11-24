@@ -15,6 +15,17 @@ const $ = (s) => document.querySelector(s);
 const LEVELS = { julianaplein: "Julianaplein", steelaan: "Van Steelaan", buskenhuet: "Busken Huethove" };
 const gevraagd = new URLSearchParams(location.search).get("level") ?? localStorage.getItem("fbs-level");
 const LOCATIE = LEVELS[gevraagd] ? gevraagd : "julianaplein";
+// opties van het beginscherm (bewaard op dit toestel). tijd: null = zoals het level bedoeld is.
+const OPTIES = [
+  ["handhaving", "Handhaving", ["uit", "aan"]],
+  ["tijd", "Tijdslimiet", ["uit", "aan"]],
+  ["fatbikes", "Fatbikes", ["normaal", "veel", "heel veel"]],
+  ["kogels", "Onbeperkt kogels", ["uit", "aan"]],
+  ["mikhulp", "Mikhulp op straat", ["uit", "aan"]],
+  ["geluid", "Geluid", ["uit", "aan"]],
+];
+const opties = { handhaving: 1, tijd: null, fatbikes: 0, kogels: 0, mikhulp: 1, geluid: 1 };
+try { Object.assign(opties, JSON.parse(localStorage.getItem("fbs-opties") ?? "{}")); } catch {}
 localStorage.setItem("fbs-level", LOCATIE);
 const KOGEL_V = 850, ZWAARTE = 9.81, NUL_AFSTAND = 75;
 
@@ -145,6 +156,7 @@ async function laad() {
   scene.add(pistool, mes);
   zetWapen("pistool");
   straat = maakStraat({ scene, reizigers, loop, spel, graaf, data, geluid, $, vrij: (x, z) => !geblokkeerd(x, z), naarBinnen: () => zetLopen(false, true), tekenHud, weg });
+  { const echt = straat.strafbaar; straat.strafbaar = (n) => { if (opties.handhaving) echt(n); }; } // handhaving kan uit in de opties
   scene.add(schutter.object);
   sluiper = schutter;
   if (data.karate) karateka = schutter;
@@ -307,6 +319,7 @@ function zetWapen(w) { loop.wapen = w; if (w !== "pistool") zetMikken(false); to
 function zetMikken(aan) { loop.mikken = aan && loop.wapen === "pistool"; document.body.classList.toggle("mikt", loop.mikken); }
 /** Mikhulp: de band van de fatbike die het dichtst bij het kruisje staat (ruimer als je richt). */
 function zoekDoel() {
+  if (!opties.mikhulp) return null;
   const cd = richting(), grens = loop.mikken ? 0.22 : 0.11, kandidaten = [];
   for (const r of reizigers) {
     if (!r.fat || r.toestand !== "rijden") continue;
@@ -1019,11 +1032,12 @@ function tekenRadar() {
 
 // ---------- rondes ----------
 function rondeInstellingen(r) {
+  const meer = [1, 1.8, 3][opties.fatbikes] ?? 1;
   // bonus: zoveel mogelijk fatbikes in de tijd; kogels en fatbikes onbeperkt, een fout kost tijd
-  if (data?.modus === "bonus") return { fatbikes: Infinity, kogels: Infinity, tegelijk: 7, fouten: Infinity, tijd: data.tijd ?? 180 };
-  // geen klok: je hebt alle tijd. Wel een beperkt aantal kogels.
-  const f = data?.fatDruk ?? 1; // bij het speeltuintje is het een komen en gaan van fatbikes
-  return { fatbikes: Math.round((6 + r * 2) * f), kogels: Math.round((6 + r * 2) * f) + 6, tegelijk: Math.round(Math.min(3 + r, 8) * f), fouten: 2 };
+  if (data?.modus === "bonus") return { fatbikes: Infinity, kogels: Infinity, tegelijk: Math.round(7 * [1, 1.5, 2.2][opties.fatbikes]), fouten: Infinity, tijd: opties.tijd === 0 ? Infinity : data.tijd ?? 180 };
+  // geen klok (tenzij je die aanzet): je hebt alle tijd. Wel een beperkt aantal kogels (tenzij je dat uitzet).
+  const f = (data?.fatDruk ?? 1) * meer, n = Math.round((6 + r * 2) * f); // bij het speeltuintje is het een komen en gaan van fatbikes
+  return { fatbikes: n, kogels: opties.kogels ? Infinity : n + 6, tegelijk: Math.min(16, Math.round(Math.min(3 + r, 8) * f)), fouten: 2, tijd: opties.tijd === 1 ? 45 + n * 10 : undefined };
 }
 function toonStart() {
   const best = +(localStorage.getItem("fbs-best") ?? 0);
@@ -1031,12 +1045,25 @@ function toonStart() {
   const bonus = data?.modus === "bonus";
   const bestBonus = +(localStorage.getItem("fbs-best-bonus") ?? 0);
   $("#startRonde").textContent = bonus ? "Bonuslevel" : `Ronde ${spel.ronde}`;
-  $("#startDoel").textContent = bonus ? `Zoveel mogelijk fatbikes in ${Math.round(ri.tijd / 60)} minuten` : `${ri.fatbikes} fatbikes · ${ri.kogels} kogels · geen haast`;
+  const mmss = (t) => `${Math.floor(t / 60)}:${String(Math.round(t) % 60).padStart(2, "0")}`;
+  $("#startDoel").textContent = bonus ? (isFinite(ri.tijd) ? `Zoveel mogelijk fatbikes in ${Math.round(ri.tijd / 60)} minuten` : "Zoveel mogelijk fatbikes · geen klok")
+    : `${ri.fatbikes} fatbikes · ${isFinite(ri.kogels) ? ri.kogels : "∞"} kogels · ${ri.tijd ? mmss(ri.tijd) : "geen haast"}`;
+  // de opties: elke regel is een knop die naar de volgende keuze springt
+  const lijst = $("#optieLijst"); lijst.textContent = "";
+  for (const [sleutel, naam, keuzes] of OPTIES) {
+    const nu = sleutel === "tijd" && opties.tijd === null ? (bonus ? 1 : 0) : opties[sleutel];
+    const kn = document.createElement("button");
+    kn.innerHTML = `<span>${naam}</span><b class="${keuzes[nu] === "uit" ? "uit" : ""}">${keuzes[nu]}</b>`;
+    kn.addEventListener("click", () => { opties[sleutel] = (nu + 1) % keuzes.length; localStorage.setItem("fbs-opties", JSON.stringify(opties)); toonStart(); });
+    lijst.append(kn);
+  }
   $("#startBest").textContent = bonus ? (bestBonus ? `Record: ${bestBonus} fatbikes` : "") : best ? `Beste score: ${best}` : "";
   for (const b of document.querySelectorAll("#levels button")) b.classList.toggle("aan", b.dataset.level === LOCATIE);
 }
 function begin() {
   geluid.start();
+  if (geluid.uit) geluid.uit.gain.value = opties.geluid ? 0.9 : 0;
+  $("#opties").hidden = true;
   stapUitGedwongen();
   if (loop.aan) { loop.aan = false; document.body.classList.remove("loopt"); zetStand(standNr); } // elke ronde begint bij je raam
   straat?.reset();
@@ -1130,7 +1157,8 @@ function tekenHud() {
     // bonus: geteld wat je raakt, en de klok
     const t = Math.max(0, Math.ceil(spel.tijd));
     $("#doelen").innerHTML = `<i class="fb"></i><span>${spel.geraakt}</span>`;
-    $("#kogels").innerHTML = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
+    $("#kogels").innerHTML = isFinite(t) ? `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}` : "∞";
+    $("#klok").hidden = true;
     $("#kogels").classList.toggle("krap", t <= 15);
     $("#fouten").hidden = true;
     $("#score").hidden = true;
@@ -1138,7 +1166,9 @@ function tekenHud() {
   }
   const over = spel.ri.fatbikes - spel.geraakt;
   $("#doelen").innerHTML = `<i class="fb"></i><span>${over}</span>`;
-  $("#kogels").innerHTML = `<i class="kogel"></i>${spel.kogels}`;
+  $("#kogels").innerHTML = `<i class="kogel"></i>${isFinite(spel.kogels) ? spel.kogels : "∞"}`;
+  const tk = Math.max(0, Math.ceil(spel.tijd ?? 0));
+  $("#klok").hidden = !spel.ri.tijd; $("#klok").textContent = `${Math.floor(tk / 60)}:${String(tk % 60).padStart(2, "0")}`; $("#klok").classList.toggle("krap", tk <= 15);
   $("#fouten").innerHTML = Array.from({ length: spel.ri.fouten + 1 }, (_, i) => `<i class="${i < spel.fouten ? "x aan" : "x"}">✕</i>`).join("");
   $("#score").textContent = spel.score + spel.rondeScore;
 }
@@ -1528,6 +1558,8 @@ knop("#richt", () => ((karateka && loop.aan) ? sla("trap") : zetMikken(!loop.mik
 addEventListener("keydown", (e) => { if (!e.repeat && loop.aan && (karateka && loop.aan)) { if (e.code === "KeyJ") sla("vuist"); if (e.code === "KeyK") sla("trap"); } });
 knop("#sprint", () => { loop.sprint = !loop.sprint; });
 // in de auto: gaspedaal en rem (ingedrukt houden), en de claxon
+$("#optieKnop").addEventListener("click", () => { $("#opties").hidden = !$("#opties").hidden; });
+$("#optieDicht").addEventListener("click", () => { $("#opties").hidden = true; });
 knop("#gas", () => { rij.gas = true; }, () => { rij.gas = false; });
 knop("#rem", () => { rij.rem = true; }, () => { rij.rem = false; });
 knop("#claxon", () => geluid.toeter(1));
@@ -1647,6 +1679,11 @@ function lus() {
       spel.tijd -= echt;
       if (Math.floor(spel.tijd) !== spel.klokTik) { spel.klokTik = Math.floor(spel.tijd); tekenHud(); }
       if (spel.tijd <= 0) eindeBonus();
+    } else if (spel.ri.tijd) {
+      // tijdslimiet aangezet: de ronde moet binnen de tijd af
+      spel.tijd -= echt;
+      if (Math.floor(spel.tijd) !== spel.klokTik) { spel.klokTik = Math.floor(spel.tijd); tekenHud(); }
+      if (spel.tijd <= 0) eindeRonde(false, "De tijd is om.");
     }
     // kogels op en er rijden nog fatbikes rond
     // (op straat heb je ook je vuisten en je mes, dus daar eindigt de ronde niet)

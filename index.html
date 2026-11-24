@@ -84,6 +84,14 @@ body.loopt #loopKnop{top:calc(max(10px,var(--sat)) + 52px);border-color:var(--ge
 body.loopt #instap.kan,body.rijdt #instap{display:grid;border-color:var(--groen);color:var(--groen)}
 body.rijdt #wapen,body.rijdt #richt,body.rijdt #sprint,body.rijdt #vuur{display:none!important}
 #gas,#rem,#claxon{display:none}
+#optieKnop{pointer-events:auto;appearance:none;margin-top:12px;border:2px solid #fff3;background:#ffffff10;color:var(--ink);border-radius:999px;padding:8px 18px;font:700 15px system-ui;cursor:pointer}
+#opties{position:fixed;inset:0;z-index:30;display:grid;place-content:center;gap:12px;background:#0b0c0ee8;pointer-events:auto;padding:16px}
+#opties[hidden]{display:none}
+#optieLijst{display:grid;grid-template-columns:repeat(2,minmax(0,260px));gap:8px}
+#optieLijst button{appearance:none;display:flex;justify-content:space-between;align-items:center;gap:14px;border:2px solid #fff3;background:#ffffff10;color:var(--ink);border-radius:14px;padding:11px 14px;font:600 15px system-ui;cursor:pointer}
+#optieLijst b{color:var(--geel)}#optieLijst b.uit{color:var(--dim)}
+#optieDicht{appearance:none;justify-self:center;border:0;border-radius:999px;padding:10px 30px;font:800 16px system-ui;background:var(--geel);color:#151515;cursor:pointer}
+#klok.krap{color:#ff6a5a}
 body.karate:not(.loopt):not(.rijdt) #wapen{display:grid}
 #richt .trap{display:none}body.karate.loopt #richt .trap{display:block}body.karate.loopt #richt .mik{display:none}
 body.rijdt #gas,body.rijdt #rem,body.rijdt #claxon{display:grid}
@@ -191,6 +199,7 @@ body.gepakt #wissel{opacity:1}body.gepakt #wissel svg{opacity:.9}
     <div class="pil" id="sterren" hidden></div>
     <div class="pil" id="kogels"></div>
     <div class="pil" id="fouten"></div>
+    <div class="pil" id="klok" hidden></div>
     <div class="pil" id="score">0</div>
   </div>
   <div id="pijn"></div>
@@ -231,11 +240,17 @@ body.gepakt #wissel{opacity:1}body.gepakt #wissel svg{opacity:.9}
     <div class="knoppen">
       <div id="levels"><button data-level="julianaplein">Julianaplein</button><button data-level="steelaan">Bonus: Van Steelaan</button><button data-level="buskenhuet">Busken Huethove</button></div>
       <button class="groot" id="begin">Begin</button>
+      <div><button id="optieKnop">⚙ Opties</button></div>
       <p class="klein" id="startBest"></p>
       <p class="klein">Gebouwen: 3D BAG (CC BY 4.0) · Kaart: © OpenStreetMap-bijdragers, BGT (PDOK) · Mensen: MakeHuman, Quaternius (CC0) · Fatbike: GokuSSJB, fiets: Fairyflosslord7, winkelwagen: adrianxy, auto's: NNXST, scailman, VertexVendingMac, tonielpro520, speeltoestel: JanStano (Sketchfab, CC BY 4.0) · Karatebewegingen: ACCAD/The Ohio State University (CC BY 3.0), Kyokushin-dataset Szczęsna e.a. (CC0), tutusho (Sketchfab Standard)</p>
       <p class="klein" id="versie"></p>
     </div>
   </div>
+</div>
+
+<div id="opties" hidden>
+  <div id="optieLijst"></div>
+  <button id="optieDicht">Klaar</button>
 </div>
 
 <div class="scherm" id="einde" hidden>
@@ -249,9 +264,9 @@ body.gepakt #wissel{opacity:1}body.gepakt #wissel svg{opacity:.9}
 </div>
 
 <!-- versie -->
-<script>window.VERSIE = "a13a046898"; window.VERSIE_DATUM = "24-11, 20:11";</script>
-<script type="importmap">{"imports":{"three":"./lib/three.module.js?v=a13a046898","./lib/three.module.js":"./lib/three.module.js?v=a13a046898","./lib/meshopt_decoder.mjs":"./lib/meshopt_decoder.mjs?v=a13a046898","./lib/three-addons.js":"./lib/three-addons.js?v=a13a046898","./src/autos.js":"./src/autos.js?v=a13a046898","./src/effecten.js":"./src/effecten.js?v=a13a046898","./src/figuren.js":"./src/figuren.js?v=a13a046898","./src/geluid.js":"./src/geluid.js?v=a13a046898","./src/karate.js":"./src/karate.js?v=a13a046898","./src/main.js":"./src/main.js?v=a13a046898","./src/mensen.js":"./src/mensen.js?v=a13a046898","./src/straat.js":"./src/straat.js?v=a13a046898","./src/verkeer.js":"./src/verkeer.js?v=a13a046898","./src/wereld.js":"./src/wereld.js?v=a13a046898"}}</script>
-<script type="module" src="./src/main.js?v=a13a046898"></script>
+<script>window.VERSIE = "17c6808483"; window.VERSIE_DATUM = "24-11, 20:19";</script>
+<script type="importmap">{"imports":{"three":"./lib/three.module.js?v=17c6808483","./lib/three.module.js":"./lib/three.module.js?v=17c6808483","./lib/meshopt_decoder.mjs":"./lib/meshopt_decoder.mjs?v=17c6808483","./lib/three-addons.js":"./lib/three-addons.js?v=17c6808483","./src/autos.js":"./src/autos.js?v=17c6808483","./src/effecten.js":"./src/effecten.js?v=17c6808483","./src/figuren.js":"./src/figuren.js?v=17c6808483","./src/geluid.js":"./src/geluid.js?v=17c6808483","./src/karate.js":"./src/karate.js?v=17c6808483","./src/main.js":"./src/main.js?v=17c6808483","./src/mensen.js":"./src/mensen.js?v=17c6808483","./src/straat.js":"./src/straat.js?v=17c6808483","./src/verkeer.js":"./src/verkeer.js?v=17c6808483","./src/wereld.js":"./src/wereld.js?v=17c6808483"}}</script>
+<script type="module" src="./src/main.js?v=17c6808483"></script>
 <!-- /versie -->
 </body>
 </html>

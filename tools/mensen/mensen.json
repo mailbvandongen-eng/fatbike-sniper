@@ -199,7 +199,8 @@
    "haar": "ponytail01",
    "haarTint": "#dcb96a",
    "ogen": "brown",
-   "zijkantenKaal": true
+   "zijkantenKaal": true,
+   "staartKort": 0.3
   },
   {
    "naam": "handhaver",
@@ -245,7 +246,8 @@
    "haar": "ponytail01",
    "haarTint": "#dcb96a",
    "ogen": "brown",
-   "zijkantenKaal": true
+   "zijkantenKaal": true,
+   "staartKort": 0.3
   }
  ]
 }

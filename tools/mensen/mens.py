@@ -184,6 +184,10 @@ for map_, naam, vak in [('hair/' + C['haar'], C['haar'], 'haar'), ('eyes/low-pol
         P = [B(q) for q in pts]; cx = (max(q.x for q in P) + min(q.x for q in P)) / 2; hw = (max(q.x for q in P) - min(q.x for q in P)) / 2; top = max(q.z for q in P)
         mid = lambda q: sum((P[i] for i, _ in q), Vector()) / len(q)
         f = [q for q in f if not (abs(mid(q).x - cx) > hw * 0.6 and mid(q).z < top - 0.05)]
+    if vak == 'haar' and C.get('staartKort'):
+        # een kort staartje: alles wat onder het achterhoofd hangt schuift omhoog (MakeHuman: y omhoog, in decimeters)
+        top = max(q[1] for q in pts); grens = top - 1.45; k = C['staartKort']
+        pts = [(q[0], grens + (q[1] - grens) * k, q[2]) if q[1] < grens else q for q in pts]
     delen.append(deel(naam, pts, vt, f, refs, vak))
 
 # één mesh van alles

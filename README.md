@@ -85,6 +85,10 @@ Kiezen op het startscherm (onthouden in de browser) of met `?level=steelaan`. Ee
   - **Jij:** blond haar in een staart met weggeschoren zijkanten (`zijkantenKaal` in `tools/mensen/mensen.json`), ook op de andere levels; in dit level draag je het karatepak ook bij het raam.
   - Testen: `node tools/karate.cjs` (maakt van elke techniek een beeld op het moment van raken).
 
+## Opties
+
+Op het beginscherm staat een knop Opties (`OPTIES` en `opties` in `src/main.js`, bewaard in `localStorage` onder `fbs-opties`): handhaving aan/uit, tijdslimiet aan/uit (standaard zoals het level bedoeld is: alleen het bonuslevel heeft een klok; aan = 45 s plus 10 s per fatbike), fatbikes normaal/veel/heel veel (×1, ×1,8, ×3; hoogstens 16 tegelijk), onbeperkt kogels, mikhulp op straat, geluid. Testen: `node tools/opties.cjs`.
+
 ## Auto's
 
 Echte modellen van Sketchfab (CC BY 4.0), verwerkt met `tools/autos/bouw.sh` (`auto.py`: maat, losse wielen, lichte versie voor ver weg):
