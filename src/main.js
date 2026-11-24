@@ -1599,7 +1599,8 @@ function zoomNaarSchuif(z) { return z < 1.5 ? 0 : ONDER + ((1000 - ONDER) * Math
 }
 $("#begin").addEventListener("click", begin);
 // level kiezen: een ander level laadt een andere wereld, dus de pagina opnieuw
-for (const b of document.querySelectorAll("#levels button")) b.addEventListener("click", () => {
+$("#kooiKnop").addEventListener("click", () => { location.href = `./kooi.html?v=${window.VERSIE ?? ""}`; });
+for (const b of document.querySelectorAll("#levels button[data-level]")) b.addEventListener("click", () => {
   if (b.dataset.level === LOCATIE) return;
   localStorage.setItem("fbs-level", b.dataset.level);
   location.replace(`./?level=${b.dataset.level}&v=${window.VERSIE ?? ""}`);

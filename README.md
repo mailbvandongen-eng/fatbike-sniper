@@ -85,6 +85,15 @@ Kiezen op het startscherm (onthouden in de browser) of met `?level=steelaan`. Ee
   - **Jij:** blond haar in een staart met weggeschoren zijkanten (`zijkantenKaal` in `tools/mensen/mensen.json`), ook op de andere levels; in dit level draag je het karatepak ook bij het raam.
   - Testen: `node tools/karate.cjs` (maakt van elke techniek een beeld op het moment van raken).
 
+## Kooigevecht (`kooi.html`, `src/kooi.js`)
+
+Een eigen pagina, bereikbaar met de knop Kooigevecht op het beginscherm: twee vechters in een achthoekige kooi (een verzonnen zaal, geen echte plek), publiek dat joelt en opspringt, en muziek in de stijl van een 16-bit vechtspel (`src/muziek.js`, helemaal met Web Audio gemaakt). Je kiest je vechter en het aantal rondes (1, 3 of 5, elk 60 s). K.O. wint meteen; is de tijd om, dan wint wie het meeste leven over heeft.
+- **Vechters** staan in `VECHTERS`: De Kale (bokser: harde stoten, zwakke en trage trappen, veel adem) en Karateman (harde trappen, groter bereik, minder adem). Een nieuwe vechter = een regel erbij met een model uit `tools/mensen/mensen.json`.
+- **Bediening:** links de stuurknuppel, rechts Stoot, Trap en Blok (vasthouden). Pc: WASD, J, K, L. Snel doortikken geeft een reeks.
+- **Regels** (`KOOI`, `SCHADE`): elke aanval kost adem; buiten adem ben je trager en raak je zachter. Blokken laat 20% door. Na drie klappen achter elkaar (of een zware) word je uit elkaar geslagen en heb je even lucht. Een lichte stoot stopt een trap die al onderweg is niet.
+- De bewegingen zijn de karate-opnames (`src/karate.js`); de tegenstander wordt door de computer gespeeld (`denk`).
+- Testen: `node tools/kooi.cjs` (speelt een gevecht en laat dertig gevechten computer tegen computer de balans meten; `SNEL=1` slaat het beeld over).
+
 ## Opties
 
 Op het beginscherm staat een knop Opties (`OPTIES` en `opties` in `src/main.js`, bewaard in `localStorage` onder `fbs-opties`): handhaving aan/uit, tijdslimiet aan/uit (standaard zoals het level bedoeld is: alleen het bonuslevel heeft een klok; aan = 45 s plus 10 s per fatbike), fatbikes normaal/veel/heel veel (×1, ×1,8, ×3; hoogstens 16 tegelijk), onbeperkt kogels, mikhulp op straat, geluid. Testen: `node tools/opties.cjs`.

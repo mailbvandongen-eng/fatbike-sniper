@@ -36,7 +36,7 @@ export class Geluid {
       s.connect(g); g.connect(this.sfeer); s.start(0, Math.random() * s.buffer.duration);
       return g;
     };
-    this.straatLaag = laag("straat", 0.55); this.mensenLaag = laag("mensen", 0);
+    this.straatLaag = this.binnen ? null : laag("straat", 0.55); this.mensenLaag = laag("mensen", 0); // binnen (de kooi) geen vogels en verkeer
   }
   /** Speel een opname één keer af. */
   speel(n, sterkte = 1, tempo = 1) {
@@ -195,6 +195,16 @@ export class Geluid {
       o.connect(f); f.connect(g); g.connect(this.uit); o.start(t); o.stop(t + duur + 0.05);
       const e = ctx.createGain(); e.gain.value = 0.25; g.connect(e); e.connect(this.echo);
     }
+  }
+  /** Het publiek joelt: een golf van geroep die aanzwelt en wegzakt, met losse kreten erdoorheen. v = 0..1. */
+  juich(v = 1) {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = this.t, duur = 1 + v * 1.6;
+    const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain(); s.buffer = this.ruis; s.loop = true;
+    f.type = "bandpass"; f.Q.value = 0.7; f.frequency.setValueAtTime(700, t); f.frequency.linearRampToValueAtTime(1300, t + duur * 0.4); f.frequency.linearRampToValueAtTime(800, t + duur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.22 * v, t + duur * 0.25); g.gain.exponentialRampToValueAtTime(0.0001, t + duur);
+    s.connect(f); f.connect(g); g.connect(this.uit); s.start(t); s.stop(t + duur + 0.05);
+    for (let i = 0; i < 3 + v * 6; i++) setTimeout(() => this.schreeuw(0.5 + Math.random() * 0.6), Math.random() * duur * 600);
   }
   /** Kiai: de korte kreet bij een zware techniek. */
   kiai() {

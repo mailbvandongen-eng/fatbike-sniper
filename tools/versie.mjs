@@ -17,6 +17,9 @@ for (const f of bestanden) h.update(f).update(readFileSync(f));
 // de pagina zelf telt mee zonder de versie-regels (anders verandert de hash door zichzelf)
 const html = readFileSync("index.html", "utf8");
 h.update(html.replace(/<!-- versie -->[\s\S]*?<!-- \/versie -->/, ""));
+// het kooigevecht is een tweede pagina met dezelfde versie
+const kooi = readFileSync("kooi.html", "utf8");
+h.update(kooi.replace(/<!-- versie -->[\s\S]*?<!-- \/versie -->/, ""));
 const v = h.digest("hex").slice(0, 10);
 
 const nu = new Date().toLocaleString("nl-NL", { timeZone: "Europe/Amsterdam", day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -32,5 +35,6 @@ const blok = `<!-- versie -->
 <script type="module" src="./src/main.js?v=${v}"></script>
 <!-- /versie -->`;
 writeFileSync("index.html", html.replace(/<!-- versie -->[\s\S]*?<!-- \/versie -->/, blok));
+writeFileSync("kooi.html", kooi.replace(/<!-- versie -->[\s\S]*?<!-- \/versie -->/, blok.replace('<script type="module" src="./src/main.js?v=', '<script type="module" src="./src/kooi.js?v=')));
 writeFileSync("versie.json", JSON.stringify({ versie: v, datum: nu }) + "\n");
 console.log(`nieuwe versie: ${v} (${nu})`);

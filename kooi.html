@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Kooigevecht · Fatbike Sniper</title>
+<style>
+:root{--sal:env(safe-area-inset-left,0px);--sar:env(safe-area-inset-right,0px);--sat:env(safe-area-inset-top,0px);--sab:env(safe-area-inset-bottom,0px);--ink:#f5f3ee;--dim:#f5f3eaa8;--geel:#ffc83d;--rood:#ff4a3d;color-scheme:dark}
+html,body{position:fixed;inset:0;margin:0;overflow:hidden;background:#06070a;touch-action:none;overscroll-behavior:none;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);-webkit-user-select:none;user-select:none}
+canvas{position:fixed;inset:0;display:block}
+[hidden]{display:none!important}
+#laden{position:fixed;inset:0;display:grid;place-content:center;font-weight:700;color:var(--dim)}
+#laden::after{content:"";display:block;margin-top:12px;width:180px;height:5px;border-radius:3px;background:linear-gradient(90deg,var(--geel) calc(var(--v,0)*100%),#fff2 0)}
+.scherm{position:fixed;inset:0;display:grid;place-content:center;justify-items:center;gap:12px;padding:14px;background:#06070ab8;text-align:center}
+h1{margin:0;font:900 clamp(26px,7vh,44px) system-ui;letter-spacing:.02em;text-transform:uppercase}h1 span{color:var(--geel)}
+#vechters{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+#vechters button{appearance:none;width:190px;text-align:left;border:2px solid #fff3;background:#ffffff10;color:var(--ink);border-radius:14px;padding:10px 12px;font:600 13px system-ui;cursor:pointer;display:grid;gap:4px}
+#vechters button.aan{border-color:var(--geel);background:#ffc83d1c}
+#vechters b{font-size:17px}#vechters span{color:var(--dim)}
+#vechters i{font-style:normal;display:grid;grid-template-columns:62px 1fr;align-items:center;color:var(--dim)}
+#vechters u{display:block;height:7px;border-radius:4px;background:#fff2;overflow:hidden;text-decoration:none}#vechters s{display:block;height:100%;background:var(--geel)}
+#rondes{display:flex;gap:8px;align-items:center;color:var(--dim);font-weight:600}
+#rondes button,.klein{appearance:none;border:2px solid #fff3;background:#ffffff10;color:var(--ink);border-radius:999px;padding:7px 16px;font:700 15px system-ui;cursor:pointer;text-decoration:none}
+#rondes button.aan{border-color:var(--geel);color:var(--geel)}
+.groot{appearance:none;border:0;border-radius:999px;padding:13px 34px;font:800 18px system-ui;background:var(--geel);color:#151515;cursor:pointer}
+#hud{position:fixed;inset:0;pointer-events:none}
+.balk{position:absolute;top:max(10px,var(--sat));width:36%;display:grid;gap:4px;font:800 13px system-ui;text-transform:uppercase}
+.balk.a{left:max(12px,var(--sal))}.balk.b{right:max(12px,var(--sar));text-align:right}
+.balk div{height:13px;border-radius:4px;background:#0009;border:2px solid #fff5;overflow:hidden}.balk div+div{height:6px;border-width:1px}
+.balk em{display:block;height:100%;background:linear-gradient(#ffe27a,#ff9d2e);transform-origin:left;transition:transform .15s}.balk.b em{transform-origin:right}
+.balk div+div em{background:#58c8ff}
+#midden{position:absolute;top:max(8px,var(--sat));left:50%;transform:translateX(-50%);text-align:center;font:800 22px system-ui}#midden small{display:block;font:700 11px system-ui;color:var(--dim)}
+#groot{position:absolute;left:0;right:0;top:34%;text-align:center;font:900 clamp(40px,16vh,96px) system-ui;color:var(--geel);text-shadow:0 4px 0 #7a1c17,0 0 30px #000;opacity:0;transform:scale(.6)}
+#groot.aan{opacity:1;transform:scale(1);transition:opacity .12s,transform .18s cubic-bezier(.2,1.6,.4,1)}
+.knop{position:absolute;pointer-events:auto;display:grid;place-items:center;border-radius:50%;background:#111317c8;border:2px solid #fff3;color:var(--ink);font:800 13px system-ui;touch-action:none}
+.knop.in{transform:scale(.93);filter:brightness(1.5)}
+#stoot{right:max(22px,calc(var(--sar) + 14px));bottom:max(26px,calc(var(--sab) + 16px));width:92px;height:92px;background:#7a1c17d8;border-color:#ff8a7a80}
+#trap{right:max(128px,calc(var(--sar) + 120px));bottom:max(20px,calc(var(--sab) + 10px));width:72px;height:72px}
+#blok{right:max(40px,calc(var(--sar) + 32px));bottom:calc(max(26px,var(--sab) + 16px) + 104px);width:64px;height:64px}
+#vlak{position:absolute;left:0;top:60px;bottom:0;width:45%;pointer-events:auto;touch-action:none}
+#stick{position:absolute;left:max(40px,calc(var(--sal) + 30px));bottom:max(34px,calc(var(--sab) + 24px));width:104px;height:104px;border-radius:50%;background:#111317c8;border:2px solid #fff3;pointer-events:none;opacity:.7}
+#duim{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px;border-radius:50%;background:#d8f5d0;border:3px solid #111}
+#terug{position:fixed;left:max(10px,var(--sal));bottom:max(10px,var(--sab));z-index:5}
+</style>
+</head>
+<body>
+<div id="laden">Kooigevecht laden</div>
+<div class="scherm" id="kies" hidden>
+  <h1>Kooi<span>gevecht</span></h1>
+  <div id="vechters"></div>
+  <div id="rondes">Rondes <button data-n="1">1</button><button data-n="3">3</button><button data-n="5">5</button></div>
+  <button class="groot" id="start">Vecht</button>
+  <a class="klein" id="terug" href="./">← Fatbike Sniper</a>
+</div>
+<div id="hud" hidden>
+  <div class="balk a"><span id="naam-a"></span><div><em id="hp-a"></em></div><div><em id="st-a"></em></div></div>
+  <div class="balk b"><span id="naam-b"></span><div><em id="hp-b"></em></div><div><em id="st-b"></em></div></div>
+  <div id="midden"><span id="klok"></span><small id="ronde"></small></div>
+  <div id="groot"></div>
+  <div id="vlak"></div><div id="stick"><div id="duim"></div></div>
+  <div class="knop" id="blok">Blok</div><div class="knop" id="trap">Trap</div><div class="knop" id="stoot">Stoot</div>
+</div>
+<div class="scherm" id="uitslag" hidden>
+  <h1 id="uitslagKop"></h1>
+  <div id="uitslagTekst" style="color:var(--dim);font-weight:600"></div>
+  <button class="groot" id="opnieuw">Nog een keer</button>
+  <button class="klein" id="anders">Andere vechter</button>
+</div>
+<!-- versie -->
+<script>window.VERSIE = "d84043ad48"; window.VERSIE_DATUM = "24-11, 21:14";</script>
+<script type="importmap">{"imports":{"three":"./lib/three.module.js?v=d84043ad48","./lib/three.module.js":"./lib/three.module.js?v=d84043ad48","./lib/meshopt_decoder.mjs":"./lib/meshopt_decoder.mjs?v=d84043ad48","./lib/three-addons.js":"./lib/three-addons.js?v=d84043ad48","./src/autos.js":"./src/autos.js?v=d84043ad48","./src/config.js":"./src/config.js?v=d84043ad48","./src/effecten.js":"./src/effecten.js?v=d84043ad48","./src/figuren.js":"./src/figuren.js?v=d84043ad48","./src/geluid.js":"./src/geluid.js?v=d84043ad48","./src/karate.js":"./src/karate.js?v=d84043ad48","./src/kooi.js":"./src/kooi.js?v=d84043ad48","./src/main.js":"./src/main.js?v=d84043ad48","./src/mensen.js":"./src/mensen.js?v=d84043ad48","./src/muziek.js":"./src/muziek.js?v=d84043ad48","./src/straat.js":"./src/straat.js?v=d84043ad48","./src/verkeer.js":"./src/verkeer.js?v=d84043ad48","./src/wereld.js":"./src/wereld.js?v=d84043ad48"}}</script>
+<script type="module" src="./src/kooi.js?v=d84043ad48"></script>
+<!-- /versie -->
+</body>
+</html>
