@@ -375,8 +375,52 @@ export class Staander {
     scene.add(this.groep);
   }
   ruzie(naar, slaat, klap, geraakt, zwaar) { return this.zit ? false : beginRuzie(this, naar, slaat, klap, geraakt, zwaar); }
-  stap(dt) {
+  /** Hangjeugd: komt op je af, blijft op een paar meter staan met gebalde vuisten, wijst en schreeuwt. Blijf je te dichtbij, dan haalt er een uit. */
+  dreig(dt, spel) {
+    const sp = spel.speler, dx = sp.x - this.pos.x, dz = sp.z - this.pos.z, d = Math.hypot(dx, dz) || 1;
+    this.thuis ??= this.pos.clone(); this.dreigAfst ??= tussen(2.1, 3.9); this.wisselT ??= 0; this.roepT ??= tussen(0.5, 4);
+    if (!this.dreigt) { if (d > 13) return false; this.dreigt = true; }
+    else if (d > 19) { this.dreigt = false; return false; }
+    let h = Math.atan2(dx, dz) - this.richting; h = Math.atan2(Math.sin(h), Math.cos(h));
+    this.richting += h * Math.min(1, dt * 6);
+    let loopt = false;
+    if (d > this.dreigAfst + 0.3) {
+      const st = Math.min(d - this.dreigAfst, 1.9 * dt), nx = this.pos.x + (dx / d) * st, nz = this.pos.z + (dz / d) * st;
+      if (spel.vrij?.(nx, nz) ?? true) { this.pos.set(nx, 0, nz); loopt = true; }
+    } else if (d < this.dreigAfst - 0.9) { // je komt op hem af: hij wijkt een stapje, maar gaat niet weg
+      const nx = this.pos.x - (dx / d) * 1.2 * dt, nz = this.pos.z - (dz / d) * 1.2 * dt;
+      if (spel.vrij?.(nx, nz) ?? true) this.pos.set(nx, 0, nz);
+    }
+    if ((this.wisselT -= dt) <= 0) { this.wisselT = tussen(1.6, 3.4); this.gebaar = kies(["vuisten", "vuisten", "wijzen", "boos"]); this.m.huidig = null; }
+    if (loopt) this.m.zet("lopen", 1.3);
+    else if (this.gebaar === "boos") this.m.zet("boos"); else if (this.gebaar === "wijzen") this.m.zet("staan"); else this.m.zet("vechtklaar");
+    this.m.mixer.update(dt);
+    this.groep.position.copy(this.pos); this.groep.rotation.y = this.richting;
+    if (this.gebaar === "wijzen" && !loopt && this.m.hoog.visible) {
+      this.groep.updateMatrixWorld(true);
+      const sch = this.m.plek("DEF-upper_armR").clone(), naar = new THREE.Vector3(sp.x, 1.45, sp.z).sub(sch).normalize();
+      this.m.arm("R", sch.addScaledVector(naar, 0.62), new THREE.Vector3(0, -1, 0));
+    }
+    if ((this.roepT -= dt) <= 0) { this.roepT = tussen(2.5, 6); if (d < 9) spel.schreeuw?.(this.pos); }
+    // te lang vlak voor zijn neus: hij haalt uit (hoogstens drie tegelijk)
+    if (d < 2.3) { this.dichtT = (this.dichtT ?? 0) + dt; if (this.dichtT > 3 && this.vechter && (spel.hangVecht?.() ?? 0) < 3 && Math.random() < dt * 0.6) { this.dichtT = 0; this.ruzie(sp, true, spel.aangereden); } }
+    else this.dichtT = Math.max(0, (this.dichtT ?? 0) - dt);
+    return true;
+  }
+  stap(dt, spel) {
     if (stapRuzie(this, dt)) return;
+    if (this.hang && !(this.schrik > 0) && !this.zit) {
+      if (spel?.dreig && spel.speler && this.dreig(dt, spel)) return;
+      // terug naar de hangplek
+      if (this.thuis && this.pos.distanceTo(this.thuis) > 0.8) {
+        this.dreigt = false;
+        const dx = this.thuis.x - this.pos.x, dz = this.thuis.z - this.pos.z, d = Math.hypot(dx, dz);
+        this.pos.x += (dx / d) * 1.3 * dt; this.pos.z += (dz / d) * 1.3 * dt; this.richting = Math.atan2(dx, dz);
+        this.m.zet("lopen"); this.m.mixer.update(dt);
+        this.groep.position.copy(this.pos); this.groep.rotation.y = this.richting;
+        return;
+      }
+    }
     if (this.schrik > 0) {
       // weg van het geluid
       this.schrik -= dt;

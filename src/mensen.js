@@ -81,7 +81,7 @@ export function maakMens(rol = "voetganger") {
   const object = SkeletonUtils.clone(modellen[naam]);
   let hoog = null, laag = null;
   object.traverse((o) => { if (o.isMesh) { if (o.name.includes("Laag")) laag = o; else hoog = o; } });
-  const schaal = rol === "schutter" ? 1 : 0.94 + Math.random() * 0.12;
+  const schaal = rol === "schutter" || rol === "karateka" ? 1 : 0.94 + Math.random() * 0.12;
   object.scale.setScalar(schaal);
   const mixer = new THREE.AnimationMixer(object);
   let heup = null;

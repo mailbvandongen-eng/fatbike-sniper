@@ -179,6 +179,11 @@ print('lijf: vlakken over', len(f), 'verborgen punten', len(weg_p))
 delen.append(deel('lijf', pts, vt, f, refs, 'huid'))
 for map_, naam, vak in [('hair/' + C['haar'], C['haar'], 'haar'), ('eyes/low-poly', 'low-poly', 'oog'), ('eyebrows/eyebrow001', 'eyebrow001', 'wenkbrauw')]:
     pts, vt, f, refs, _ = fitfile(f'{S}/{map_}/{naam}.mhclo')
+    if vak == 'haar' and C.get('zijkantenKaal'):
+        # weggeschoren zijkanten: het haar aan de zijkant van het hoofd (onder de kruin) weglaten
+        P = [B(q) for q in pts]; cx = (max(q.x for q in P) + min(q.x for q in P)) / 2; hw = (max(q.x for q in P) - min(q.x for q in P)) / 2; top = max(q.z for q in P)
+        mid = lambda q: sum((P[i] for i, _ in q), Vector()) / len(q)
+        f = [q for q in f if not (abs(mid(q).x - cx) > hw * 0.6 and mid(q).z < top - 0.05)]
     delen.append(deel(naam, pts, vt, f, refs, vak))
 
 # één mesh van alles

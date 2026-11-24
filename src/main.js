@@ -138,7 +138,7 @@ async function laad() {
   graaf.heg = inHeg; // voetgangers en fietsers wijken er niet in uit
   graaf.uitAuto = uitAuto; // en ze lopen om geparkeerde auto's heen
   // jij: de schutter met het geweer
-  schutter = maakMens("schutter");
+  schutter = maakMens(data.karate ? "karateka" : "schutter"); // in het karatelevel draag je het pak ook bij het raam
   geweer = maakGeweer();
   scene.add(geweer); // los in de wereld: elk beeld tegen de schouder gelegd, in de kijkrichting
   pistool = maakPistool(); mes = maakMes(); knuppel = maakKnuppel(); pistool.visible = mes.visible = knuppel.visible = false; scene.add(knuppel);
@@ -147,7 +147,7 @@ async function laad() {
   straat = maakStraat({ scene, reizigers, loop, spel, graaf, data, geluid, $, vrij: (x, z) => !geblokkeerd(x, z), naarBinnen: () => zetLopen(false, true), tekenHud, weg });
   scene.add(schutter.object);
   sluiper = schutter;
-  if (data.karate) { karateka = maakMens("karateka"); karateka.detail(true, true); karateka.object.visible = false; scene.add(karateka.object); }
+  if (data.karate) karateka = schutter;
   document.body.classList.toggle("karate", !!data.karate);
   // ▲▼ gaan van laag naar hoog: eerst de plekken op de grond, dan de verdiepingen
   standen = data.standplaatsen.map((st, i) => ({ ...st, i })).sort((a, b) => a.pos[1] - b.pos[1]);
@@ -333,7 +333,7 @@ function zoekDoel() {
   return null;
 }
 /** Wat je bij je hebt: gewoon pistool, vuisten en mes; in karatepak je vuisten en voeten, of een honkbalknuppel. */
-const wapens = () => (schutter === karateka ? ["vuist", "knuppel", "vuurwerk"] : WAPENS);
+const wapens = () => ((karateka && loop.aan) ? ["vuist", "knuppel", "vuurwerk"] : WAPENS);
 // Klein vuurwerk (categorie 1: knetteren en vonken, geen schade): je gooit het voor de voeten van de hangjeugd.
 const vuurwerk = [];
 function gooi() {
@@ -425,12 +425,7 @@ function zetLopen(aan, gedwongen = false) {
   setTimeout(() => {
     loop.aan = aan;
     document.body.classList.toggle("loopt", aan);
-    if (karateka) {
-      // buiten in karatepak, binnen weer met het geweer
-      schutter.object.visible = false;
-      schutter = aan ? karateka : sluiper;
-      if (aan) zetWapen("vuist"); else toonWapen(loop.raamVuurwerk ? "vuurwerk" : "pistool");
-    }
+    if (karateka) { if (aan) zetWapen("vuist"); else toonWapen(loop.raamVuurwerk ? "vuurwerk" : "pistool"); }
     zetZoom(1);
     if (aan) {
       // begin op het dichtstbijzijnde voetpad bij je standplaats
@@ -751,7 +746,7 @@ function klapKrijgen(wie = null) {
   if (loop.neer > 0 || !loop.aan || rij.aan || loop.boeien > 0) return; // in de auto zit je veilig
   if (wie?.pos && loop.veilig > 0) return; // net geraakt: je krijgt even de tijd om terug te komen
   // karate: sta je stil in kamae (je slaat of loopt niet), dan blok je de klap
-  if (wie?.pos && schutter === karateka && loop.slag <= 0 && loop.wankel <= 0 && loop.snelheid < 0.4) {
+  if (wie?.pos && (karateka && loop.aan) && loop.slag <= 0 && loop.wankel <= 0 && loop.snelheid < 0.4) {
     loop.veilig = 0.7; loop.richting = Math.atan2(wie.pos.x - loop.pos.x, wie.pos.z - loop.pos.z);
     Object.assign(loop, { slag: 0.45, slagRaakOp: -1, slagRaak: true, slagSoort: "blok", slagStraks: null, comboT: 0 });
     schutter.zet(Math.random() < 0.5 ? "k_block" : "k_gedan_barai", 2.2, 0.12);
@@ -797,7 +792,7 @@ function slagDoel() {
 function sla(soort = "vuist") {
   if (!loop.aan || loop.neer > 0 || loop.wankel > 0 || loop.boeien > 0) return;
   if (loop.slag > 0) { loop.slagStraks = soort; return; } // tik je door, dan volgt de volgende klap meteen
-  const karate = schutter === karateka && soort !== "mes" && soort !== "knuppel";
+  const karate = (karateka && loop.aan) && soort !== "mes" && soort !== "knuppel";
   let nr, beweging, duur, raak, tempo, zwaar, ver = 0.95;
   if (karate) {
     // karate: stoten en trappen uit het vechtspel van de dojo, in een vaste volgorde
@@ -1529,8 +1524,8 @@ knop("#loopKnop", () => zetLopen(!loop.aan));
 knop("#wapen", () => { if (loop.aan) return volgendWapen(); loop.raamVuurwerk = !loop.raamVuurwerk; toonWapen(loop.raamVuurwerk ? "vuurwerk" : "pistool"); });
 knop("#instap", () => (rij.aan ? stapUit() : stapIn()));
 addEventListener("keydown", (e) => { if (!e.repeat && e.code === "KeyT" && loop.aan) rij.aan ? stapUit() : stapIn(); });
-knop("#richt", () => (schutter === karateka ? sla("trap") : zetMikken(!loop.mikken)));
-addEventListener("keydown", (e) => { if (!e.repeat && loop.aan && schutter === karateka) { if (e.code === "KeyJ") sla("vuist"); if (e.code === "KeyK") sla("trap"); } });
+knop("#richt", () => ((karateka && loop.aan) ? sla("trap") : zetMikken(!loop.mikken)));
+addEventListener("keydown", (e) => { if (!e.repeat && loop.aan && (karateka && loop.aan)) { if (e.code === "KeyJ") sla("vuist"); if (e.code === "KeyK") sla("trap"); } });
 knop("#sprint", () => { loop.sprint = !loop.sprint; });
 // in de auto: gaspedaal en rem (ingedrukt houden), en de claxon
 knop("#gas", () => { rij.gas = true; }, () => { rij.gas = false; });
@@ -1694,6 +1689,10 @@ function lus() {
   if (loop.aan) { stapLopen(echt); $("#sprint").classList.toggle("aan", loop.sprint); $("#richt").classList.toggle("aan", loop.mikken); }
   spel.speler = loop.aan ? loop.pos : null; spel.aangereden = klapKrijgen; spel.toeter = () => geluid.toeter(1);
   spel.zichtVrij = zichtVrij;
+  // hangjeugd komt dreigend op je af als je in karatepak buiten loopt
+  spel.dreig = !!(karateka && loop.aan && !rij.aan && !(loop.boeien > 0)); spel.vrij = (x, z) => !geblokkeerd(x, z);
+  spel.schreeuw = (p) => geluid.schreeuw(afstandVol(p) * 1.6);
+  spel.hangVecht = () => reizigers.filter((r) => r.hang && r.ruzieT > 0 && r.ruzieSlaat).length;
   spel.aangehouden = (agent) => { if (!(rij.aan && Math.abs(rij.v) > 1.5)) arresteer(agent); }; // uit een rijdende auto halen ze je niet
   // lig je op de grond en staat er een agent bij, dan ben je erbij
   if (loop.aan && loop.neer > 0 && !(loop.boeien > 0)) { const a = reizigers.find((r) => r.soort === "agent" && !r.afdruipen && !(r.ruzieNeer > 0) && r.pos.distanceTo(loop.pos) < 3); if (a) arresteer(a); }
@@ -1787,7 +1786,7 @@ function lus() {
       const v = L.snelheid;
       if (richtend && L.wapen === "pistool" && v <= 0.25) schutter.zet("richten");
       else if (L.wapen === "knuppel" && v <= 0.25) schutter.zet("knuppel");
-      else if (schutter === karateka && v <= 0.25 && reizigers.some((r) => r.ruzieT > 0 && !(r.ruzieNeer > 0) && r.pos.distanceToSquared(L.pos) < 36)) schutter.zet("k_idle"); // kamae: klaar voor de volgende
+      else if ((karateka && loop.aan) && v <= 0.25 && reizigers.some((r) => r.ruzieT > 0 && !(r.ruzieNeer > 0) && r.pos.distanceToSquared(L.pos) < 36)) schutter.zet("k_idle"); // kamae: klaar voor de volgende
       else if (v > 4.6) schutter.zet("sprinten", v / 5.6); else if (v > 2.3) schutter.zet("rennen", v / 3.3); else if (v > 0.25) schutter.zet("lopen", THREE.MathUtils.clamp(v / 1.4, 0.7, 1.5)); else schutter.zet("staan");
     }
     schutter.mixer.update(echt);

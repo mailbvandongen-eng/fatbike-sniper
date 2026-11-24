@@ -174,6 +174,20 @@ export class Geluid {
       this.toon({ freq: 2100, duur: 0.05, type: "square", gain: 0.08, start: start + 0.23 });
     }
   }
+  /** Een schreeuw van een afstand ("hé!", "wat moet je!"): een of twee korte, rauwe uithalen. */
+  schreeuw(v = 1) {
+    if (!this.ctx || v < 0.03) return;
+    const ctx = this.ctx, n = 1 + ((Math.random() * 2) | 0), laag = 130 + Math.random() * 90;
+    for (let i = 0; i < n; i++) {
+      const t = this.t + i * (0.2 + Math.random() * 0.1), duur = 0.16 + Math.random() * 0.2;
+      const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      o.type = "sawtooth"; o.frequency.setValueAtTime(laag * (1.1 + Math.random() * 0.3), t); o.frequency.exponentialRampToValueAtTime(laag * 0.85, t + duur);
+      f.type = "bandpass"; f.Q.value = 2; f.frequency.setValueAtTime(700 + Math.random() * 500, t); f.frequency.exponentialRampToValueAtTime(1100 + Math.random() * 400, t + duur);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.min(0.3, 0.22 * v), t + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + duur);
+      o.connect(f); f.connect(g); g.connect(this.uit); o.start(t); o.stop(t + duur + 0.05);
+      const e = ctx.createGain(); e.gain.value = 0.25; g.connect(e); e.connect(this.echo);
+    }
+  }
   /** Kiai: de korte kreet bij een zware techniek. */
   kiai() {
     if (!this.ctx) return;
