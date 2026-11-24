@@ -85,14 +85,13 @@ Geparkeerde auto's zijn kopieën van hetzelfde model (`InstancedMesh`, `src/auto
 
 ## Lopen
 
-Met het loop-icoon linksboven ga je de straat op (derde persoon, geen kijker), zoals bij GTA op de telefoon:
-- links je duim neerzetten: daar verschijnt de stuurknuppel (ver duwen = rennen); op de pc WASD;
-- rechts slepen = rondkijken; de camera draait vanzelf achter je aan als je loopt;
-- de kleine knop wisselt het wapen (pc: 1/2/3 of Tab), de grote knop gebruikt het:
-  - **pistool**: schieten zonder kijker; staat het kruisje bijna op een fatbike, dan gaat het schot naar zijn band;
-  - **vuisten**: een fatbiker van zijn fiets slaan (hij rent weg); bij een ander geeft het ruzie;
-  - **mes**: alleen voor banden: de band van een fatbike lek steken.
-- Loop je tegen iemand op, dan krijg je ruzie; soms haalt hij uit en ga je even neer. Gebouwen, muurtjes en geparkeerde auto's houden je tegen. Rijdende auto's remmen voor je; schiet je op een rijdende auto of sla je ertegen, dan komt de bestuurder op je af en rijdt hij je omver. Er raakt niemand gewond: iedereen staat weer op.
+Met het loop-icoon ga je de straat op, in derde persoon. De opzet is afgekeken van hoe GTA op de telefoon werkt, op eigen wijze nagebouwd:
+- **Bewegen met gewicht:** links je duim neerzetten (daar verschijnt de stuurknuppel) of WASD. Je komt op gang en loopt uit, je lijf draait in een boogje mee, en de loop-, jog- en sprintbeweging lopen op het tempo van je vaart. Sprinten: de knop » (of Shift); stoppen beëindigt het sprinten. Voetstappen klinken op het ritme van je passen.
+- **Camera:** rechts slepen = rondkijken. De camera veert achter je aan, draait vanzelf mee als je loopt, gaat iets verder weg en wijder bij sprinten, en schuift naar voren als er een muur achter je staat.
+- **Richten:** de richtknop (of X) zet de camera over je schouder met een nauwer beeld; je loopt dan langzaam en houdt het pistool gestrekt. De mikhulp markeert de band van de fatbike bij het kruisje (geel, rood als je richt), maar alleen als de schootslijn vrij is van muren, auto's, fietsen en mensen.
+- **Wapens** (knop, of 1/2/3 of Tab): pistool; vuisten (een fatbiker van zijn fiets slaan, hij rent weg); mes (alleen banden lek steken).
+- **Radar:** linksboven de buurt van bovenaf, gedraaid naar je kijkrichting: gele stippen = fatbikes (op de rand als ze verder weg zijn), rood = een kwade automobilist, wit vierkant = je raam.
+- **De wereld reageert:** je loopt niet door mensen heen; wandel je tegen iemand op, dan wacht die even, ren je iemand omver, dan krijg je ruzie (soms een klap: je gaat neer en staat weer op). Bij een schot rennen mensen in de buurt weg. Auto's remmen en toeteren als je in de weg staat; schiet je op een rijdende auto of sla je ertegen, dan rijdt de bestuurder je omver. Gebouwen, muurtjes, heggen, bomen en geparkeerde auto's houden je tegen. Er raakt niemand gewond: iedereen staat weer op.
 
 Alle aanraakbediening loopt via touch-events per vinger (`sleepbaar` in `src/main.js`), zodat lopen, kijken en schieten tegelijk kunnen. Testen: `node tools/loop.cjs`.
 

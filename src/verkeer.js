@@ -466,6 +466,9 @@ export class Auto extends Reiziger {
       if (sp) {
         const dx = sp.x - this.pos.x, dz = sp.z - this.pos.z, voor = dx * fx + dz * fz, zij = Math.abs(dx * fz - dz * fx);
         if (voor > 0 && voor < 12 && zij < 1.8) rem = Math.min(rem, (voor - 4.6) / 6); // stopt ruim een meter voor je
+        // sta je in de weg, dan toetert hij (niet vaker dan eens in de paar seconden)
+        this.toeterT = (this.toeterT ?? 0) - dt;
+        if (voor > 0 && voor < 7 && zij < 1.8 && this.toeterT <= 0) { this.toeterT = 3 + Math.random() * 3; spel.toeter?.(); }
       }
       this.v = this.vBasis * THREE.MathUtils.clamp(rem, 0, 1) * (Math.hypot(this.pos.x - this.g.c[0], this.pos.z - this.g.c[1]) < 45 ? 0.6 : 1);
       super.stap(dt);
