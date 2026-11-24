@@ -61,7 +61,7 @@ const TYPE = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/jav
       s.zetZoom(12);
       return `fatbike op ${Math.round(Math.hypot(p.x - c.x, p.z - c.z))} m`;
     }, i);
-    await page.waitForFunction(() => !document.querySelector("#vuur").classList.contains("laadt") && !document.body.classList.contains("film"), null, { timeout: 120000 });
+    await page.waitForFunction(() => window.__spel.herlaad <= 0 && !document.body.classList.contains("film"), null, { timeout: 120000 });
     if (i === 0) await page.screenshot({ path: `${UIT}/4-mikken.png` });
     await page.evaluate(() => { window.__spel.schiet(); });
     await page.waitForTimeout(700);
@@ -72,7 +72,7 @@ const TYPE = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/jav
   // de laatste fatbike: vertraagd camerashot en het eindscherm
   const nogBezig = await page.evaluate(() => window.__spel.spel.bezig && window.__spel.reizigers.some((r) => r.fat));
   if (nogBezig) {
-    await page.waitForFunction(() => !document.querySelector("#vuur").classList.contains("laadt") && !document.body.classList.contains("film"), null, { timeout: 60000 });
+    await page.waitForFunction(() => window.__spel.herlaad <= 0 && !document.body.classList.contains("film"), null, { timeout: 60000 });
     await page.evaluate(() => {
       const s = window.__spel;
       s.spel.geraakt = s.spel.ri.fatbikes - 1; s.spel.fouten = 0;

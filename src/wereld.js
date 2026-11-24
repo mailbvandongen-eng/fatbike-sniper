@@ -10,7 +10,7 @@ const GEVEL = {
   jaren50: { b: 2.9, h: 2.8, steen: ["#7a3b22", "#84442a", "#6d341f", "#8a4a30"], voeg: "#b8a89a", raam: [1.35, 1.45], kozijn: "#f1ede4", latei: "#cfc8bb" },
   // donkerbruine baksteen met brede witte raambanden (Google 3D, rond het plein)
   bruinwit: { b: 3.0, h: 2.8, bruinwit: true },
-  // portiekflat uit de jaren 50: licht beige metselwerk, witte balkonplaten, verticale lichte penanten
+  // portiekflat uit de jaren 50 (Van Steelaan): donkerbruine baksteen met witte kozijnen; om en om een witte erker met balkon
   portiek: { b: 3.2, h: 2.8, portiek: true },
   // crèmegeel met gele betonnen penanten (westkant)
   geel: { b: 3.0, h: 2.8, geel: true },
@@ -70,11 +70,19 @@ function gevelTextuur(st) {
       ruit(x, 0.18 * PX, H * 0.28, W - 0.36 * PX, H * 0.46, "#f4f2ed", Math.random() < 0.3);
       x.fillStyle = "#f4f2ed"; x.fillRect(0, H * 0.74, W, 4);
     } else if (st.portiek) {
-      stenen(x, W, H, ["#d9cdb6", "#d2c5ad", "#ded3be", "#cbbfa7"], "#e8e0d0");
-      ruit(x, 0.35 * PX, H * 0.18, W - 0.7 * PX, H * 0.5, "#f5f3ee", Math.random() < 0.3);
-      x.fillStyle = "#f6f4ef"; x.fillRect(0, H - 0.5 * PX, W, 0.5 * PX); // balkonplaat
-      x.fillStyle = "#c9c2b5"; x.fillRect(0, H - 0.52 * PX, W, 3);
-      x.fillStyle = "#e9e3d7"; x.fillRect(0, 0, 0.14 * PX, H); // penant
+      stenen(x, W, H, ["#4b3229", "#573a2e", "#412a21", "#5c3f32"], "#6b584d");
+      if (k % 2) {
+        // witte erker over de hele hoogte: groot raam, daaronder de witte borstwering van het balkon
+        x.fillStyle = "#efede7"; x.fillRect(0.2 * PX, 0, W - 0.4 * PX, H);
+        ruit(x, 0.32 * PX, H * 0.1, W - 0.64 * PX, H * 0.52, "#f7f6f2", Math.random() < 0.3);
+        x.fillStyle = "#f7f6f2"; x.fillRect(0.12 * PX, H * 0.66, W - 0.24 * PX, H * 0.3); // balkon
+        x.fillStyle = "#bdb9b0"; x.fillRect(0.12 * PX, H * 0.96, W - 0.24 * PX, 3);
+        x.fillStyle = "#d5d2ca"; x.fillRect(0.12 * PX, H * 0.66, W - 0.24 * PX, 2);
+      } else {
+        // metselwerk met twee staande ramen in witte kozijnen
+        for (const rx of [0.3, 1.75]) ruit(x, rx * PX, H * 0.2, 1.15 * PX, H * 0.5, "#f4f2ed", Math.random() < 0.3);
+        x.fillStyle = "#d9d5cc"; for (const rx of [0.3, 1.75]) x.fillRect(rx * PX - 2, H * 0.7, 1.15 * PX + 4, 3); // waterslag
+      }
     } else if (st.geel) {
       x.fillStyle = "#cdb36b"; x.fillRect(0, 0, W, H);
       ruit(x, 0.45 * PX, H * 0.26, W - 0.9 * PX, H * 0.5, "#f1ede2", Math.random() < 0.3);
@@ -238,7 +246,7 @@ function maakOverkappingen(lijnen, scene) {
 // ---------- grond ----------
 const GRONDKLEUR = {
   // naar de luchtfoto: straten en parkeerplaats van roodbruine klinkers, stoepen beige, fietspad rood asfalt
-  basis: "#b5a88f", plein: "#cdb98e", stoep: "#d2be8f", weg: "#86645e", asfalt: "#4d4e52", parkeer: "#84625c", vak: "#5f5d5d", fietspad: "#b06a62",
+  basis: "#b5a88f", plein: "#cdb98e", stoep: "#d2be8f", weg: "#86645e", asfalt: "#4d4e52", parkeer: "#86604f", vak: "#5f5d5d", fietspad: "#93524c",
   gras: "#5f7f42", struik: "#3f5f2f", eiland: "#a59f93", speel: "#c4ad7f", fietsvlak: "#a9a196", tram: "#6d6a63", gebouw: "#3c3a37",
 };
 export function tekenGrond(d, midden, maat, px) {
@@ -262,7 +270,18 @@ export function tekenGrond(d, midden, maat, px) {
   for (const v of d.vlakken) if (["parkeer", "eiland", "fietsvlak"].includes(v.s)) vlak(v.r, GRONDKLEUR[v.s]);
   for (const l of d.lijnen) if (l.gang) lijn(l, GRONDKLEUR.parkeer, l.b);
   for (const v of d.vlakken) if (v.s === "struik") vlak(v.r, GRONDKLEUR.struik);
-  for (const l of d.lijnen) if (l.s === "fietspad") lijn(l, l.asfalt ? GRONDKLEUR.fietspad : "#a4665c", l.b);
+  for (const l of d.lijnen) if (l.s === "fietspad") lijn(l, l.asfalt ? GRONDKLEUR.fietspad : "#9a5e55", l.b);
+  // gevallen blad onder de bomen (herfst en winter)
+  if (d.seizoen === "winter") for (const [bx, bz] of d.bomen) {
+    if (Math.abs(bx - midden[0]) > o + 5 || Math.abs(bz - midden[1]) > o + 5) continue;
+    for (let i = 0; i < 46; i++) {
+      const hoek = (bx * 12.9898 + bz * 78.233 + i * 2.399) % 6.283, r = 0.4 + (((bx * 7.1 + bz * 3.3 + i * 0.618) % 1) + 1) % 1 * 4.2;
+      const [px2, py2] = P([bx + Math.cos(hoek) * r, bz + Math.sin(hoek) * r]);
+      x.fillStyle = ["#b8742e", "#c98836", "#8f5a26", "#d49a44"][i % 4]; x.globalAlpha = 0.75;
+      x.fillRect(px2, py2, Math.max(1.5, 0.16 * s), Math.max(1.5, 0.12 * s));
+    }
+  }
+  x.globalAlpha = 1;
   // middenstrepen
   x.setLineDash([3 * s, 4 * s]);
   for (const l of d.lijnen) if (l.s === "weg" && l.asfalt && l.b >= 6) lijn(l, "#d8d6cc", 0.12);
@@ -353,6 +372,12 @@ function kaleBoom() {
     }
   }
   tak(V(0, 0.55, 0), V(0.02, 0.95, 0.01), 0.012);
+  // het laatste blad hangt er nog aan: oranje en bruin, in plukken rond de takken
+  const blad = new THREE.TetrahedronGeometry(0.02);
+  for (let i = 0; i < 150; i++) {
+    const hoek = Math.random() * 6.283, uit = 0.08 + Math.random() * 0.3, h = 0.52 + Math.random() * 0.48;
+    stuk(bak, blad, kies(["#c8792b", "#d98a2f", "#b5641f", "#e0a03a", "#9a5a22"]), M(V(Math.cos(hoek) * uit, h, Math.sin(hoek) * uit), [Math.random() * 3, Math.random() * 3, 0], [1 + Math.random(), 0.5, 1 + Math.random()]));
+  }
   return plak(bak);
 }
 
@@ -533,9 +558,13 @@ export function bouwWereld(d, scene) {
   for (const h of d.heggen) {
     if (h.r && h.r.length > 2) {
       const vorm = new THREE.Shape(h.r.map(([x, z]) => new THREE.Vector2(x, -z)));
-      const g = new THREE.ExtrudeGeometry(vorm, { depth: h.h, bevelEnabled: false });
+      // een smalle strook (tussen fietspad en parkeervakken) is lage beplanting onder de bomen, geen heg
+      let opp = 0, omtrek = 0;
+      for (let i = 0; i < h.r.length - 1; i++) { opp += h.r[i][0] * h.r[i + 1][1] - h.r[i + 1][0] * h.r[i][1]; omtrek += Math.hypot(h.r[i + 1][0] - h.r[i][0], h.r[i + 1][1] - h.r[i][1]); }
+      const smal = Math.abs(opp) / Math.max(1, omtrek) < 1.8;
+      const g = new THREE.ExtrudeGeometry(vorm, { depth: smal ? 0.28 : h.h, bevelEnabled: false });
       g.rotateX(-Math.PI / 2);
-      stuk(hegBak, g, kies(["#3c5a2c", "#456631", "#36522a"]));
+      stuk(hegBak, g, smal ? (d.seizoen === "winter" ? kies(["#5c5a30", "#665c2e", "#55552f"]) : "#4a6a30") : kies(["#3c5a2c", "#456631", "#36522a"]));
     } else if (h.l) for (let i = 0; i < h.l.length - 1; i++) {
       const [a, b] = [h.l[i], h.l[i + 1]];
       buis(hegBak, V(a[0], 0.6, a[1]), V(b[0], 0.6, b[1]), 0.45, "#3f5e2e", 0, 4);

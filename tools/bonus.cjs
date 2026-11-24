@@ -39,7 +39,7 @@ const TYPE = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/jav
     });
     await page.waitForTimeout(3000);
     if (i === 0) await page.screenshot({ path: `${UIT}/3-kijker.png` });
-    await page.waitForFunction(() => !document.querySelector("#vuur").classList.contains("laadt") && !document.body.classList.contains("film"), null, { timeout: 120000 });
+    await page.waitForFunction(() => window.__spel.herlaad <= 0 && !document.body.classList.contains("film"), null, { timeout: 120000 });
     await page.evaluate(() => window.__spel.schiet());
     await page.waitForTimeout(2500);
     console.log(i, r, await page.evaluate(() => JSON.stringify({ geraakt: window.__spel.spel.geraakt, fouten: window.__spel.spel.fouten, tijd: Math.round(window.__spel.spel.tijd), fatbikes: window.__spel.reizigers.filter((r) => r.fat).length, laatste: window.__spel.spel.laatste })));

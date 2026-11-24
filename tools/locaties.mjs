@@ -10,7 +10,7 @@ export const GEDEELD = {
     "1916100000099002": "zeilschip", // 't Zeilschip
     "1916100000115288": "zeilschip",
   },
-  // Rond de Van Steelaan: lichte portiekflats met witte balkons in plaats van bruin met wit
+  // Rond de Van Steelaan: portiekflats van donkerbruine baksteen met witte erkers en balkons (naar een foto vanuit het raam)
   stijlGebieden: [{ midden: [84298, 454812], straal: 140, van: "bruinwit", naar: "portiek" }],
   // Haagbogen over het middenpad van de parkeerplaats op het Julianaplein; niet op het pad vlak voor flat Pleinzicht
   bogen: { bij: [84420, 454690], straal: 45, nietBij: [84415.9, 454737.4], nietStraal: 32 },
