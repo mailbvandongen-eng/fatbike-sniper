@@ -32,5 +32,21 @@ export async function laadWapens() {
     model[id] = uit;
   }));
 }
+/** De dingen die je gooit: op ware grootte, midden op de oorsprong. hoog = lengte in meters. */
+const WERP = { granaat: 0.12, cobra: 0.2 };
+const werp = {};
+export async function laadWerp() {
+  const L = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder), v = window.VERSIE ?? "";
+  await Promise.all(Object.entries(WERP).map(async ([id, hoog]) => {
+    const g = (await L.loadAsync(`assets/wapens/${id}.glb?v=${v}`)).scene;
+    const weg = []; g.traverse((o) => { if (o.isMesh) { if (/Icosphere/.test(o.name)) weg.push(o); else o.castShadow = true; } }); for (const o of weg) o.removeFromParent(); // los bolletje dat niet bij het model hoort
+    g.updateMatrixWorld(true);
+    let b = new THREE.Box3().setFromObject(g); const m = b.getSize(new THREE.Vector3()), s = hoog / Math.max(m.x, m.y, m.z);
+    g.scale.multiplyScalar(s); g.updateMatrixWorld(true); b = new THREE.Box3().setFromObject(g); g.position.sub(b.getCenter(new THREE.Vector3()));
+    const uit = new THREE.Group(); uit.add(g); werp[id] = uit;
+  }));
+}
+/** Een exemplaar van een granaat of cobra (of null als het model er niet is). */
+export function maakWerp(id) { return werp[id]?.clone() ?? null; }
 /** Een exemplaar van een wapen: +z = de loop, de oorsprong = je hand; userData.loop = afstand tot de monding. */
 export function maakWapen(id) { const m = model[id].clone(); m.userData.loop = model[id].userData.loop; m.visible = false; return m; }

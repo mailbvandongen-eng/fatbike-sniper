@@ -3,7 +3,7 @@ const { chromium } = require("/root/tools/pw/node_modules/playwright-core");
 const fs = require("fs"), path = require("path");
 const ROOT = path.resolve(__dirname, "..");
 const UIT = process.argv[2] ?? "/tmp/fbs/kooi";
-const T = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json", ".glb": "model/gltf-binary", ".mp3": "audio/mpeg" };
+const T = { ".jpg": "image/jpeg", ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json", ".glb": "model/gltf-binary", ".mp3": "audio/mpeg" };
 (async () => {
   fs.mkdirSync(UIT, { recursive: true });
   const b = await chromium.launch({ executablePath: "/usr/bin/chromium", args: ["--no-sandbox", "--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--autoplay-policy=no-user-gesture-required"] });

@@ -2,9 +2,9 @@
 import * as THREE from "three";
 import { CAMERA, CAMERA_BOTSING, CAMERA_STAND, KIJKEN, SCHOT } from "./config.js";
 import { laadKarate, TECHNIEK, STOTEN, TRAPPEN } from "./karate.js";
-import { bouwWereld, zetFietsenInRekken, bevries, laadSpeeltoestel } from "./wereld.js";
+import { bouwWereld, zetFietsenInRekken, bevries, laadSpeeltoestel, laadNatuur } from "./wereld.js";
 import { Graaf, Voetganger, Fietser, Auto, Boodschapper, Staander, werp, schrikVan } from "./verkeer.js";
-import { WAPENKAST, laadWapens, maakWapen } from "./wapens.js";
+import { WAPENKAST, laadWapens, maakWapen, laadWerp, maakWerp } from "./wapens.js";
 import { Muziek } from "./muziek.js";
 import { kies, tussen, maakGeweer, maakPistool, maakMes, maakKnuppel, MAT, laadFietsen } from "./figuren.js";
 import { laadMensen, maakMens } from "./mensen.js";
@@ -154,7 +154,7 @@ async function laad() {
       }
     }
   }
-  await Promise.all([laadMensen((v) => $("#laden").style.setProperty("--v", v)), laadFietsen(), laadWapens(), laadAutos((data.vasteAutos ?? []).map((a) => a[4])), data.speeltuinen?.length ? laadSpeeltoestel() : null]);
+  await Promise.all([laadMensen((v) => $("#laden").style.setProperty("--v", v)), laadFietsen(), laadWapens(), laadWerp(), laadNatuur().catch(() => {}), laadAutos((data.vasteAutos ?? []).map((a) => a[4])), data.speeltuinen?.length ? laadSpeeltoestel() : null]);
   if (data.karate) await laadKarate();
   wereld = bouwWereld(data, scene);
   graaf = new Graaf(data.graaf);
@@ -170,6 +170,7 @@ async function laad() {
   geweer = maakGeweer();
   scene.add(geweer); // los in de wereld: elk beeld tegen de schouder gelegd, in de kijkrichting
   for (const id of ZWAAR) scene.add((kast.mesh[id] = maakWapen(id)));
+  for (const id of GOOI) { const m = maakWerp(id); if (m) { m.visible = false; scene.add((kast.mesh[id] = m)); } } // in je hand, voor je gooit
   pistool = maakPistool(); mes = maakMes(); knuppel = maakKnuppel(); pistool.visible = mes.visible = knuppel.visible = false; scene.add(knuppel);
   scene.add(pistool, mes);
   zetWapen("pistool");
@@ -401,9 +402,8 @@ function gooi(soort = "vuurwerk") {
 }
 function lanceer(van, naar, soort = "vuurwerk") {
   const T = 0.55 + van.distanceTo(naar) * 0.035;
-  const m = soort === "granaat" ? new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 8), new THREE.MeshStandardMaterial({ color: "#3c4a2c", roughness: 0.7 }))
-    : new THREE.Mesh(new THREE.CylinderGeometry(soort === "cobra" ? 0.035 : 0.03, soort === "cobra" ? 0.035 : 0.03, soort === "cobra" ? 0.17 : 0.1, 8), new THREE.MeshStandardMaterial({ color: soort === "cobra" ? "#d8d2c4" : "#c0261d", emissive: "#ff7a1a", emissiveIntensity: soort === "cobra" ? 0.25 : 0.5 }));
-  if (soort === "granaat") m.scale.y = 1.25;
+  // een echte granaat of cobra; het kleine vuurwerk is een rood kokertje
+  const m = maakWerp(soort) ?? new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.1, 8), new THREE.MeshStandardMaterial({ color: "#c0261d", emissive: "#ff7a1a", emissiveIntensity: 0.5 }));
   m.position.copy(van); scene.add(m);
   vuurwerk.push({ m, soort, v: new THREE.Vector3((naar.x - van.x) / T, (0.04 - van.y) / T + 4.9 * T, (naar.z - van.z) / T), knetter: -1, tik: 0 });
   geluid.zwiep(0.5);
@@ -1996,7 +1996,7 @@ function lus() {
     schutter.object.position.copy(a.localToWorld(new THREE.Vector3(sx, sy - schutter.zithoogte(), -sz)));
     schutter.object.rotation.set(0, rij.richting, 0);
     schutter.object.visible = true; geweer.visible = pistool.visible = mes.visible = knuppel.visible = false; $("#slot").hidden = true;
-    for (const id of ZWAAR) kast.mesh[id].visible = false;
+    for (const m of Object.values(kast.mesh)) m.visible = false;
     const cy = Math.sin(kijk.yaw), cz = Math.cos(kijk.yaw), cp = Math.cos(kijk.pitch);
     loop.camDoel.lerp(new THREE.Vector3(a.position.x, 1.5, a.position.z), 1 - Math.exp(-echt * 12));
     const terug = new THREE.Vector3(-cy * cp, -Math.sin(kijk.pitch), -cz * cp);
@@ -2026,9 +2026,9 @@ function lus() {
     schutter.object.visible = true;
     // het geweer blijft bij het raam; in je hand heb je het pistool of het mes (of niets: vuisten)
     geweer.visible = false;
-    const ding = L.neer > 0 || L.boeien > 0 ? null : L.wapen === "pistool" ? pistool : L.wapen === "mes" ? mes : L.wapen === "knuppel" ? knuppel : zwaar ? kast.mesh[L.wapen] : null;
+    const ding = L.neer > 0 || L.boeien > 0 ? null : L.wapen === "pistool" ? pistool : L.wapen === "mes" ? mes : L.wapen === "knuppel" ? knuppel : zwaar || GOOI.has(L.wapen) ? kast.mesh[L.wapen] ?? null : null;
     pistool.visible = ding === pistool; mes.visible = ding === mes; knuppel.visible = ding === knuppel;
-    for (const id of ZWAAR) kast.mesh[id].visible = ding === kast.mesh[id];
+    for (const m of Object.values(kast.mesh)) m.visible = ding === m && !(GOOI.has(L.wapen) && L.slag > 0); // tijdens de worp is je hand leeg
     schutter.los("DEF-spine002"); schutter.los("DEF-shoulderR");
     if (L.boeien > 0 && L.boeien < 3.1) {
       // handen op de rug, de boeien om je polsen
@@ -2142,7 +2142,7 @@ function lus() {
     schutter.object.visible = !scoop;
     const rw = ZWAAR.has(kast.keuze) && !loop.raamVuurwerk ? kast.mesh[kast.keuze] : null;
     geweer.visible = !scoop && !rw;
-    for (const id of ZWAAR) kast.mesh[id].visible = !scoop && kast.mesh[id] === rw;
+    for (const m of Object.values(kast.mesh)) m.visible = !scoop && m === rw;
     if (rw) { rw.position.copy(geweer.localToWorld(new THREE.Vector3(0, -0.02, 0.22))); rw.quaternion.copy(geweer.quaternion); }
     pistool.visible = mes.visible = knuppel.visible = false;
     $("#slot").hidden = true;

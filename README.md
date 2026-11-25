@@ -110,6 +110,13 @@ Bij het raam opent de wapenknop een **kast** (`openKast`, `src/wapens.js`): gewe
 
 Geen piepjes en geen kruizen meer bij een treffer of een fout (`geluid.goed`/`fout` en `melding` doen niets meer). Schiet je op of vlak naast een omstander, dan springt hij op of valt om en rent weg (`schrikVan` in `src/verkeer.js`); het telt nog steeds als fout. Een fatbike die omligt met een hele accu blijft een doelwit (`soort: "wrak"` in `stil`): raak je hem, of ontploft er iets naast, dan knalt de accu alsnog (`wrakOntploft`) en vliegen de berijders die er nog bij zijn door de lucht.
 
+## Grond en bomen
+
+- **Grond:** foto's van echte grond van Poly Haven (CC0) geven de structuur: gras, klinkers, stoeptegels en asfalt (`assets/grond/*.jpg`, 512 px). De getekende kaart bepaalt nog steeds de kleur en de soort; de shader in `steenPatroon` (`src/wereld.js`) vermenigvuldigt die met de foto. Zonder de texturen valt het spel terug op het getekende patroon.
+- **Bomen:** binnen 110 m (hoogstens 170 stuks) staan echte modellen (`plantBomen`): "Leaf Tree" en "Dead Tree" van wersaus33 (Sketchfab, CC BY 4.0). In de winter is de helft kaal en heeft de rest oranjebruin blad. Verder weg staan de eenvoudige bomen.
+- **Cobra's en handgranaten** zijn modellen (`laadWerp`/`maakWerp` in `src/wapens.js`): F1-granaat van TastyTony en een staaf met lont van bumstrum (CC BY 4.0). Je ziet ze in je hand en in de lucht.
+- Opnieuw bouwen: `tools/natuur/bouw.sh` en `tools/wapens/bouw.sh`.
+
 ## Opties
 
 Op het beginscherm staat een knop Opties (`OPTIES` en `opties` in `src/main.js`, bewaard in `localStorage` onder `fbs-opties`): handhaving aan/uit, tijdslimiet aan/uit (standaard zoals het level bedoeld is: alleen het bonuslevel heeft een klok; aan = 45 s plus 10 s per fatbike), fatbikes normaal/veel/heel veel (×1, ×1,8, ×3; hoogstens 16 tegelijk), onbeperkt kogels, mikhulp op straat, geluid, fatbikes markeren, en het volume van de muziek en van de achtergrond (uit, zacht, gewoon, hard). Het nootje rechtsboven in beeld opent tijdens het spelen alleen de drie geluidsregels. De muziek is een gespannen 16-bit-deuntje (`src/muziek.js`, stijl `sluip`; de kooi gebruikt stijl `kooi`) dat alleen tijdens een ronde speelt. Testen: `node tools/opties.cjs`.

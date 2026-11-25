@@ -436,26 +436,41 @@ function maakSteenKaart() {
 }
 function steenPatroon(mat) {
   steenKaart ??= maakSteenKaart();
+  const G = natuur.grond;
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.steenKaart = { value: steenKaart };
+    if (G) for (const [n, t] of Object.entries(G)) sh.uniforms[`t_${n}`] = { value: t };
     sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nvarying vec2 vGrondXZ;")
       .replace("#include <begin_vertex>", "#include <begin_vertex>\nvGrondXZ = (modelMatrix * vec4(transformed, 1.0)).xz;");
-    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nuniform sampler2D steenKaart;\nvarying vec2 vGrondXZ;")
-      .replace("#include <map_fragment>", `#include <map_fragment>
-      {
+    const soort = `
         vec3 g0 = diffuseColor.rgb; float mx = max(g0.r, max(g0.g, g0.b)); float lum = dot(g0, vec3(0.3, 0.59, 0.11));
         float gras = step(g0.b * 1.25, g0.g) * step(g0.r * 0.86, g0.g);
         float asfalt = 1.0 - smoothstep(0.085, 0.105, mx);
         float rood = smoothstep(0.52, 0.62, (g0.r - g0.g) / max(g0.r, 0.001));
+        float vlek = texture2D(steenKaart, vGrondXZ / 11.0).b;`;
+    // met foto's van echte grond: gras, klinkers, stoeptegels en asfalt. De foto geeft de structuur, onze kaart de kleur.
+    const echt = `#include <map_fragment>
+      {${soort}
+        vec3 tG = texture2D(t_gras, vGrondXZ / 2.0).rgb * texture2D(t_gras, vGrondXZ / 9.7).rgb * 4.0;
+        vec3 tA = texture2D(t_asfalt, vGrondXZ / 3.0).rgb * texture2D(t_asfalt, vGrondXZ / 13.0).rgb * 4.0;
+        vec3 tK = texture2D(t_klinker, vGrondXZ / 2.0).rgb * 2.0;
+        vec3 tT = texture2D(t_tegel, vGrondXZ / 1.85).rgb * 2.0;
+        vec3 det = mix(tK, tT, smoothstep(0.3, 0.4, lum));
+        det = mix(det, tA, max(asfalt, rood));
+        det = mix(det, tG, gras);
+        diffuseColor.rgb *= det * (0.88 + 0.24 * vlek);
+      }`;
+    const getekend = `#include <map_fragment>
+      {${soort}
         float steen = texture2D(steenKaart, vGrondXZ / 0.84).r;
         float tegel = texture2D(steenKaart, vGrondXZ / 0.9).g;
-        float vlek = texture2D(steenKaart, vGrondXZ / 11.0).b;
         float d = mix(steen, tegel, smoothstep(0.3, 0.4, lum));
         float s = (1.0 - gras) * (1.0 - asfalt) * (1.0 - rood);
-        // asfalt en fietspad: geen stenen, wel korrel
         float korrel = texture2D(steenKaart, vGrondXZ / 0.37).b;
         diffuseColor.rgb *= mix(1.0, d * 2.0, s) * (0.84 + 0.32 * vlek) * mix(1.0, 0.86 + 0.28 * korrel, max(asfalt, rood) * (1.0 - gras));
-      }`);
+      }`;
+    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nuniform sampler2D steenKaart;\n" + (G ? "uniform sampler2D t_gras, t_klinker, t_tegel, t_asfalt;\n" : "") + "varying vec2 vGrondXZ;")
+      .replace("#include <map_fragment>", G ? echt : getekend);
   };
   return mat;
 }
@@ -494,6 +509,37 @@ function bladPatroon(mat) {
       }`);
   };
   return mat;
+}
+
+// ---------- echte bomen (Sketchfab, CC BY 4.0) en grondtexturen (Poly Haven, CC0); zie tools/natuur ----------
+const natuur = { boom: null, kaal: null, grond: null };
+export async function laadNatuur() {
+  const [{ GLTFLoader }, { MeshoptDecoder }] = await Promise.all([import("../lib/three-addons.js"), import("../lib/meshopt_decoder.mjs")]);
+  const L = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder), v = window.VERSIE ?? "", T = new THREE.TextureLoader();
+  const boom = async (n) => {
+    const g = (await L.loadAsync(`assets/natuur/${n}.glb?v=${v}`)).scene; g.updateMatrixWorld(true);
+    let mesh = null; g.traverse((o) => { if (o.isMesh && !mesh) mesh = o; });
+    const b = new THREE.Box3().setFromObject(mesh), mat = mesh.material;
+    Object.assign(mat, { transparent: false, alphaTest: 0.5, depthWrite: true, side: THREE.DoubleSide, metalness: 0, roughness: 1 });
+    // schaduw met de vorm van het blad (niet van de vierkante vlakjes)
+    const diepte = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: mat.map, alphaTest: 0.5 });
+    natuur[n] = { geo: mesh.geometry, mat, diepte, m: mesh.matrixWorld.clone(), licht: n === "boom" ? 2.4 : 1.5, hoog: b.max.y - b.min.y, voet: b.min.y, mx: (b.min.x + b.max.x) / 2, mz: (b.min.z + b.max.z) / 2 };
+  };
+  const tex = (n) => new Promise((ok) => T.load(`assets/grond/${n}.jpg?v=${v}`, (t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.NoColorSpace; t.anisotropy = 4; ok(t); }, undefined, () => ok(null)));
+  const [, , gras, klinker, tegel, asfalt] = await Promise.all([boom("boom"), boom("kaal"), tex("gras"), tex("klinker"), tex("tegel"), tex("asfalt")]);
+  if (gras && klinker && tegel && asfalt) natuur.grond = { gras, klinker, tegel, asfalt };
+}
+/** Zet bomen neer als kopieën van één model. lijst = [x, z, hoogte, kleur?]. */
+function plantBomen(scene, model, lijst, breed = 1) {
+  if (!lijst.length) return;
+  const im = new THREE.InstancedMesh(model.geo, model.mat, lijst.length), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), kl = new THREE.Color();
+  lijst.forEach(([x, z, h, kleur], i) => {
+    const s = h / model.hoog; q.setFromEuler(new THREE.Euler(0, (x * 12.9898 + z * 78.233) % 6.283, 0));
+    m4.compose(V(x, 0, z), q, V(s * breed, s, s * breed)).multiply(new THREE.Matrix4().makeTranslation(-model.mx, -model.voet, -model.mz)).multiply(model.m);
+    im.setMatrixAt(i, m4); im.setColorAt(i, kl.set(kleur ?? "#ffffff").multiplyScalar(model.licht ?? 1));
+  });
+  im.castShadow = true; im.customDepthMaterial = model.diepte; im.frustumCulled = false;
+  scene.add(im);
 }
 
 // ---------- speeltoestel (Sketchfab, CC BY 4.0; zie tools/speel) ----------
@@ -561,7 +607,20 @@ export function bouwWereld(d, scene) {
   // bomen pal voor je raam laten we weg: anders kijk je tegen blad aan in plaats van op het plein (VRIJ_ZICHT in config.js)
   const ramen = (d.standplaatsen ?? []).filter((st) => st.soort !== "grond");
   const inZicht = (b) => ramen.some((st) => { const dx = b[0] - st.pos[0], dz = b[1] - st.pos[2], l = Math.hypot(dx, dz) || 1; return l < VRIJ_ZICHT.afstand && (dx * st.normaal[0] + dz * st.normaal[1]) / l > VRIJ_ZICHT.hoek; });
-  const bomen = d.bomen.filter((b) => Math.hypot(b[0], b[1]) < 300 && !inZicht(b));
+  let bomen = d.bomen.filter((b) => Math.hypot(b[0], b[1]) < 300 && !inZicht(b));
+  const alleBomen = bomen;
+  // dichtbij: echte boommodellen (hoogstens 170); verder weg de eenvoudige
+  const echt = natuur.boom ? alleBomen.map((b) => [b, Math.hypot(b[0], b[1])]).filter(([, a]) => a < 110).sort((p, q) => p[1] - q[1]).slice(0, 170).map(([b]) => b) : [];
+  if (echt.length) {
+    const set = new Set(echt), rnd = (b, k) => { const v = Math.sin(b[0] * 127.1 + b[1] * 311.7 + k * 74.7) * 43758.5453; return v - Math.floor(v); };
+    const H = (b) => Math.max(6, Math.min(b[2], 14)) * (0.9 + rnd(b, 1) * 0.3);
+    if (d.seizoen === "winter") {
+      // late herfst: de helft is kaal, de rest heeft nog bruin en oranje blad
+      plantBomen(scene, natuur.kaal, echt.filter((b) => rnd(b, 2) < 0.5).map((b) => [b[0], b[1], H(b) * 0.9]), 1.1);
+      plantBomen(scene, natuur.boom, echt.filter((b) => rnd(b, 2) >= 0.5).map((b) => [b[0], b[1], H(b), ["#d98a3a", "#c9742c", "#b5642a", "#e0a04a"][(rnd(b, 3) * 4) | 0]]));
+    } else plantBomen(scene, natuur.boom, echt.map((b) => [b[0], b[1], H(b), ["#ffffff", "#e9f2d8", "#d6e6c4", "#f3f0d0"][(rnd(b, 3) * 4) | 0]]));
+    bomen = alleBomen.filter((b) => !set.has(b));
+  }
   if (d.seizoen === "winter") {
     // kale bomen: één geometrie, per boom geschaald en gedraaid
     const kaal = new THREE.InstancedMesh(kaleBoom(), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 }), bomen.length);
@@ -573,7 +632,7 @@ export function bouwWereld(d, scene) {
     });
     kaal.castShadow = true;
     scene.add(kaal);
-    wereld.bomen = bomen;
+    wereld.bomen = alleBomen;
   } else {
   const stam = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.12, 0.2, 1, 6).translate(0, 0.5, 0), new THREE.MeshStandardMaterial({ color: "#4e3d2e", roughness: 1 }), bomen.length);
   const kruinGeo = new THREE.IcosahedronGeometry(1, 1);
@@ -595,7 +654,7 @@ export function bouwWereld(d, scene) {
   q.identity();
   stam.castShadow = kruin.castShadow = true;
   scene.add(stam, kruin);
-  wereld.bomen = bomen;
+  wereld.bomen = alleBomen;
   }
 
   // heggen en perken
