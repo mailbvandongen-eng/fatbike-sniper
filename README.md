@@ -110,6 +110,16 @@ Bij het raam opent de wapenknop een **kast** (`openKast`, `src/wapens.js`): gewe
 
 Geen piepjes en geen kruizen meer bij een treffer of een fout (`geluid.goed`/`fout` en `melding` doen niets meer). Schiet je op of vlak naast een omstander, dan springt hij op of valt om en rent weg (`schrikVan` in `src/verkeer.js`); het telt nog steeds als fout. Een fatbike die omligt met een hele accu blijft een doelwit (`soort: "wrak"` in `stil`): raak je hem, of ontploft er iets naast, dan knalt de accu alsnog (`wrakOntploft`) en vliegen de berijders die er nog bij zijn door de lucht.
 
+## Alle wapens zijn modellen
+
+Geweer (Savage Axis II), pistool (HK UCP), machinegeweer en bazooka zijn van TastyTony, de vlammenwerper van bumstrum, de knuppel van Planetrix23 en het mes van San.Dro (Sketchfab, CC BY 4.0; `tools/wapens/bouw.sh`). De raket is de kop van het bazookamodel (`maakRaket`). Bij het laden (`src/wapens.js`) worden modellen met een skelet omgezet naar vaste vormen (`maakVast`) en gedraaid tot de loop naar +z wijst met de greep op de oorsprong.
+
+**Vasthouden:** lange wapens worden aangelegd met `legAan` (`src/main.js`): de kolf vóór de rechterschouder, de bazooka óp de schouder, rechterhand aan de greep en linkerhand onder de voorkant (arm-IK). De maten per wapen staan in `HOUVAST`; daar stel je bij als iets door het lijf steekt. `/tmp/fbs/k/vast.cjs` (niet in de repo) maakte de controlebeelden van elk wapen van opzij en van voren.
+
+## Verkeer botst niet meer
+
+Rijdende auto's sturen om geparkeerde auto's heen (`uitwijk` in `Auto.stap`, via `graaf.autosBij`), worden er nooit meer in getekend (neus, midden en achterkant worden uit elke geparkeerde auto geduwd in `Reiziger.glad`), geven voorrang aan kruisend verkeer van rechts (met geduld: na 4 s rijden ze toch) en schuiven uit elkaar als ze toch in elkaar staan. Gemeten over twee minuten op het Julianaplein: 6% van de tijd in een geparkeerde auto → 0%.
+
 ## Grond en bomen
 
 - **Grond:** foto's van echte grond van Poly Haven (CC0) geven de structuur: gras, klinkers, stoeptegels en asfalt (`assets/grond/*.jpg`, 512 px). De getekende kaart bepaalt nog steeds de kleur en de soort; de shader in `steenPatroon` (`src/wereld.js`) vermenigvuldigt die met de foto. Zonder de texturen valt het spel terug op het getekende patroon.

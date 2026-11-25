@@ -128,7 +128,14 @@ class Reiziger {
       if (sl > max) this.pos.set(ox + (sx / sl) * max, 0, oz + (sz / sl) * max);
     }
     // om geparkeerde auto's heen (ook met de winkelwagen die je voor je uit duwt)
-    if (this.bit !== AUTO && this.g.uitAuto) {
+    if (this.bit === AUTO && this.g.uitAuto) {
+      // een rijdende auto komt nooit in een geparkeerde auto terecht: hij wordt er langs de kortste weg naast gezet
+      // (neus, midden en achterkant; de kortste weg naar buiten, in één keer)
+      for (let keer = 0; keer < 2; keer++) for (const k of [1.4, 0, -1.4]) {
+        const u = this.g.uitAuto(this.pos.x + Math.sin(this.richting) * k, this.pos.z + Math.cos(this.richting) * k, 0.75, 0.75);
+        if (u) { this.pos.x += u[0]; this.pos.z += u[1]; }
+      }
+    } else if (this.g.uitAuto) {
       const u = this.g.uitAuto(this.pos.x, this.pos.z, 0.32) ?? (this.kar ? this.g.uitAuto(this.pos.x + Math.sin(this.richting) * 0.85, this.pos.z + Math.cos(this.richting) * 0.85, 0.3) : null);
       if (u) { this.pos.x += u[0]; this.pos.z += u[1]; }
     }
@@ -643,16 +650,35 @@ export class Auto extends Reiziger {
       const voor = dx * fx + dz * fz, zij = Math.abs(dx * fz - dz * fx);
       if (voor > 0 && voor < 7 && zij < 1.6) rem = Math.min(rem, (voor - 2.6) / 4.4);
     }
-    // een auto die jij op de weg hebt laten staan: langzaam eromheen
+    // geparkeerde auto's (en een auto die jij ergens hebt laten staan) die in de weg staan: langzaam eromheen sturen
     let uit = 0;
-    for (const o of spel.verlaten ?? []) {
+    const gezien = new Set();
+    for (const o of [...(spel.verlaten ?? []), ...(this.g.autosBij?.(this.pos.x + fx * 4, this.pos.z + fz * 4) ?? []), ...(this.g.autosBij?.(this.pos.x + fx * 9, this.pos.z + fz * 9) ?? [])]) {
+      if (gezien.has(o)) continue; gezien.add(o);
       const dx = o.position.x - this.pos.x, dz = o.position.z - this.pos.z, voor = dx * fx + dz * fz, links = dx * fz - dz * fx;
-      if (voor < -4 || voor > 12 || Math.abs(links) > 3.4) continue;
+      if (voor < -3 || voor > 12 || Math.abs(links) > 3.2) continue;
       const pl = links - (this.uitwijk ?? 0); // waar hij staat ten opzichte van de gewone rijlijn (links = +)
-      uit = pl >= -0.4 ? Math.max(0, 2.5 - pl) : Math.min(0, -2.5 - pl);
-      rem = Math.min(rem, 0.5);
+      const nodig = pl >= 0 ? Math.max(0, 2.3 - pl) : Math.min(0, -2.3 - pl);
+      if (Math.abs(nodig) > Math.abs(uit)) uit = nodig;
     }
+    uit = THREE.MathUtils.clamp(uit, -2.6, 2.6);
+    if (Math.abs(uit) > 0.3) rem = Math.min(rem, 0.55);
     this.uitwijk = (this.uitwijk ?? 0) + (uit - (this.uitwijk ?? 0)) * Math.min(1, dt * 1.6);
+    // twee auto's die toch in elkaar staan (net verschenen op dezelfde plek, of klem geraakt): rustig uit elkaar
+    for (const a of spel.reizigers) {
+      if (a === this || !a.wordBoos) continue;
+      const dx = this.pos.x - a.pos.x, dz = this.pos.z - a.pos.z, d = Math.hypot(dx, dz);
+      if (d < 2.2) { const st = 1.5 * dt, l = d || 1; this.pos.x += (d ? dx / l : fz) * st; this.pos.z += (d ? dz / l : -fx) * st; }
+    }
+    // kruisend verkeer: wie van rechts komt gaat voor. Sta je te lang stil, dan rijd je toch (anders wacht iedereen op iedereen).
+    this.geduld = (this.geduld ?? 0) - dt;
+    if (this.geduld <= 0) for (const a of spel.reizigers) {
+      if (a === this || !a.wordBoos) continue;
+      const dx = a.pos.x - this.pos.x, dz = a.pos.z - this.pos.z, d = Math.hypot(dx, dz);
+      if (d > 7.5) continue;
+      const voor = dx * fx + dz * fz, links = dx * fz - dz * fx, kruist = Math.abs(Math.sin(a.richting - this.richting)) > 0.5;
+      if (voor > 0.5 && kruist && links < 0.5) { rem = Math.min(rem, (d - 4.6) / 3); this.wachtT = (this.wachtT ?? 0) + dt; if (this.wachtT > 4) { this.wachtT = 0; this.geduld = 3; } }
+    }
     const sp = spel.speler; // waar je loopt (null als je bij je raam staat)
     if (this.boos > 0 && sp) {
       // kwaad (je schoot op hem of sloeg tegen de auto): recht op je af, zonder te remmen
