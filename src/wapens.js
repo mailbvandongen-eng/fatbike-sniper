@@ -11,6 +11,9 @@ export const WAPENKAST = {
   geweer: { naam: "Geweer" },
   mg: { naam: "Machinegeweer", as: "x", lengte: 1.2, greep: 0.3, munitie: 90, tussen: 0.085, spreiding: 0.012 },
   bazooka: { naam: "Bazooka", as: "x", lengte: 1.3, greep: 0.45, munitie: 5, tussen: 1.4, snelheid: 45, straal: 6.5 },
+  // gooien (geen model in je hand): na de lont een ontploffing. alleen = in welke levels het in de kast ligt
+  cobra: { naam: "Cobra's", gooi: true, munitie: 6, straal: 3.5, lont: 1.1, alleen: "karate" },
+  granaat: { naam: "Handgranaten", gooi: true, munitie: 4, straal: 5.5, lont: 1.4, alleen: "gewoon" },
   vlam: { naam: "Vlammenwerper", as: "z", lengte: 1.1, greep: 0.28, munitie: 14, bereik: 11, hoek: 0.32 }, // munitie = seconden vuur
 };
 const model = {};

@@ -325,7 +325,7 @@ const loop = { aan: false, pos: new THREE.Vector3(), richting: 0, snelheid: 0, s
 const WAPENS = ["pistool", "vuist", "mes", "knuppel"];
 // de wapenkast: wat je bij het raam gekozen hebt (en mee naar buiten neemt), en hoeveel munitie er nog in zit
 const kast = { keuze: "geweer", munitie: {}, mesh: {} };
-const ZWAAR = new Set(["mg", "bazooka", "vlam"]);
+const ZWAAR = new Set(["mg", "bazooka", "vlam"]), GOOI = new Set(["cobra", "granaat"]);
 let vuurVast = false; // houd je de vuurknop ingedrukt (machinegeweer, vlammenwerper)
 /** Het wapen waar de vuurknop nu op werkt. */
 const huidigWapen = () => (loop.aan ? loop.wapen : loop.raamVuurwerk ? "vuurwerk" : kast.keuze);
@@ -370,12 +370,13 @@ function zoekDoel() {
   return null;
 }
 /** Wat je bij je hebt: gewoon pistool, vuisten en mes; in karatepak je vuisten en voeten, of een honkbalknuppel. */
-const wapens = () => [...(karateka && loop.aan ? ["vuist", "knuppel", "vuurwerk"] : WAPENS), ...(ZWAAR.has(kast.keuze) ? [kast.keuze] : [])];
+const wapens = () => [...(karateka && loop.aan ? ["vuist", "knuppel", "vuurwerk"] : WAPENS), ...(ZWAAR.has(kast.keuze) || GOOI.has(kast.keuze) ? [kast.keuze] : [])];
 // Klein vuurwerk (categorie 1: knetteren en vonken, geen schade): je gooit het voor de voeten van de hangjeugd.
 const vuurwerk = [];
-function gooi() {
-  const L = loop;
+function gooi(soort = "vuurwerk") {
+  const L = loop, knal = GOOI.has(soort);
   if (!L.aan || L.slag > 0 || L.neer > 0 || L.wankel > 0 || L.boeien > 0) return;
+  if (knal) { if (!(kast.munitie[soort] > 0)) return; kast.munitie[soort]--; tekenHud(); }
   // naar het groepje waar je naar kijkt (anders een meter of acht voor je uit)
   const kx = Math.sin(kijk.yaw), kz = Math.cos(kijk.yaw);
   let doel = null, best = 0.75;
@@ -386,29 +387,36 @@ function gooi() {
     const c = (dx * kx + dz * kz) / d + (r.hang ? 0.08 : 0);
     if (c > best) { best = c; doel = r.pos; }
   }
-  const naar = doel ? new THREE.Vector3(doel.x - kx * 1.2, 0, doel.z - kz * 1.2) : new THREE.Vector3(L.pos.x + kx * 8, 0, L.pos.z + kz * 8);
+  let naar = doel ? new THREE.Vector3(doel.x - kx * 1.2, 0, doel.z - kz * 1.2) : new THREE.Vector3(L.pos.x + kx * 8, 0, L.pos.z + kz * 8);
+  if (knal) { // waar het kruisje op staat, tussen 6 en 28 m (niet voor je eigen voeten)
+    const p = richtPunt(), dx = p.x - L.pos.x, dz = p.z - L.pos.z, d = Math.hypot(dx, dz) || 1, r = THREE.MathUtils.clamp(d, 6, 28);
+    naar = new THREE.Vector3(L.pos.x + (dx / d) * r, 0, L.pos.z + (dz / d) * r);
+  }
   L.richting = Math.atan2(naar.x - L.pos.x, naar.z - L.pos.z);
   Object.assign(L, { slag: 0.95, slagRaakOp: -1, slagRaak: true, slagSoort: "vuurwerk", slagStraks: null, comboT: 0 });
   schutter.zet("gooien", 1.4, 0);
   geluid.sis();
   // het ding verlaat je hand halverwege de worp
-  setTimeout(() => { if (loop.aan) lanceer(schutter.plek("DEF-handR").clone(), naar); }, 330);
+  setTimeout(() => { if (loop.aan) lanceer(schutter.plek("DEF-handR").clone(), naar, soort); }, 330);
 }
-function lanceer(van, naar) {
+function lanceer(van, naar, soort = "vuurwerk") {
   const T = 0.55 + van.distanceTo(naar) * 0.035;
-  const m = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.1, 8), new THREE.MeshStandardMaterial({ color: "#c0261d", emissive: "#ff7a1a", emissiveIntensity: 0.5 }));
+  const m = soort === "granaat" ? new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 8), new THREE.MeshStandardMaterial({ color: "#3c4a2c", roughness: 0.7 }))
+    : new THREE.Mesh(new THREE.CylinderGeometry(soort === "cobra" ? 0.035 : 0.03, soort === "cobra" ? 0.035 : 0.03, soort === "cobra" ? 0.17 : 0.1, 8), new THREE.MeshStandardMaterial({ color: soort === "cobra" ? "#d8d2c4" : "#c0261d", emissive: "#ff7a1a", emissiveIntensity: soort === "cobra" ? 0.25 : 0.5 }));
+  if (soort === "granaat") m.scale.y = 1.25;
   m.position.copy(van); scene.add(m);
-  vuurwerk.push({ m, v: new THREE.Vector3((naar.x - van.x) / T, (0.04 - van.y) / T + 4.9 * T, (naar.z - van.z) / T), knetter: -1, tik: 0 });
+  vuurwerk.push({ m, soort, v: new THREE.Vector3((naar.x - van.x) / T, (0.04 - van.y) / T + 4.9 * T, (naar.z - van.z) / T), knetter: -1, tik: 0 });
   geluid.zwiep(0.5);
 }
 /** Uit het raam: naar de plek waar het kruisje op staat (hoogstens 45 m ver). */
-function gooiRaam() {
+function gooiRaam(soort = "vuurwerk") {
   if (!spel.bezig || herlaad > 0 || filmCam || wisselt()) return;
+  if (GOOI.has(soort)) { if (!(kast.munitie[soort] > 0)) return; kast.munitie[soort]--; tekenHud(); }
   herlaad = 0.9;
   const p = richtPunt(), dx = p.x - oog.x, dz = p.z - oog.z, d = Math.hypot(dx, dz) || 1, r = Math.min(d, 45);
   const fx = Math.sin(kijk.yaw), fz = Math.cos(kijk.yaw);
   geluid.sis();
-  lanceer(new THREE.Vector3(oog.x + fx * 0.5, oog.y - 0.1, oog.z + fz * 0.5), new THREE.Vector3(oog.x + (dx / d) * r, 0, oog.z + (dz / d) * r));
+  lanceer(new THREE.Vector3(oog.x + fx * 0.5, oog.y - 0.1, oog.z + fz * 0.5), new THREE.Vector3(oog.x + (dx / d) * r, 0, oog.z + (dz / d) * r), soort);
 }
 /** Bij het raam (in het level met vuurwerk): wisselen tussen het geweer en vuurwerk. */
 function toonWapen(w) { for (const el of document.querySelectorAll("#wapen svg")) el.style.display = el.dataset.w === w ? "" : "none"; }
@@ -418,7 +426,11 @@ function stapVuurwerk(dt) {
       // door de lucht, met een vonkenspoor
       w.v.y -= 9.8 * dt; w.m.position.addScaledVector(w.v, dt); w.m.rotation.x += dt * 9; w.m.rotation.z += dt * 6;
       if (Math.random() < dt * 25) fx.vonken(w.m.position);
-      if (w.m.position.y <= 0.05) {
+      if (w.m.position.y <= 0.05 && GOOI.has(w.soort)) {
+        // een cobra of handgranaat: blijft liggen, de lont sist, en dan de knal
+        w.m.position.y = 0.05; w.knetter = WAPENKAST[w.soort].lont; w.lont = true; geluid.sis();
+        for (const r of reizigers) if (Math.hypot(r.pos.x - w.m.position.x, r.pos.z - w.m.position.z) < 6) r.schrikken?.(); // wie het ziet liggen, rent
+      } else if (w.m.position.y <= 0.05) {
         w.m.position.y = 0.05; w.knetter = 2.2; w.m.rotation.set(Math.PI / 2, 0, 0);
         // iedereen in de buurt schrikt en maakt dat hij wegkomt; wie met je vocht houdt ermee op
         const p = w.m.position;
@@ -430,6 +442,9 @@ function stapVuurwerk(dt) {
         }
         straat.strafbaar(0.25);
       }
+    } else if (w.lont) {
+      w.knetter -= dt; if (Math.random() < dt * 20) fx.vonken(w.m.position);
+      if (w.knetter <= 0) { scene.remove(w.m); vuurwerk.splice(vuurwerk.indexOf(w), 1); ontplof(w.m.position.clone().setY(0.3), WAPENKAST[w.soort].straal, w.soort === "cobra"); }
     } else {
       // knetteren op de grond
       w.knetter -= dt; w.tik -= dt;
@@ -448,6 +463,7 @@ function actie() {
   if (hw === "mg") return vuurMg();
   if (hw === "bazooka") return vuurRaket();
   if (hw === "vlam") return; // vasthouden: zie de hoofdlus
+  if (GOOI.has(hw)) return loop.aan ? gooi(hw) : gooiRaam(hw);
   if (!loop.aan || loop.wapen === "pistool") return schiet();
   if (loop.wapen === "vuurwerk") return gooi();
   sla(loop.wapen);
@@ -1102,7 +1118,7 @@ function begin() {
   if (loop.aan) { loop.aan = false; document.body.classList.remove("loopt"); zetStand(standNr); } // elke ronde begint bij je raam
   straat?.reset();
   const ri = (spel.ri = rondeInstellingen(spel.ronde));
-  for (const id of ZWAAR) kast.munitie[id] = WAPENKAST[id].munitie; // elke ronde een volle kast
+  for (const [id, w] of Object.entries(WAPENKAST)) if (w.munitie) kast.munitie[id] = w.munitie; // elke ronde een volle kast
   Object.assign(spel, { bezig: true, kogels: ri.kogels, fouten: 0, geraakt: 0, gespawnd: 0, rondeScore: 0, schoten: 0, tijd: ri.tijd });
   for (const r of reizigers.filter((r) => r.fat)) weg(r);
   for (let i = 0; i < ri.tegelijk; i++) nieuweFatbike(i === 0);
@@ -1205,7 +1221,7 @@ function tekenHud() {
   const over = spel.ri.fatbikes - spel.geraakt;
   $("#doelen").innerHTML = `<i class="fb"></i><span>${over}</span>`;
   const hw = huidigWapen();
-  $("#kogels").innerHTML = `<i class="kogel"></i>${ZWAAR.has(hw) ? Math.ceil(kast.munitie[hw] ?? 0) : isFinite(spel.kogels) ? spel.kogels : "∞"}`;
+  $("#kogels").innerHTML = `<i class="kogel"></i>${ZWAAR.has(hw) || GOOI.has(hw) ? Math.ceil(kast.munitie[hw] ?? 0) : isFinite(spel.kogels) ? spel.kogels : "∞"}`;
   const tk = Math.max(0, Math.ceil(spel.tijd ?? 0));
   $("#klok").hidden = !spel.ri.tijd; $("#klok").textContent = `${Math.floor(tk / 60)}:${String(tk % 60).padStart(2, "0")}`; $("#klok").classList.toggle("krap", tk <= 15);
   $("#fouten").innerHTML = Array.from({ length: spel.ri.fouten + 1 }, (_, i) => `<i class="${i < spel.fouten ? "x aan" : "x"}">✕</i>`).join("");
@@ -1255,13 +1271,13 @@ function schiet() {
 // ---------- de wapenkast ----------
 function openKast() {
   const el = $("#kast"), lijst = $("#kastLijst"); lijst.textContent = "";
-  const keuzes = [...Object.keys(WAPENKAST), ...(karateka ? ["vuurwerk"] : [])];
+  const keuzes = [...Object.keys(WAPENKAST).filter((id) => !WAPENKAST[id].alleen || WAPENKAST[id].alleen === (karateka ? "karate" : "gewoon")), ...(karateka ? ["vuurwerk"] : [])];
   for (const id of keuzes) {
     const k = document.createElement("button"), nu = loop.raamVuurwerk ? "vuurwerk" : kast.keuze;
     k.className = id === nu ? "aan" : ""; k.textContent = WAPENKAST[id]?.naam ?? "Vuurwerk";
     k.addEventListener("click", () => {
       loop.raamVuurwerk = id === "vuurwerk"; if (id !== "vuurwerk") kast.keuze = id;
-      toonWapen(id === "geweer" ? "pistool" : id); if (ZWAAR.has(id)) zetZoom(1);
+      toonWapen(id === "geweer" ? "pistool" : id); if (ZWAAR.has(id) || GOOI.has(id)) zetZoom(1);
       el.hidden = true; geluid.slot(); tekenHud();
     });
     lijst.append(k);
@@ -1305,9 +1321,10 @@ function vuurRaket() {
   tekenHud();
 }
 /** Een ontploffing: fatbikes binnen bereik gaan eraan, auto's slaan alarm, mensen vliegen door de lucht en hinken daarna weg. */
-function ontplof(p) {
-  const R = WAPENKAST.bazooka.straal;
-  fx.ontploffing(p); geluid.boem(Math.min(1.6, afstandVol(p) * 2.2));
+function ontplof(p, R = WAPENKAST.bazooka.straal, cobra = false) {
+  // een cobra is vooral een enorme knal met een flits; een granaat of raket geeft ook een vuurbal
+  if (cobra) { geluid.knal(Math.min(1.6, afstandVol(p) * 3)); fx.klap(p); } else fx.ontploffing(p);
+  geluid.boem(Math.min(1.6, afstandVol(p) * (cobra ? 1.6 : 2.2)));
   for (let i = 0; i < 14; i++) fx.vonken(p.clone().add(new THREE.Vector3((Math.random() - 0.5) * 3, Math.random() * 1.5, (Math.random() - 0.5) * 3)));
   terugslag = Math.max(terugslag, 1.2 * afstandVol(p) * 3);
   $("#hud").classList.remove("schud"); void $("#hud").offsetWidth; $("#hud").classList.add("schud");

@@ -102,6 +102,7 @@ Bij het raam opent de wapenknop een **kast** (`openKast`, `src/wapens.js`): gewe
 - **Machinegeweer:** vuurknop vasthouden, 90 kogels. De kogels gelden als die van het geweer: een mens raken is een fout.
 - **Bazooka:** 5 raketten. De ontploffing (`ontplof`) blaast fatbikes binnen 6,5 m op, laat auto's alarm slaan en gooit mensen door de lucht.
 - **Vlammenwerper:** vasthouden, 14 seconden vuur, 11 m ver. Fatbikes in de vlam vliegen in brand; mensen rennen weg (niemand brandt).
+- **Cobra's** (alleen Zoetermeer, 6 stuks) en **handgranaten** (de andere levels, 4 stuks): je gooit ze naar waar het kruisje staat (6 tot 28 m; uit het raam tot 45 m). Ze blijven liggen, de lont sist (wie het ziet rent weg) en dan volgt de knal: een cobra heeft een straal van 3,5 m, een granaat 5,5 m. Verder hetzelfde als de bazooka.
 - **Honkbalknuppel** (nu op elk level in de rij): wie voor je staat vliegt door de lucht, ligt even, staat op en hinkt weg (`werp` en `stapWorp` in `src/verkeer.js`). Dat geldt ook voor de ontploffing. Niemand raakt gewond of gaat dood; het telt wel als strafbaar.
 - Testen: `node tools/kast.cjs`.
 
