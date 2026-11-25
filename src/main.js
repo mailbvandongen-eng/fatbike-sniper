@@ -5,6 +5,7 @@ import { laadKarate, TECHNIEK, STOTEN, TRAPPEN } from "./karate.js";
 import { bouwWereld, zetFietsenInRekken, bevries, laadSpeeltoestel } from "./wereld.js";
 import { Graaf, Voetganger, Fietser, Auto, Boodschapper, Staander, werp } from "./verkeer.js";
 import { WAPENKAST, laadWapens, maakWapen } from "./wapens.js";
+import { Muziek } from "./muziek.js";
 import { kies, tussen, maakGeweer, maakPistool, maakMes, maakKnuppel, MAT, laadFietsen } from "./figuren.js";
 import { laadMensen, maakMens } from "./mensen.js";
 import { laadAutos, maakAuto } from "./autos.js";
@@ -25,9 +26,21 @@ const OPTIES = [
   ["kogels", "Onbeperkt kogels", ["uit", "aan"]],
   ["mikhulp", "Mikhulp op straat", ["uit", "aan"]],
   ["geluid", "Geluid", ["uit", "aan"]],
+  ["muziek", "Muziek", ["uit", "zacht", "gewoon", "hard"]],
+  ["sfeer", "Achtergrond", ["uit", "zacht", "gewoon", "hard"]],
   ["markeer", "Fatbikes markeren", ["uit", "aan"]],
 ];
-const opties = { handhaving: 1, tijd: null, fatbikes: 0, kogels: 0, mikhulp: 1, geluid: 1, markeer: 0 };
+const opties = { handhaving: 1, tijd: null, fatbikes: 0, kogels: 0, mikhulp: 1, geluid: 1, markeer: 0, muziek: 2, sfeer: 2 };
+const GELUIDKEUZES = new Set(["geluid", "muziek", "sfeer"]); // wat je ook tijdens het spelen kunt bijstellen (het nootje in beeld)
+let muziek = null, alleenGeluid = false;
+/** Zet het volume zoals in de opties gekozen. */
+function pasGeluidAan() {
+  if (!geluid.ctx) return;
+  geluid.uit.gain.value = opties.geluid ? 0.9 : 0;
+  geluid.zetSfeer([0, 0.45, 1, 1.9][opties.sfeer] ?? 1);
+  muziek ??= new Muziek(geluid.ctx, geluid.uit, "sluip");
+  muziek.volume(spel.bezig ? [0, 0.14, 0.3, 0.55][opties.muziek] ?? 0.3 : 0);
+}
 const merken = [];
 try { Object.assign(opties, JSON.parse(localStorage.getItem("fbs-opties") ?? "{}")); } catch {}
 localStorage.setItem("fbs-level", LOCATIE);
@@ -1057,6 +1070,18 @@ function rondeInstellingen(r) {
   const f = (data?.fatDruk ?? 1) * meer, n = Math.round((6 + r * 2) * f); // bij het speeltuintje is het een komen en gaan van fatbikes
   return { fatbikes: n, kogels: opties.kogels ? Infinity : n + 6, tegelijk: Math.min(16, Math.round(Math.min(3 + r, 8) * f)), fouten: 2, tijd: opties.tijd === 1 ? 45 + n * 10 : undefined };
 }
+/** De opties: elke regel is een knop die naar de volgende keuze springt. Tijdens het spelen alleen de geluidsregels. */
+function tekenOpties() {
+  const lijst = $("#optieLijst"), bonus = data?.modus === "bonus"; lijst.textContent = "";
+  for (const [sleutel, naam, keuzes] of OPTIES) {
+    if (alleenGeluid && !GELUIDKEUZES.has(sleutel)) continue;
+    const nu = sleutel === "tijd" && opties.tijd === null ? (bonus ? 1 : 0) : opties[sleutel];
+    const kn = document.createElement("button");
+    kn.innerHTML = `<span>${naam}</span><b class="${keuzes[nu] === "uit" ? "uit" : ""}">${keuzes[nu]}</b>`;
+    kn.addEventListener("click", () => { opties[sleutel] = (nu + 1) % keuzes.length; localStorage.setItem("fbs-opties", JSON.stringify(opties)); pasGeluidAan(); if (spel.bezig) tekenOpties(); else toonStart(); });
+    lijst.append(kn);
+  }
+}
 function toonStart() {
   const best = +(localStorage.getItem("fbs-best") ?? 0);
   const ri = rondeInstellingen(spel.ronde);
@@ -1066,21 +1091,12 @@ function toonStart() {
   const mmss = (t) => `${Math.floor(t / 60)}:${String(Math.round(t) % 60).padStart(2, "0")}`;
   $("#startDoel").textContent = bonus ? (isFinite(ri.tijd) ? `Zoveel mogelijk fatbikes in ${Math.round(ri.tijd / 60)} minuten` : "Zoveel mogelijk fatbikes · geen klok")
     : `${ri.fatbikes} fatbikes · ${isFinite(ri.kogels) ? ri.kogels : "∞"} kogels · ${ri.tijd ? mmss(ri.tijd) : "geen haast"}`;
-  // de opties: elke regel is een knop die naar de volgende keuze springt
-  const lijst = $("#optieLijst"); lijst.textContent = "";
-  for (const [sleutel, naam, keuzes] of OPTIES) {
-    const nu = sleutel === "tijd" && opties.tijd === null ? (bonus ? 1 : 0) : opties[sleutel];
-    const kn = document.createElement("button");
-    kn.innerHTML = `<span>${naam}</span><b class="${keuzes[nu] === "uit" ? "uit" : ""}">${keuzes[nu]}</b>`;
-    kn.addEventListener("click", () => { opties[sleutel] = (nu + 1) % keuzes.length; localStorage.setItem("fbs-opties", JSON.stringify(opties)); toonStart(); });
-    lijst.append(kn);
-  }
+  tekenOpties();
   $("#startBest").textContent = bonus ? (bestBonus ? `Record: ${bestBonus} fatbikes` : "") : best ? `Beste score: ${best}` : "";
   for (const b of document.querySelectorAll("#levels button")) b.classList.toggle("aan", b.dataset.level === LOCATIE);
 }
 function begin() {
   geluid.start();
-  if (geluid.uit) geluid.uit.gain.value = opties.geluid ? 0.9 : 0;
   $("#opties").hidden = true;
   stapUitGedwongen();
   if (loop.aan) { loop.aan = false; document.body.classList.remove("loopt"); zetStand(standNr); } // elke ronde begint bij je raam
@@ -1092,6 +1108,7 @@ function begin() {
   for (let i = 0; i < ri.tegelijk; i++) nieuweFatbike(i === 0);
   $("#start").hidden = $("#einde").hidden = true;
   $("#hud").hidden = false;
+  pasGeluidAan();
   tekenHud();
 }
 // boodschappers: uit een geparkeerde auto naar een winkel en terug
@@ -1139,6 +1156,7 @@ function nieuweFatbike(stil = false) {
   spel.gespawnd++;
 }
 function eindeBonus() {
+  muziek?.volume(0);
   spel.bezig = false;
   const oud = +(localStorage.getItem("fbs-best-bonus") ?? 0), record = spel.geraakt > oud;
   if (record) localStorage.setItem("fbs-best-bonus", spel.geraakt);
@@ -1150,6 +1168,7 @@ function eindeBonus() {
   setTimeout(() => { $("#einde").hidden = false; $("#hud").hidden = true; zetZoom(1); }, 900);
 }
 function eindeRonde(gewonnen, reden) {
+  muziek?.volume(0);
   spel.bezig = false;
   const ri = spel.ri;
   let bonus = 0;
@@ -1673,7 +1692,8 @@ knop("#richt", () => ((karateka && loop.aan) ? sla("trap") : zetMikken(!loop.mik
 addEventListener("keydown", (e) => { if (!e.repeat && loop.aan && (karateka && loop.aan)) { if (e.code === "KeyJ") sla("vuist"); if (e.code === "KeyK") sla("trap"); } });
 knop("#sprint", () => { loop.sprint = !loop.sprint; });
 // in de auto: gaspedaal en rem (ingedrukt houden), en de claxon
-$("#optieKnop").addEventListener("click", () => { $("#opties").hidden = !$("#opties").hidden; });
+$("#optieKnop").addEventListener("click", () => { alleenGeluid = false; tekenOpties(); $("#opties").hidden = !$("#opties").hidden; });
+knop("#geluidKnop", () => { geluid.start(); alleenGeluid = true; tekenOpties(); $("#opties").hidden = false; });
 $("#optieDicht").addEventListener("click", () => { $("#opties").hidden = true; });
 knop("#gas", () => { rij.gas = true; }, () => { rij.gas = false; });
 knop("#rem", () => { rij.rem = true; }, () => { rij.rem = false; });
@@ -2118,4 +2138,4 @@ function lus() {
 }
 zetZoom(1);
 laad().then(() => requestAnimationFrame(lus)).catch((e) => { $("#laden").textContent = "Laden mislukt: " + e.message; console.error(e); });
-window.__spel = { kast, openKast, ontplof, vuurMg, vuurRaket, vuurVlam, kogels, get schutter() { return schutter; }, vuurwerk, stapVuurwerk, karate: () => Object.keys(TECHNIEK), spel, reizigers, stil, uitAuto, verlaten, get herlaad() { return herlaad; }, kijk, camera, oog, loop, rij, stapIn, stapUit, stapLopen, get straat() { return straat; }, get graaf() { return graaf; }, zetLopen, sla, actie, zetWapen, klapKrijgen, vallers, schiet, begin, zetZoom, draai, scene, renderer, stand: () => standen[standNr]?.naam };
+window.__spel = { get muziek() { return muziek; }, geluid, opties, kast, openKast, ontplof, vuurMg, vuurRaket, vuurVlam, kogels, get schutter() { return schutter; }, vuurwerk, stapVuurwerk, karate: () => Object.keys(TECHNIEK), spel, reizigers, stil, uitAuto, verlaten, get herlaad() { return herlaad; }, kijk, camera, oog, loop, rij, stapIn, stapUit, stapLopen, get straat() { return straat; }, get graaf() { return graaf; }, zetLopen, sla, actie, zetWapen, klapKrijgen, vallers, schiet, begin, zetZoom, draai, scene, renderer, stand: () => standen[standNr]?.naam };

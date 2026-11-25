@@ -107,7 +107,7 @@ Bij het raam opent de wapenknop een **kast** (`openKast`, `src/wapens.js`): gewe
 
 ## Opties
 
-Op het beginscherm staat een knop Opties (`OPTIES` en `opties` in `src/main.js`, bewaard in `localStorage` onder `fbs-opties`): handhaving aan/uit, tijdslimiet aan/uit (standaard zoals het level bedoeld is: alleen het bonuslevel heeft een klok; aan = 45 s plus 10 s per fatbike), fatbikes normaal/veel/heel veel (×1, ×1,8, ×3; hoogstens 16 tegelijk), onbeperkt kogels, mikhulp op straat, geluid. Testen: `node tools/opties.cjs`.
+Op het beginscherm staat een knop Opties (`OPTIES` en `opties` in `src/main.js`, bewaard in `localStorage` onder `fbs-opties`): handhaving aan/uit, tijdslimiet aan/uit (standaard zoals het level bedoeld is: alleen het bonuslevel heeft een klok; aan = 45 s plus 10 s per fatbike), fatbikes normaal/veel/heel veel (×1, ×1,8, ×3; hoogstens 16 tegelijk), onbeperkt kogels, mikhulp op straat, geluid, fatbikes markeren, en het volume van de muziek en van de achtergrond (uit, zacht, gewoon, hard). Het nootje rechtsboven in beeld opent tijdens het spelen alleen de drie geluidsregels. De muziek is een gespannen 16-bit-deuntje (`src/muziek.js`, stijl `sluip`; de kooi gebruikt stijl `kooi`) dat alleen tijdens een ronde speelt. Testen: `node tools/opties.cjs`.
 
 ## Auto's
 

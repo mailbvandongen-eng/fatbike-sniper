@@ -278,7 +278,10 @@ function beginRonde(eerste) {
 function beginGevecht() {
   geluid.start();
   if (!muziek && geluid.ctx) muziek = new Muziek(geluid.ctx, geluid.uit);
-  muziek?.start(0.42);
+  // dezelfde volumes als in de opties van het spel
+  let o = {}; try { o = JSON.parse(localStorage.getItem("fbs-opties") ?? "{}"); } catch {}
+  geluid.uit.gain.value = o.geluid === 0 ? 0 : 0.9; geluid.zetSfeer([0, 0.45, 1, 1.9][o.sfeer ?? 2]);
+  muziek?.volume([0, 0.2, 0.42, 0.7][o.muziek ?? 2]);
   geluid.drukte(1.5);
   for (const v of [A, B]) if (v) scene.remove(v.m.object);
   const mijn = VECHTERS[spel.keuze], zijn = spel.tegen != null ? VECHTERS[spel.tegen] : VECHTERS.filter((v) => v !== mijn)[(Math.random() * (VECHTERS.length - 1)) | 0];

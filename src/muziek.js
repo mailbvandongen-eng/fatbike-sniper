@@ -7,12 +7,13 @@ const BAS = [45, 41, 43, 40];
 const MELODIE = [76, 0, 72, 0, 69, 72, 76, 0, 77, 0, 72, 0, 69, 0, 72, 77, 79, 0, 74, 0, 71, 74, 79, 0, 76, 0, 71, 0, 67, 71, 76, 0,
   76, 0, 72, 0, 69, 72, 81, 0, 77, 0, 81, 0, 77, 0, 72, 0, 79, 0, 83, 0, 79, 74, 71, 0, 76, 79, 76, 71, 67, 0, 64, 0];
 export class Muziek {
-  /** @param {AudioContext} ctx @param {AudioNode} uit */
-  constructor(ctx, uit) {
+  /** @param {AudioContext} ctx @param {AudioNode} uit @param {"kooi"|"sluip"} stijl kooi = opzwepend; sluip = gespannen, voor het loeren en sluipen */
+  constructor(ctx, uit, stijl = "kooi") {
+    this.stijl = stijl;
     this.ctx = ctx; this.gain = ctx.createGain(); this.gain.gain.value = 0; this.gain.connect(uit);
     const n = ctx.sampleRate * 0.5; this.ruis = ctx.createBuffer(1, n, ctx.sampleRate);
     const d = this.ruis.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
-    this.bpm = 148; this.stap = 0; this.volgende = 0; this.timer = null;
+    this.bpm = stijl === "sluip" ? 104 : 148; this.stap = 0; this.volgende = 0; this.timer = null;
   }
   start(volume = 0.5) {
     if (this.timer) return;
@@ -20,6 +21,8 @@ export class Muziek {
     this.timer = setInterval(() => { while (this.volgende < this.ctx.currentTime + 0.25) { this.speelStap(this.stap, this.volgende); this.volgende += 60 / this.bpm / 4; this.stap = (this.stap + 1) % 64; } }, 60);
   }
   stop() { clearInterval(this.timer); this.timer = null; this.gain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.2); }
+  /** Harder of zachter (0 = stil; de muziek loopt dan niet door). */
+  volume(v) { if (v > 0) this.start(v); else this.stop(); if (v > 0) this.gain.gain.setTargetAtTime(v, this.ctx.currentTime, 0.2); }
   /** Spanning: bij weinig tijd of weinig leven gaat het tempo omhoog. */
   tempo(bpm) { this.bpm = bpm; }
   toon(freq, t, duur, type, sterkte) {
@@ -34,6 +37,17 @@ export class Muziek {
   }
   speelStap(i, t) {
     const maat = (i >> 4) % 4, s = i % 16, st = 60 / this.bpm / 4;
+    if (this.stijl === "sluip") {
+      // gespannen: een sluipende bas, een tikkende puls en af en toe een hoge, kale toon; weinig drums
+      if (s === 0 || s === 3 || s === 6 || s === 10) this.toon(NOOT(BAS[maat] + (s === 10 ? 7 : 0)), t, st * 2.2, "triangle", 0.3);
+      if (s % 2 === 0) this.toon(NOOT(AKKOORD[maat][(s >> 1) % 3] + 12), t, st * 0.5, "square", 0.028);
+      if (s === 8 && maat % 2 === 0) this.toon(NOOT(MELODIE[(maat * 16) % 64] + 0), t, st * 6, "square", 0.04);
+      if (s === 14 && maat === 3) this.toon(NOOT(88), t, st * 2, "square", 0.03);
+      if (s === 0) { const o = this.ctx.createOscillator(), g = this.ctx.createGain(); o.frequency.setValueAtTime(110, t); o.frequency.exponentialRampToValueAtTime(40, t + 0.14); g.gain.setValueAtTime(0.5, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.2); o.connect(g); g.connect(this.gain); o.start(t); o.stop(t + 0.22); }
+      if (s === 4 || s === 12) this.tik(t, 0.04, 6000, 0.07);
+      if (s === 8) this.tik(t, 0.1, 1200, 0.13, "bandpass");
+      return;
+    }
     // bas: achtsten, met een octaafsprong
     if (s % 2 === 0) this.toon(NOOT(BAS[maat] + (s % 8 === 6 ? 12 : 0)), t, st * 1.7, "triangle", 0.34);
     // arpeggio: zestienden door het akkoord, zacht

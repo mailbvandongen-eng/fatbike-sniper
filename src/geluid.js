@@ -22,7 +22,7 @@ export class Geluid {
   async laadOpnames() {
     const ctx = this.ctx, v = window.VERSIE ?? "";
     this.opname = {};
-    this.sfeer = ctx.createGain(); this.sfeer.gain.value = 1; this.sfeer.connect(this.uit);
+    this.sfeer = ctx.createGain(); this.sfeer.gain.value = this.sfeerVolume ?? 1; this.sfeer.connect(this.uit);
     await Promise.all(["straat", "mensen", "auto1", "auto2", "meeuw"].map(async (n) => {
       try {
         const data = await (await fetch(`assets/geluid/${n}.mp3?v=${v}`)).arrayBuffer();
@@ -38,6 +38,8 @@ export class Geluid {
     };
     this.straatLaag = this.binnen ? null : laag("straat", 0.55); this.mensenLaag = laag("mensen", 0); // binnen (de kooi) geen vogels en verkeer
   }
+  /** Hoe hard de achtergrond klinkt (vogels, verkeer, geroezemoes): 0 = uit, 1 = gewoon. */
+  zetSfeer(v) { this.sfeerVolume = v; this.sfeer?.gain.setTargetAtTime(v, this.t, 0.2); }
   /** Speel een opname één keer af. */
   speel(n, sterkte = 1, tempo = 1) {
     if (!this.ctx || !this.opname?.[n]) return;
