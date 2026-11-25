@@ -143,10 +143,13 @@ Op het beginscherm kies je wie je speelt (`SPELERS` en `kiesSpeler` in `src/main
   - **Bevriezen** (`src/magie.js`): wie bij het kruisje staat wordt een standbeeld van ijs. Loop ertegenaan en het valt stijf om, breekt in stukken (hoofd, armen, benen), ontdooit, klikt weer in elkaar, staat op en rent weg. Laat je het staan, dan ontdooit het na 9 s. Een fatbike glijdt onderuit.
   - **Zweven:** alles binnen 4,5 m van het kruisje stijgt op, hangt drie tellen hulpeloos in de lucht en valt. Fatbikes vallen kapot.
 - Testen: `node tools/heks.cjs`.
+- **Jongetje** (model `jongen`: kinderverhoudingen via `kind` in `tools/mensen/mens.py`, 74% groot, blond met een kuifje): hij heeft alleen zijn telefoon. Een vizier ligt plat op de grond waar je naar kijkt (tot 45 m, `vizierPunt`/`tekenVizier`) en draait mee. De wapenknop wisselt tussen drie apps (`tikTelefoon`): **Gat** (de grond gaat open, mensen in het vizier vallen erin, klimmen er na 4 s uit en rennen weg; van een fatbike vliegt de accu in brand en de berijders springen eraf), **Bellen** (iedereen binnen 8 m wordt gebeld en blijft 9 s staan; fatbikes stoppen) en **Sproeier** (een fontein: mensen rennen weg, een fatbike glijdt onderuit). Niemand slaat hem, er komt geen handhaving op hem af en hij rijdt geen auto. Testen: `node tools/kind.cjs`.
 
 ## Opties
 
 Op het beginscherm staat een knop Opties (`OPTIES` en `opties` in `src/main.js`, bewaard in `localStorage` onder `fbs-opties`): handhaving aan/uit, tijdslimiet aan/uit (standaard zoals het level bedoeld is: alleen het bonuslevel heeft een klok; aan = 45 s plus 10 s per fatbike), fatbikes normaal/veel/heel veel (×1, ×1,8, ×3; hoogstens 16 tegelijk), onbeperkt kogels, mikhulp op straat, geluid, fatbikes markeren, en het volume van de muziek en van de achtergrond (uit, zacht, gewoon, hard). Het nootje rechtsboven in beeld opent tijdens het spelen alleen de drie geluidsregels. De muziek is een gespannen 16-bit-deuntje (`src/muziek.js`, stijl `sluip`; de kooi gebruikt stijl `kooi`) dat alleen tijdens een ronde speelt. Testen: `node tools/opties.cjs`.
+
+- **Hoekerkade** (`hoekerkade`, Zoetermeer): rijtjeshuizen uit 1985 met pannendaken rond een parkeerhofje; grond, tuinen en bomen uit de BGT. Je hangt uit het slaapkamerraam. Hangjeugd op het hofje en langs de straat (`hangRond`), veel fatbikes. Voor de deur staat een zilvergrijze RAV4 met zwart dak (`rav4duo`: hetzelfde model, het plaatwerk boven 80% van de hoogte zwart via een kleur per punt in `src/autos.js`); die is van jou, dus instappen zonder ruit in te slaan. Schuurtjes en garages krijgen de stijl `schuur` (geen etalages meer), en tuinen zijn aan de straatkant open.
 
 ## Auto's
 

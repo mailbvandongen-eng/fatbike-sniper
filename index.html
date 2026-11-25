@@ -235,6 +235,9 @@ body.gepakt #wissel{opacity:1}body.gepakt #wissel svg{opacity:.9}
     <svg data-w="vuurbal" viewBox="0 0 24 24" fill="currentColor" style="display:none"><circle cx="15" cy="13" r="6"/><path d="M2 5l7 5M1 11l6 2M4 19l5-3" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
     <svg data-w="bevries" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="display:none"><path d="M12 2v20M3.300 7l17.400 10M20.700 7L3.300 17M12 6l-2.500-2.500M12 6l2.500-2.500M12 18l-2.500 2.500M12 18l2.500 2.500"/></svg>
     <svg data-w="zweef" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><circle cx="12" cy="6" r="2.200" fill="currentColor"/><path d="M12 9v6M8 11l4-1 4 1M10 20l2-5 2 5M5 22h14" /><path d="M4 8v-4M2.500 5.500L4 4l1.500 1.500M20 8v-4M18.500 5.500L20 4l1.500 1.500"/></svg>
+    <svg data-w="gat" viewBox="0 0 24 24" fill="currentColor" style="display:none"><ellipse cx="12" cy="16" rx="9" ry="4"/><path d="M12 3v7M9 7.500l3 3 3-3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <svg data-w="bel" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><rect x="8" y="3" width="8" height="18" rx="2"/><path d="M4 9v6M20 9v6M11 18h2"/></svg>
+    <svg data-w="sproei" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="display:none"><path d="M12 21V9M12 9c-3-4-6-3-8 0M12 9c3-4 6-3 8 0M12 9c-1-4-1-5 0-7M6 21h12"/></svg>
     <svg data-w="mes" viewBox="0 0 24 24" fill="currentColor" style="display:none"><path d="M21 3c-6 1-11 5-13 10l3 3c5-2 9-7 10-13zM7 14l-4 4 3 3 4-4z"/></svg>
   </div>
   <div class="knop" id="richt" aria-label="Richten of trappen"><svg class="trap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4v7l5 3 4 3h5a1.5 1.5 0 000-3h-3l-3-3V4"/><path d="M5 11h9"/></svg><svg class="mik" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg></div>
@@ -257,7 +260,7 @@ body.gepakt #wissel{opacity:1}body.gepakt #wissel svg{opacity:.9}
     </div>
     <div class="knoppen">
       <div id="spelers"></div>
-      <div id="levels"><button data-level="julianaplein">Julianaplein</button><button data-level="steelaan">Bonus: Van Steelaan</button><button data-level="buskenhuet">Busken Huethove</button><button id="kooiKnop">Kooigevecht</button></div>
+      <div id="levels"><button data-level="julianaplein">Julianaplein</button><button data-level="steelaan">Bonus: Van Steelaan</button><button data-level="buskenhuet">Busken Huethove</button><button data-level="hoekerkade">Hoekerkade</button><button id="kooiKnop">Kooigevecht</button></div>
       <button class="groot" id="begin">Begin</button>
       <div><button id="optieKnop">⚙ Opties</button></div>
       <p class="klein" id="startBest"></p>
@@ -285,9 +288,9 @@ body.gepakt #wissel{opacity:1}body.gepakt #wissel svg{opacity:.9}
 </div>
 
 <!-- versie -->
-<script>window.VERSIE = "f42a317b03"; window.VERSIE_DATUM = "25-11, 21:18";</script>
-<script type="importmap">{"imports":{"three":"./lib/three.module.js?v=f42a317b03","./lib/three.module.js":"./lib/three.module.js?v=f42a317b03","./lib/meshopt_decoder.mjs":"./lib/meshopt_decoder.mjs?v=f42a317b03","./lib/three-addons.js":"./lib/three-addons.js?v=f42a317b03","./src/autos.js":"./src/autos.js?v=f42a317b03","./src/config.js":"./src/config.js?v=f42a317b03","./src/effecten.js":"./src/effecten.js?v=f42a317b03","./src/figuren.js":"./src/figuren.js?v=f42a317b03","./src/geluid.js":"./src/geluid.js?v=f42a317b03","./src/karate.js":"./src/karate.js?v=f42a317b03","./src/kooi.js":"./src/kooi.js?v=f42a317b03","./src/magie.js":"./src/magie.js?v=f42a317b03","./src/main.js":"./src/main.js?v=f42a317b03","./src/mensen.js":"./src/mensen.js?v=f42a317b03","./src/muziek.js":"./src/muziek.js?v=f42a317b03","./src/straat.js":"./src/straat.js?v=f42a317b03","./src/verkeer.js":"./src/verkeer.js?v=f42a317b03","./src/wapens.js":"./src/wapens.js?v=f42a317b03","./src/wereld.js":"./src/wereld.js?v=f42a317b03"}}</script>
-<script type="module" src="./src/main.js?v=f42a317b03"></script>
+<script>window.VERSIE = "1f76f0fb7c"; window.VERSIE_DATUM = "25-11, 21:37";</script>
+<script type="importmap">{"imports":{"three":"./lib/three.module.js?v=1f76f0fb7c","./lib/three.module.js":"./lib/three.module.js?v=1f76f0fb7c","./lib/meshopt_decoder.mjs":"./lib/meshopt_decoder.mjs?v=1f76f0fb7c","./lib/three-addons.js":"./lib/three-addons.js?v=1f76f0fb7c","./src/autos.js":"./src/autos.js?v=1f76f0fb7c","./src/config.js":"./src/config.js?v=1f76f0fb7c","./src/effecten.js":"./src/effecten.js?v=1f76f0fb7c","./src/figuren.js":"./src/figuren.js?v=1f76f0fb7c","./src/geluid.js":"./src/geluid.js?v=1f76f0fb7c","./src/karate.js":"./src/karate.js?v=1f76f0fb7c","./src/kooi.js":"./src/kooi.js?v=1f76f0fb7c","./src/magie.js":"./src/magie.js?v=1f76f0fb7c","./src/main.js":"./src/main.js?v=1f76f0fb7c","./src/mensen.js":"./src/mensen.js?v=1f76f0fb7c","./src/muziek.js":"./src/muziek.js?v=1f76f0fb7c","./src/straat.js":"./src/straat.js?v=1f76f0fb7c","./src/verkeer.js":"./src/verkeer.js?v=1f76f0fb7c","./src/wapens.js":"./src/wapens.js?v=1f76f0fb7c","./src/wereld.js":"./src/wereld.js?v=1f76f0fb7c"}}</script>
+<script type="module" src="./src/main.js?v=1f76f0fb7c"></script>
 <!-- /versie -->
 </body>
 </html>

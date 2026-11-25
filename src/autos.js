@@ -20,6 +20,8 @@ const GLAS_DONKER = new THREE.MeshStandardMaterial({ color: "#07090b", transpare
 export async function laadAutos(extra = []) {
   const L = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder), v = window.VERSIE ?? "";
   GLAS_DONKER.envMap = MAT.env ?? null;
+  const duo = extra.filter((n) => n.endsWith("duo")); // tweekleurig: hetzelfde model met een zwart dak
+  extra = extra.map((n) => n.replace(/duo$/, ""));
   await Promise.all([...new Set([...NAMEN, ...extra])].map(async (n) => {
     const [g, meta] = await Promise.all([L.loadAsync(`assets/autos/${n}.glb?v=${v}`), fetch(`assets/autos/${n}.json?v=${v}`).then((r) => r.json())]);
     g.scene.updateMatrixWorld(true);
@@ -49,6 +51,19 @@ export async function laadAutos(extra = []) {
     const [bx, ly, hz] = meta.maat;
     M[n] = { romp, wielen, ver, lak, meta, L: ly, B: bx, H: hz, stoel: meta.stoel ?? [0.36, 0.4, 0] };
   }));
+  for (const n of duo) {
+    // alles van het plaatwerk boven de raamlijn (dak en stijlen) wordt zwart, via een kleur per punt
+    const a = M[n.replace(/duo$/, "")], lak = a.lak.clone(); lak.vertexColors = true;
+    const v = new THREE.Vector3(), grens = a.H * 0.8;
+    const kleur = (d) => {
+      if (d.mat !== a.lak) return d;
+      const geo = d.geo.clone(), P = geo.attributes.position, col = new Float32Array(P.count * 3);
+      for (let i = 0; i < P.count; i++) { v.fromBufferAttribute(P, i).applyMatrix4(d.m); const c = v.y > grens ? 0.035 : 1; col[i * 3] = col[i * 3 + 1] = col[i * 3 + 2] = c; }
+      geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
+      return { ...d, geo, mat: lak };
+    };
+    M[n] = { ...a, lak, romp: a.romp.map(kleur), ver: a.ver.map(kleur) };
+  }
 }
 export const autosGeladen = () => Object.keys(M).length > 0;
 const raakVan = (a) => [{ deel: "auto", min: V(-a.B / 2, 0.15, -a.L / 2), max: V(a.B / 2, a.H, a.L / 2) }];

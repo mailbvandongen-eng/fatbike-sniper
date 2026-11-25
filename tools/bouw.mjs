@@ -66,7 +66,7 @@ const maaivelden = [];
 //   jaren50 roodbruine baksteen · jaren60 gele baksteen · galerij beton met witte schotten (hoogbouw 1960-1980)
 //   kop rode kopgevel van die galerijflats · winkel glazen pui met lichte luifelband · huis rijtjeshuis
 //   modern licht metselwerk (1990-2010) · nieuw donker metselwerk (na 2010)
-const stijlen = ["jaren50", "bruinwit", "portiek", "geel", "creme", "zeilschip", "galerij", "kop", "winkel", "huis", "modern", "nieuw", "jaren70", "jaren70kop"];
+const stijlen = ["jaren50", "bruinwit", "portiek", "geel", "creme", "zeilschip", "galerij", "kop", "winkel", "huis", "modern", "nieuw", "jaren70", "jaren70kop", "schuur"];
 const muren = Object.fromEntries(stijlen.map((s) => [s, { pos: [], uv: [] }]));
 const daken = { plat: { pos: [] }, pannen: { pos: [] } };
 const voetafdrukken = [];
@@ -103,7 +103,9 @@ for (const f of panden) {
     const jaar = +(a.oorspronkelijkbouwjaar ?? og?.t.start_date?.slice(0, 4) ?? 1958);
     let stijl = "jaren50";
     const woonhuis = ["house", "terrace", "residential", "apartments", "detached", "semidetached_house"].includes(og?.t.building);
-    if (["retail", "commercial", "industrial"].includes(og?.t.building) || (!woonhuis && lagen <= 2 && jaar >= 1960 && jaar < 1990 && a.b3_dak_type !== "slanted")) stijl = "winkel";
+    const opp = Math.abs(grond.reduce((s2, q, i) => s2 + q[0] * grond[(i + 1) % grond.length][1] - grond[(i + 1) % grond.length][0] * q[1], 0)) / 2;
+    if (["shed", "garage", "garages", "carport"].includes(og?.t.building) || (L.bgt && opp < 32 && lagen <= 1)) stijl = "schuur"; // schuurtjes en garages: geen etalage
+    else if (["retail", "commercial", "industrial"].includes(og?.t.building) || (!woonhuis && lagen <= 2 && jaar >= 1960 && jaar < 1990 && a.b3_dak_type !== "slanted")) stijl = "winkel";
     else if (woonhuis && jaar >= 1965 && jaar < 1990 && a.b3_dak_type !== "slanted" && lagen <= 4) stijl = "jaren70"; // rijtjeshuizen en lage flats met plat dak
     else if (og?.t.building === "house" || (lagen <= 3 && a.b3_dak_type === "slanted" && jaar >= 1960)) stijl = "huis";
     else if (jaar >= 2010) stijl = "nieuw";
@@ -275,6 +277,8 @@ if (L.bgt && existsSync(`data/ruw/${id}/bgt.json`)) {
   for (const f of bgt.paal) if (/licht/.test(`${f.plus} ${f.soort}`)) { const [x, z] = lokaal(f.g.coordinates[1], f.g.coordinates[0]).map(r1); if (!dingen.some((d) => d[0] === "lamp" && Math.hypot(d[1] - x, d[2] - z) < 3)) dingen.push(["lamp", x, z]); }
   // tuinen: om elk erf een schutting of een heg, behalve waar het tegen een gebouw of een ander erf aan ligt
   const erven = bv.filter((v) => v.s === "b_erf" && Math.hypot(...v.r[0]) < 150);
+  const straten = lijnen.filter((l) => l.s === "weg");
+  const bijStraat = (q) => straten.some((l) => { for (let i = 0; i < l.p.length - 1; i++) { const [a, b] = [l.p[i], l.p[i + 1]], dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz || 1, t = Math.max(0, Math.min(1, ((q[0] - a[0]) * dx + (q[1] - a[1]) * dz) / L2)); if (Math.hypot(q[0] - a[0] - dx * t, q[1] - a[1] - dz * t) < l.b / 2 + 7) return true; } return false; });
   const inGebouw = (p) => voetafdrukken.some((v) => binnen(p, v.ring));
   erven.forEach((e, nr) => {
     const soort = ["hout", "hout", "heg", "hout", "heg"][nr % 5];
@@ -285,6 +289,7 @@ if (L.bgt && existsSync(`data/ruw/${id}/bgt.json`)) {
       // de buitenkant van deze rand
       const buiten = binnen([m[0] + nx * 0.3, m[1] + nz * 0.3], e.r) ? [m[0] - nx * 0.45, m[1] - nz * 0.45] : [m[0] + nx * 0.45, m[1] + nz * 0.45];
       if (inGebouw(buiten) || inGebouw(m) || erven.some((o) => o !== e && binnen(buiten, o.r))) continue;
+      if (bijStraat(m)) continue; // de voorkant aan de straat is open: geen schutting voor de voordeur
       schuttingen.push([a[0], a[1], b[0], b[1], soort]);
     }
   });
@@ -358,6 +363,11 @@ function rijVakken(ring) {
     plekken.push([r1(a[0] + dx * s + (n[0] * diep) / 2), r1(a[1] + dz * s + (n[1] * diep) / 2), r1(haaks ? Math.atan2(n[0], n[1]) : Math.atan2(dx, dz)), haaks ? 1 : 0]);
 }
 for (const v of vlakken) if ((v.s === "vak" || v.s === "strook") && Math.hypot(...v.r[0]) < VER) rijVakken(v.r);
+// parkeervakken uit de BGT, waar OpenStreetMap er geen kent
+for (const v of vlakken) if (v.s === "b_parkeer" && Math.hypot(...v.r[0]) < 200) {
+  const c = v.r.reduce((m, q) => [m[0] + q[0] / v.r.length, m[1] + q[1] / v.r.length], [0, 0]);
+  if (!plekken.some((q) => Math.hypot(q[0] - c[0], q[1] - c[1]) < 9)) rijVakken(v.r);
+}
 const terreinen = vlakken.filter((v) => v.s === "parkeer");
 const gangen = lijnen.filter((l) => l.gang);
 const afstLijn = (p, l) => {
@@ -473,9 +483,10 @@ if (bon) {
 const vasteAutos = [];
 for (const va of GEDEELD.vasteAutos) {
   const [bx, bz] = [va.bij[0] - OX, -(va.bij[1] - OY)];
-  const vrij = plekken.filter((p) => !p.bezet).sort((a, b) => Math.hypot(a[0] - bx, a[1] - bz) - Math.hypot(b[0] - bx, b[1] - bz))[0];
-  if (vrij && Math.hypot(vrij[0] - bx, vrij[1] - bz) > 40) break; // geen plek in de buurt (valt buiten deze kaart)
-  if (!vrij) break;
+  let vrij = plekken.filter((p) => !p.bezet).sort((a, b) => Math.hypot(a[0] - bx, a[1] - bz) - Math.hypot(b[0] - bx, b[1] - bz))[0];
+  // "voor de deur" van dit level: langs de straat, een paar meter voor de gevel van het huis (er is hier geen parkeervak)
+  if (va.deur === id) vrij = [r1(beste.m[0] + beste.nrm[0] * 3.3 + beste.nrm[1] * 3), r1(beste.m[1] + beste.nrm[1] * 3.3 - beste.nrm[0] * 3), r1(Math.atan2(-beste.nrm[1], beste.nrm[0])), 0];
+  if (!vrij || Math.hypot(vrij[0] - bx, vrij[1] - bz) > 40) continue; // geen plek in de buurt (valt buiten deze kaart)
   vrij.bezet = true;
   vasteAutos.push([vrij[0], vrij[1], vrij[2], vrij[3], va.soort, va.kleur]);
   // de plek recht voor een vaste auto blijft leeg, zodat je er zonder steken uit kunt rijden
@@ -490,6 +501,8 @@ for (const va of GEDEELD.vasteAutos) {
 const hangplekken = [];
 for (const w of winkels) if (["Jumbo", "Bon Appetit", "Albert Heijn", "HEMA", "Action"].includes(w[0])) hangplekken.push([r1(w[1] + Math.sin(w[3]) * 3), r1(w[2] + Math.cos(w[3]) * 3)]);
 for (const [s2, x, z] of dingen) if (s2 === "rek" && Math.hypot(x, z) < 70) hangplekken.push([x, z]);
+// en op vaste plekken die de locatie zelf opgeeft (RD)
+for (const [x, y] of L.hangRond ?? []) hangplekken.push([r1(x - OX), r1(-(y - OY))]);
 // en bij een speeltuintje
 const speeltuinen = [];
 for (const v of vlakken) if (v.s.startsWith("speel")) {

@@ -290,6 +290,22 @@
    "haar": "long01",
    "haarTint": "#16121a",
    "ogen": "green"
+  },
+  {
+   "naam": "jongen",
+   "rol": "kind",
+   "kind": true,
+   "geslacht": "male",
+   "afkomst": "caucasian",
+   "oud": 0,
+   "spier": 0,
+   "gewicht": 0,
+   "pak": "male_casualsuit02",
+   "pakTint": "#c9412f",
+   "schoenen": "shoes02",
+   "haar": "short04",
+   "haarTint": "#e6c66a",
+   "ogen": "blue"
   }
  ]
 }

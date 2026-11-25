@@ -29,6 +29,8 @@ const GEVEL = {
   jaren70: { b: 2.75, h: 2.7, steen: ["#6a4338", "#74493c", "#5f3b31", "#7a4f41"], voeg: "#8b766a", raam: [1.5, 1.35], kozijn: "#efece4", latei: "#6a4338", band: "#e9e6de" },
   // de zijgevel van zo'n rijtjeshuis: kale baksteen, een witte band boven de begane grond, een donkere dakrand en één raam boven
   jaren70kop: { b: 2.75, h: 2.7, zijgevel: true },
+  // schuurtje of garage: donkere houten delen, geen ramen
+  schuur: { b: 2.4, h: 2.6, schuur: true },
   nieuw: { b: 3.0, h: 3.0, steen: ["#4d423c", "#5a4b44", "#463c37"], voeg: "#6d625b", raam: [1.3, 2.1], kozijn: "#2b2b2b", latei: "#3a3330" },
 };
 const KOL = 4, LAAG = 3, PX = 48;
@@ -108,6 +110,8 @@ function gevelTextuur(st) {
       x.fillStyle = "#f7f6f2"; x.fillRect(0, H - 0.95 * PX, W, 0.95 * PX); // balkon
       x.fillStyle = "#c8c5bd"; x.fillRect(0, H - 0.97 * PX, W, 3);
       x.fillStyle = "#7fa0b8"; x.fillRect(W * 0.72, H * 0.12, W * 0.22, H * 0.62);
+    } else if (st.schuur) {
+      for (let i = 0; i < W; i += 7) { x.fillStyle = ["#4a3a2e", "#52412f", "#44352a", "#5a4733"][((i / 7) + k * 3 + l) % 4 | 0]; x.fillRect(i, 0, 6.4, H); x.fillStyle = "#2c221a"; x.fillRect(i + 6.4, 0, 0.6, H); }
     } else if (st.zijgevel) {
       stenen(x, W, H, ["#6a4338", "#74493c", "#5f3b31", "#7a4f41"], "#8b766a");
       if (l === LAAG - 1) { x.fillStyle = "#e9e6de"; x.fillRect(0, 0, W, 0.085 * PX); } // witte band boven de begane grond

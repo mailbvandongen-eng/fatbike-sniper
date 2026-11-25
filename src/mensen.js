@@ -8,7 +8,7 @@ const ROLLEN = {
   voetganger: ["m_wit", "m_spijker", "m_jas", "m_streep", "m_pak", "m_groen", "v_spijker", "v_kort", "v_net", "v_lang"],
   fatbiker: ["f_zwart", "f_grijs", "f_sport"],
   schutter: ["schutter"],
-  handhaver: ["handhaver"], agent: ["agent"], karateka: ["karateka"], heks: ["tovenares"],
+  handhaver: ["handhaver"], agent: ["agent"], karateka: ["karateka"], heks: ["tovenares"], kind: ["jongen"],
 };
 // houding in het spel -> beweging uit de bibliotheek
 const CLIP = {
@@ -82,7 +82,7 @@ export function maakMens(rol = "voetganger") {
   const object = SkeletonUtils.clone(modellen[naam]);
   let hoog = null, laag = null;
   object.traverse((o) => { if (o.isMesh) { if (o.name.includes("Laag")) laag = o; else hoog = o; } });
-  const schaal = rol === "schutter" || rol === "karateka" || rol === "heks" ? 1 : 0.94 + Math.random() * 0.12;
+  const schaal = rol === "kind" ? 0.74 : rol === "schutter" || rol === "karateka" || rol === "heks" ? 1 : 0.94 + Math.random() * 0.12;
   object.scale.setScalar(schaal);
   const mixer = new THREE.AnimationMixer(object);
   let heup = null;
@@ -152,6 +152,7 @@ export function maakMens(rol = "voetganger") {
   if (rol === "handhaver" || rol === "agent") uniform(m, rol);
   if (rol === "karateka") band(m);
   if (rol === "heks") cape(m);
+  if (rol === "kind") kuif(m);
   if (zwart) hoodie(m, Math.random() < 0.8);
   return m;
 }
@@ -178,6 +179,16 @@ function hoodie(m, op) {
   const kraag = new THREE.Mesh(new THREE.TorusGeometry(0.075 * s, 0.035 * s, 6, 12), STOF);
   kraag.rotation.x = Math.PI / 2;
   zet(romp, kraag, new THREE.Vector3(hp.x, top - 0.275 * s, hp.z + 0.005 * s));
+}
+/** Een kuifje: een blonde lok die voor op het hoofd omhoog staat. */
+function kuif(m) {
+  const o = m.object; o.updateMatrixWorld(true);
+  let hoofd = null; o.traverse((b) => { if (b.isBone && b.name === "DEF-head") hoofd = b; });
+  if (!hoofd || !m.hoog) return;
+  const s = m.schaal, top = new THREE.Box3().setFromObject(m.hoog).max.y, hp = hoofd.getWorldPosition(new THREE.Vector3());
+  const lok = new THREE.Mesh(new THREE.ConeGeometry(0.045 * s, 0.13 * s, 7), new THREE.MeshStandardMaterial({ color: "#e6c66a", roughness: 0.8 }));
+  lok.position.set(hp.x, top + 0.02 * s, hp.z + 0.075 * s); lok.rotation.x = -0.55; lok.castShadow = true;
+  o.add(lok); lok.updateMatrixWorld(true); hoofd.attach(lok);
 }
 /** De cape van de tovenares: paars, met een zwarte opstaande kraag, een zwarte zoom en een zwarte sluiting. Hangt aan de schouders. */
 function cape(m) {

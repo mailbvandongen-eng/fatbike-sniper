@@ -41,7 +41,7 @@ oud = C.get('oud', 0)
 def mw(x):   # -1..1 -> (min, avg, max) gewichten
     return {'min': max(0, -x), 'average': 1 - abs(x), 'max': max(0, x)}
 sp, gw = mw(C.get('spier', 0)), mw(C.get('gewicht', 0))
-for leeftijd, wl in (('young', 1 - oud), ('old', oud)):
+for leeftijd, wl in ((('child', 1),) if C.get('kind') else (('young', 1 - oud), ('old', oud))):   # kind: de verhoudingen van een kind
     target(f'macrodetails/{C["afkomst"]}-{G}-{leeftijd}', wl, V)
     for s, ws in sp.items():
         for g_, wg in gw.items():

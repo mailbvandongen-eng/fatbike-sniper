@@ -289,6 +289,15 @@ function renWeg(wie, w) {
   if (!wie.g) { wie.richting = Math.atan2(w.wx ?? w.vx, w.wz ?? w.vz) + tussen(-0.5, 0.5); wie.schrik = 4.5; } // staat ergens: rent weg en verdwijnt
   else { wie.schrik = 4.3; wie.wacht = 0; }
 }
+/** Er gaat een gat open onder iemand: hij valt erin, en klimt er na een paar tellen weer uit en rent weg. */
+export function laatVallen(wie, gat, duur = 4) {
+  if (wie.worp || wie.groep?.visible === false) return false;
+  const dx = wie.pos.x - gat.x, dz = wie.pos.z - gat.z, d = Math.hypot(dx, dz) || 1;
+  wie.worp = { fase: "gat", t: 0, y: 0, duur, wx: dx / d, wz: dz / d, ren: true };
+  wie.ruzieT = 0; wie.ruzieNeer = 0; wie.schrik = 0; wie.dreigt = false; wie.zit = false;
+  wie.m.zet("vliegen", 1.4, 0);
+  return true;
+}
 /** De zweefspreuk: iemand stijgt op, hangt een paar tellen in de lucht en valt dan. */
 export function laatZweven(wie, duur = 3.2) {
   if (wie.worp || wie.groep?.visible === false) return false;
@@ -301,6 +310,13 @@ function stapWorp(wie, dt) {
   const w = wie.worp; if (!w) return false;
   if (w.fase === "ijs") return true; // bevroren: het standbeeld staat er in zijn plaats (src/magie.js)
   w.t += dt;
+  if (w.fase === "gat") {
+    if (w.t < w.duur) { w.y = Math.max(-2.8, w.y - 7 * dt); wie.groep.rotation.x = Math.sin(w.t * 9) * 0.25 * (w.y > -2.7 ? 1 : 0); }
+    else { if (!w.klim) { w.klim = true; wie.m.zet("opstaan", 1.6, 0.5); wie.groep.rotation.x = 0; } w.y += 4.5 * dt; if (w.y >= 0) { renWeg(wie, w); return true; } }
+    wie.m.mixer.update(dt);
+    wie.groep.position.set(wie.pos.x, w.y, wie.pos.z); wie.groep.rotation.y = wie.richting;
+    return true;
+  }
   if (w.fase === "zweef") {
     // de zweefspreuk: langzaam omhoog, hulpeloos ronddraaien, en na een paar tellen weer vallen
     w.y += (2.4 - w.y) * Math.min(1, dt * 1.6) + Math.sin(w.t * 3 + w.f) * 0.004;

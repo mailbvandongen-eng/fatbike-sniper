@@ -15,7 +15,8 @@ export const GEDEELD = {
   // Haagbogen over het middenpad van de parkeerplaats op het Julianaplein; niet op het pad vlak voor flat Pleinzicht
   bogen: { bij: [84420, 454690], straal: 45, nietBij: [84415.9, 454737.4], nietStraal: 32 },
   // Vaste auto's op de vrije parkeerplekken het dichtst bij een punt (op verzoek van Bob: voor de deur aan de Van Steelaan)
-  vasteAutos: [{ soort: "rav4", kleur: "#08080a", bij: [84276.85, 454838.53] }, { soort: "colt", kleur: "#a3151a", bij: [84276.85, 454838.53] }],
+  // (rav4duo = dezelfde RAV4 met een zwart dak; zilvergrijs, voor de deur aan de Hoekerkade)
+  vasteAutos: [{ soort: "rav4", kleur: "#08080a", bij: [84276.85, 454838.53] }, { soort: "colt", kleur: "#a3151a", bij: [84276.85, 454838.53] }, { soort: "rav4duo", kleur: "#8d9297", bij: [93712, 454234], deur: "hoekerkade" }],
 };
 export const LOCATIES = {
   julianaplein: {
@@ -69,5 +70,25 @@ export const LOCATIES = {
     bgt: true, // tuinen, bestrating, bomen en heggen uit de grootschalige topografie
     grond: "gras", // een hofje: gras tussen de paden, geen plein
     druk: 0.3, // en het is er rustig
+  },
+  hoekerkade: {
+    naam: "Hoekerkade, Zoetermeer",
+    kort: "Hoekerkade",
+    midden: [93716, 454243], // het parkeerhofje voor de deur
+    straalGebouwen: 300,
+    osmBbox: [52.0702, 4.4887, 52.0757, 4.4979],
+    // Sluipschutter: rijtjeshuis uit 1985 met pannendak; je hangt uit het slaapkamerraam aan de voorkant.
+    flatPand: "0637100000160918",
+    flat: "Huis",
+    parterre: 2.75,
+    uit: 0.35, raamStand: true,
+    verdieping: 1,
+    verdiepingen: [[1, "Slaapkamer"]],
+    dak: false,
+    kijkpunt: [93716, 454245],
+    bgt: true,
+    hangjeugd: true, hangRond: [[93716, 454247], [93700, 454250], [93735, 454238], [93690, 454240]], // groepjes op het hofje en langs de straat
+    fatDruk: 1.5,
+    druk: 0.4,
   },
 };
