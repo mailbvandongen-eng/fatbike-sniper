@@ -485,7 +485,14 @@ for (const va of GEDEELD.vasteAutos) {
   const [bx, bz] = [va.bij[0] - OX, -(va.bij[1] - OY)];
   let vrij = plekken.filter((p) => !p.bezet).sort((a, b) => Math.hypot(a[0] - bx, a[1] - bz) - Math.hypot(b[0] - bx, b[1] - bz))[0];
   // "voor de deur" van dit level: langs de straat, een paar meter voor de gevel van het huis (er is hier geen parkeervak)
-  if (va.deur === id) vrij = [r1(beste.m[0] + beste.nrm[0] * 3.3 + beste.nrm[1] * 3), r1(beste.m[1] + beste.nrm[1] * 3.3 - beste.nrm[0] * 3), r1(Math.atan2(-beste.nrm[1], beste.nrm[0])), 0];
+  if (va.deur === id) {
+    // op de oprit voor het huis, haaks op de gevel met de neus naar de straat; de dichtstbijzijnde plek waar hij geen uitbouw raakt
+    const [nx, nz] = beste.nrm, raakt = (cx, cz) => [[0, 0], [0.95, 2.3], [-0.95, 2.3], [0.95, -2.3], [-0.95, -2.3], [0, -2.4]].some(([zij, langs]) => { const q = [cx + nx * langs - nz * zij, cz + nz * langs + nx * zij]; return voetafdrukken.some((v) => binnen(q, v.ring)); });
+    let plek = null;
+    for (const t of [0, 1, -1, 2, -2, 3, -3, 4, -4]) for (const uit of [3.3, 3.8, 4.4]) { const c = [beste.m[0] + nx * uit - nz * t, beste.m[1] + nz * uit + nx * t]; if (!plek && !raakt(c[0], c[1])) plek = c; }
+    plek ??= [beste.m[0] + nx * 4.4, beste.m[1] + nz * 4.4];
+    vrij = [r1(plek[0]), r1(plek[1]), r1(Math.atan2(nx, nz)), 1];
+  }
   if (!vrij || Math.hypot(vrij[0] - bx, vrij[1] - bz) > 40) continue; // geen plek in de buurt (valt buiten deze kaart)
   vrij.bezet = true;
   vasteAutos.push([vrij[0], vrij[1], vrij[2], vrij[3], va.soort, va.kleur]);
