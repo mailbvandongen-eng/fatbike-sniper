@@ -135,6 +135,8 @@ Rijdende auto's sturen om geparkeerde auto's heen (`uitwijk` in `Auto.stap`, via
 
 ## Spelers kiezen
 
+Het beginscherm heeft twee knoppen, Speler en Level, die elk een eigen keuzescherm openen (`#spelerPaneel`, `#levelPaneel`; het kooigevecht staat bij de levels). De naamsvermeldingen staan achter de knop Makers.
+
 Op het beginscherm kies je wie je speelt (`SPELERS` en `kiesSpeler` in `src/main.js`, bewaard als `fbs-speler`), op elk level:
 - **De Kale:** geweer, wapenkast, pistool, vuisten, mes, knuppel.
 - **Karateman:** stoten en trappen, knuppel, vuurwerk (en de kast bij het raam).

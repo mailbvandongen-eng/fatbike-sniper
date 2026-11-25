@@ -190,6 +190,13 @@ function kuif(m) {
   lok.position.set(hp.x, top + 0.02 * s, hp.z + 0.075 * s); lok.rotation.x = -0.55; lok.castShadow = true;
   o.add(lok); lok.updateMatrixWorld(true); hoofd.attach(lok);
 }
+/** Laat de cape hangen en waaien: recht omlaag (ook als ze bukt of leunt), naar achteren bij vaart, met een lichte deining. */
+const _cq = new THREE.Quaternion(), _ce = new THREE.Euler();
+export function waaiCape(m, yaw, vaart, tijd) {
+  const c = m.cape; if (!c) return;
+  _ce.set(Math.min(0.9, 0.06 + vaart * 0.13) + Math.sin(tijd * 2.3) * 0.03 * (1 + vaart), yaw, Math.sin(tijd * 1.7) * 0.03, "YXZ");
+  c.parent.getWorldQuaternion(_cq); c.quaternion.copy(_cq.invert()).multiply(new THREE.Quaternion().setFromEuler(_ce));
+}
 /** De cape van de tovenares: paars, met een zwarte opstaande kraag, een zwarte zoom en een zwarte sluiting. Hangt aan de schouders. */
 function cape(m) {
   const o = m.object; o.updateMatrixWorld(true);
@@ -198,16 +205,18 @@ function cape(m) {
   const s = m.schaal, top = new THREE.Box3().setFromObject(m.hoog).max.y, rp = romp.getWorldPosition(new THREE.Vector3());
   const paars = new THREE.MeshStandardMaterial({ color: "#5b2a86", roughness: 0.85, side: THREE.DoubleSide }), zwart = new THREE.MeshStandardMaterial({ color: "#0f0d12", roughness: 0.9, side: THREE.DoubleSide });
   const zet = (mesh, p) => { mesh.position.copy(p); mesh.castShadow = true; o.add(mesh); mesh.updateMatrixWorld(true); romp.attach(mesh); };
-  // het doek: een halve, naar onderen wijder wordende koker om de rug, van de schouders tot de kuiten
-  const yBoven = top - 0.27 * s, lengte = 1.0 * s, N = 12, R = 5, pos = [], idx = [];
+  // het doek: een halve koker om de rug die naar onderen wijder wordt, met plooien; het hangt aan een scharnier op de
+  // schouders (m.cape), zodat het recht omlaag blijft hangen en naar achteren waait als ze loopt (zie waaiCape)
+  const yBoven = top - 0.27 * s, lengte = 1.0 * s, N = 22, R = 7, pos = [], idx = [];
   for (let r = 0; r <= R; r++) for (let i = 0; i <= N; i++) {
-    const h = Math.PI * (0.12 + 0.76 * (i / N)), t = r / R, straal = (0.2 + 0.17 * t) * s, golf = Math.sin(i * 1.7) * 0.012 * t * s;
-    pos.push(Math.cos(h) * straal, -t * lengte, -Math.sin(h) * (straal * 0.72 + golf) - 0.02 * s);
+    const h = Math.PI * (0.06 + 0.88 * (i / N)), t = r / R, straal = (0.21 + 0.2 * t) * s, plooi = Math.sin(i * 1.9) * 0.035 * t * s;
+    pos.push(Math.cos(h) * straal, -t * lengte, -Math.sin(h) * straal * 0.7 - plooi - 0.02 * s);
   }
   for (let r = 0; r < R; r++) for (let i = 0; i < N; i++) { const a = r * (N + 1) + i, b = a + N + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
-  const maak = (rijVan, rijTot, mat) => { const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx.slice(rijVan * N * 6, rijTot * N * 6)); g.computeVertexNormals(); return new THREE.Mesh(g, mat); };
+  const maak = (rijVan, rijTot, mat) => { const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx.slice(rijVan * N * 6, rijTot * N * 6)); g.computeVertexNormals(); const me = new THREE.Mesh(g, mat); me.castShadow = true; return me; };
   const hier = new THREE.Vector3(rp.x, yBoven, rp.z);
-  zet(maak(0, R - 1, paars), hier); zet(maak(R - 1, R, zwart), hier); // de onderste baan is de zwarte zoom
+  const doek = new THREE.Group(); doek.add(maak(0, R - 1, paars), maak(R - 1, R, zwart)); // de onderste baan is de zwarte zoom
+  zet(doek, hier); m.cape = doek;
   // opstaande kraag en de sluiting op de borst
   const kraag = new THREE.Mesh(new THREE.CylinderGeometry(0.125 * s, 0.16 * s, 0.075 * s, 14, 1, true, Math.PI * 0.62, Math.PI * 1.76), zwart);
   zet(kraag, new THREE.Vector3(rp.x, yBoven - 0.03 * s, rp.z - 0.02 * s)); // onder de kin, open aan de voorkant

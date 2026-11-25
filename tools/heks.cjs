@@ -12,7 +12,7 @@ const T = { ".jpg": "image/jpeg", ".html": "text/html", ".js": "text/javascript"
   const fout = []; p.on("pageerror", (e) => { fout.push(e.message); console.log("FOUT", e.message); });
   await p.goto("http://spel.test/?licht=0&level=julianaplein"); await p.waitForSelector("#start:not([hidden])", { timeout: 180000 });
   console.log("spelers:", await p.evaluate(() => [...document.querySelectorAll("#spelers button")].map((k) => k.textContent + (k.classList.contains("aan") ? "*" : "")).join(", ")));
-  await p.evaluate(() => [...document.querySelectorAll("#spelers button")].find((k) => k.textContent === "Tovenares").click());
+  await p.evaluate(() => [...document.querySelectorAll("#spelers button")].find((k) => k.textContent.startsWith("Tovenares")).click());
   await p.waitForTimeout(500); await p.screenshot({ path: `${UIT}/0-start.png` });
   await p.tap("#begin"); await p.waitForTimeout(3000); await p.screenshot({ path: `${UIT}/1-raam.png` });
   const klaar = () => p.waitForFunction(() => window.__spel.herlaad <= 0 && !document.body.classList.contains("film"), null, { timeout: 120000 });

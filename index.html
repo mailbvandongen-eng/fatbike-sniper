@@ -84,7 +84,6 @@ body.loopt #loopKnop{top:calc(max(10px,var(--sat)) + 52px);border-color:var(--ge
 body.loopt #instap.kan,body.rijdt #instap{display:grid;border-color:var(--groen);color:var(--groen)}
 body.rijdt #wapen,body.rijdt #richt,body.rijdt #sprint,body.rijdt #vuur{display:none!important}
 #gas,#rem,#claxon{display:none}
-#optieKnop{pointer-events:auto;appearance:none;margin-top:12px;border:2px solid #fff3;background:#ffffff10;color:var(--ink);border-radius:999px;padding:8px 18px;font:700 15px system-ui;cursor:pointer}
 #opties{position:fixed;inset:0;z-index:30;display:grid;place-content:center;gap:12px;background:#0b0c0ee8;pointer-events:auto;padding:16px}
 #opties[hidden]{display:none}
 #optieLijst{display:grid;grid-template-columns:repeat(2,minmax(0,260px));gap:8px}
@@ -141,6 +140,17 @@ h1 span{color:var(--geel)}
 .groot{pointer-events:auto;appearance:none;border:0;border-radius:999px;padding:16px 34px;font:800 19px system-ui;background:var(--geel);color:#151515;box-shadow:0 6px 24px #ffc83d40;cursor:pointer}
 .groot:active{transform:scale(.97)}
 .klein{color:var(--dim);font-size:12px;margin-top:18px}
+.keuzes{display:flex;gap:10px;justify-content:center;margin:0 0 16px}
+.keuzes button{appearance:none;min-width:150px;text-align:left;border:2px solid #fff3;background:#ffffff10;color:var(--ink);border-radius:14px;padding:9px 14px;cursor:pointer;display:grid;gap:2px;pointer-events:auto}
+.keuzes small{color:var(--dim);font:600 12px system-ui}.keuzes b{font:800 17px system-ui;color:var(--geel)}
+.rij{display:flex;gap:8px;justify-content:center;margin-top:12px}
+.licht{pointer-events:auto;appearance:none;border:2px solid #fff3;background:#ffffff10;color:var(--ink);border-radius:999px;padding:8px 18px;font:700 15px system-ui;cursor:pointer}
+.paneel{position:fixed;inset:0;z-index:30;display:grid;place-content:center;justify-items:center;gap:14px;background:#0b0c0eee;pointer-events:auto;padding:16px;text-align:center}
+.paneel[hidden]{display:none}.paneel h2{margin:0;font:800 20px system-ui}
+.lijst{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;width:min(700px,92vw)}
+.lijst button{appearance:none;border:2px solid #fff3;background:#ffffff10;color:var(--ink);border-radius:14px;padding:14px 12px;cursor:pointer;display:grid;gap:3px;font:800 16px system-ui}
+.lijst button small{color:var(--dim);font:600 12px system-ui}
+.lijst button.aan{border-color:var(--geel);background:#ffc83d18}.lijst button.aan b{color:var(--geel)}
 .drie{display:grid;grid-template-areas:"kop" "knop"}
 .drie .kop{grid-area:kop}.drie .knoppen{grid-area:knop}
 @media (max-height:520px){
@@ -149,13 +159,7 @@ h1 span{color:var(--geel)}
   h1{font-size:clamp(30px,7vh,44px)}.plek{margin-bottom:10px}.doel{margin-bottom:8px}
   .klein{margin-top:8px}
 }
-#spelers{display:flex;gap:8px;justify-content:center;margin:0 0 10px;flex-wrap:wrap}
-#spelers button{appearance:none;border:2px solid #fff3;background:#ffffff10;color:var(--ink);border-radius:999px;padding:7px 14px;font:700 14px system-ui;cursor:pointer}
-#spelers button.aan{border-color:var(--groen);color:var(--groen);background:#7be07b18}
 body.heks.loopt #richt,body.heks.loopt #sprint{display:grid}body.heks.loopt #richt{display:none!important}
-#levels{display:flex;gap:8px;justify-content:center;margin:0 0 14px;flex-wrap:wrap}
-#levels button{appearance:none;border:2px solid #fff3;background:#ffffff10;color:var(--ink);border-radius:999px;padding:9px 16px;font:700 15px system-ui;cursor:pointer}
-#levels button.aan{border-color:var(--geel);color:var(--geel);background:#ffc83d18}
 #kogels.krap{color:var(--rood)}
 /* gezocht: sterren naast de teller; ze knipperen als ze je kwijt zijn */
 #sterren{gap:1px;font-size:17px;padding:4px 10px}
@@ -259,16 +263,21 @@ body.gepakt #wissel{opacity:1}body.gepakt #wissel svg{opacity:.9}
       <p class="doel" id="startDoel"></p>
     </div>
     <div class="knoppen">
-      <div id="spelers"></div>
-      <div id="levels"><button data-level="julianaplein">Julianaplein</button><button data-level="steelaan">Bonus: Van Steelaan</button><button data-level="buskenhuet">Busken Huethove</button><button data-level="hoekerkade">Hoekerkade</button><button id="kooiKnop">Kooigevecht</button></div>
+      <div class="keuzes">
+        <button id="kiesSpeler"><small>Speler</small><b></b></button>
+        <button id="kiesLevel"><small>Level</small><b></b></button>
+      </div>
       <button class="groot" id="begin">Begin</button>
-      <div><button id="optieKnop">⚙ Opties</button></div>
+      <div class="rij"><button class="licht" id="optieKnop">⚙ Opties</button><button class="licht" id="makersKnop">Makers</button></div>
       <p class="klein" id="startBest"></p>
-      <p class="klein">Gebouwen: 3D BAG (CC BY 4.0) · Kaart: © OpenStreetMap-bijdragers, BGT (PDOK) · Grond: Poly Haven (CC0) · Mensen: MakeHuman, Quaternius (CC0) · Fatbike: GokuSSJB, fiets: Fairyflosslord7, winkelwagen: adrianxy, auto's: NNXST, scailman, VertexVendingMac, tonielpro520, speeltoestel: JanStano, wapens: TastyTony, bumstrum, Planetrix23, San.Dro, roguecache, bomen: wersaus33 (Sketchfab, CC BY 4.0) · Geluid: opnames van ezwa, thore, Dsw4 (publiek domein) en Sonothèque ADVL (CC0) via Wikimedia Commons · Karatebewegingen: ACCAD/The Ohio State University (CC BY 3.0), Kyokushin-dataset Szczęsna e.a. (CC0), tutusho (Sketchfab Standard)</p>
       <p class="klein" id="versie"></p>
     </div>
   </div>
 </div>
+
+<div class="paneel" id="spelerPaneel" hidden><h2>Kies je speler</h2><div class="lijst" id="spelers"></div></div>
+<div class="paneel" id="levelPaneel" hidden><h2>Kies een level</h2><div class="lijst" id="levels"><button data-level="julianaplein"><b>Julianaplein</b><small>Voorburg · rondes</small></button><button data-level="steelaan"><b>Van Steelaan</b><small>Voorburg · bonus, 3 minuten</small></button><button data-level="buskenhuet"><b>Busken Huethove</b><small>Zoetermeer · speeltuin</small></button><button data-level="hoekerkade"><b>Hoekerkade</b><small>Zoetermeer · hofje</small></button><button id="kooiKnop"><b>Kooigevecht</b><small>één tegen één</small></button></div></div>
+<div class="paneel" id="makersPaneel" hidden><h2>Makers</h2><p class="klein" style="max-width:560px;margin:0">Gebouwen: 3D BAG (CC BY 4.0) · Kaart: © OpenStreetMap-bijdragers, BGT (PDOK) · Grond: Poly Haven (CC0) · Mensen: MakeHuman, Quaternius (CC0) · Fatbike: GokuSSJB, fiets: Fairyflosslord7, winkelwagen: adrianxy, auto's: NNXST, scailman, VertexVendingMac, tonielpro520, speeltoestel: JanStano, wapens: TastyTony, bumstrum, Planetrix23, San.Dro, roguecache, bomen: wersaus33 (Sketchfab, CC BY 4.0) · Geluid: opnames van ezwa, thore, Dsw4 (publiek domein) en Sonothèque ADVL (CC0) via Wikimedia Commons · Karatebewegingen: ACCAD/The Ohio State University (CC BY 3.0), Kyokushin-dataset Szczęsna e.a. (CC0), tutusho (Sketchfab Standard)</p><button class="groot" style="padding:9px 28px;font-size:16px">Klaar</button></div>
 
 <div id="kast" hidden><div id="kastLijst"></div></div>
 
@@ -288,9 +297,9 @@ body.gepakt #wissel{opacity:1}body.gepakt #wissel svg{opacity:.9}
 </div>
 
 <!-- versie -->
-<script>window.VERSIE = "92170e8139"; window.VERSIE_DATUM = "25-11, 21:45";</script>
-<script type="importmap">{"imports":{"three":"./lib/three.module.js?v=92170e8139","./lib/three.module.js":"./lib/three.module.js?v=92170e8139","./lib/meshopt_decoder.mjs":"./lib/meshopt_decoder.mjs?v=92170e8139","./lib/three-addons.js":"./lib/three-addons.js?v=92170e8139","./src/autos.js":"./src/autos.js?v=92170e8139","./src/config.js":"./src/config.js?v=92170e8139","./src/effecten.js":"./src/effecten.js?v=92170e8139","./src/figuren.js":"./src/figuren.js?v=92170e8139","./src/geluid.js":"./src/geluid.js?v=92170e8139","./src/karate.js":"./src/karate.js?v=92170e8139","./src/kooi.js":"./src/kooi.js?v=92170e8139","./src/magie.js":"./src/magie.js?v=92170e8139","./src/main.js":"./src/main.js?v=92170e8139","./src/mensen.js":"./src/mensen.js?v=92170e8139","./src/muziek.js":"./src/muziek.js?v=92170e8139","./src/straat.js":"./src/straat.js?v=92170e8139","./src/verkeer.js":"./src/verkeer.js?v=92170e8139","./src/wapens.js":"./src/wapens.js?v=92170e8139","./src/wereld.js":"./src/wereld.js?v=92170e8139"}}</script>
-<script type="module" src="./src/main.js?v=92170e8139"></script>
+<script>window.VERSIE = "5a9abeb6fe"; window.VERSIE_DATUM = "25-11, 21:53";</script>
+<script type="importmap">{"imports":{"three":"./lib/three.module.js?v=5a9abeb6fe","./lib/three.module.js":"./lib/three.module.js?v=5a9abeb6fe","./lib/meshopt_decoder.mjs":"./lib/meshopt_decoder.mjs?v=5a9abeb6fe","./lib/three-addons.js":"./lib/three-addons.js?v=5a9abeb6fe","./src/autos.js":"./src/autos.js?v=5a9abeb6fe","./src/config.js":"./src/config.js?v=5a9abeb6fe","./src/effecten.js":"./src/effecten.js?v=5a9abeb6fe","./src/figuren.js":"./src/figuren.js?v=5a9abeb6fe","./src/geluid.js":"./src/geluid.js?v=5a9abeb6fe","./src/karate.js":"./src/karate.js?v=5a9abeb6fe","./src/kooi.js":"./src/kooi.js?v=5a9abeb6fe","./src/magie.js":"./src/magie.js?v=5a9abeb6fe","./src/main.js":"./src/main.js?v=5a9abeb6fe","./src/mensen.js":"./src/mensen.js?v=5a9abeb6fe","./src/muziek.js":"./src/muziek.js?v=5a9abeb6fe","./src/straat.js":"./src/straat.js?v=5a9abeb6fe","./src/verkeer.js":"./src/verkeer.js?v=5a9abeb6fe","./src/wapens.js":"./src/wapens.js?v=5a9abeb6fe","./src/wereld.js":"./src/wereld.js?v=5a9abeb6fe"}}</script>
+<script type="module" src="./src/main.js?v=5a9abeb6fe"></script>
 <!-- /versie -->
 </body>
 </html>

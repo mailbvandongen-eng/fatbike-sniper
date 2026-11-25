@@ -8,7 +8,7 @@ import { maakMagie } from "./magie.js";
 import { WAPENKAST, HOUVAST, laadWapens, maakWapen, laadWerp, maakWerp, maakRaket } from "./wapens.js";
 import { Muziek } from "./muziek.js";
 import { kies, tussen, MAT, laadFietsen } from "./figuren.js";
-import { laadMensen, maakMens } from "./mensen.js";
+import { waaiCape, laadMensen, maakMens } from "./mensen.js";
 import { laadAutos, maakAuto } from "./autos.js";
 import { maakStraat } from "./straat.js";
 import { Effecten } from "./effecten.js";
@@ -131,7 +131,10 @@ const APPS = ["gat", "bel", "sproei"];
 const gaten = [], fonteinen = [];
 let sluiper = null, karateka = null, heks = null; // wie je speelt: karateka of heks is gezet als je die gekozen hebt (anders De Kale)
 // De spelers waaruit je op het beginscherm kiest. Een nieuwe speler = hier een regel, een model en zijn eigen wapens.
-const SPELERS = { kale: { naam: "De Kale", model: "schutter" }, karate: { naam: "Karateman", model: "karateka" }, heks: { naam: "Tovenares", model: "heks" }, jongen: { naam: "Jongetje", model: "kind" } };
+const SPELERS = {
+  kale: { naam: "De Kale", model: "schutter", wat: "geweer en wapenkast" }, karate: { naam: "Karateman", model: "karateka", wat: "stoten en trappen" },
+  heks: { naam: "Tovenares", model: "heks", wat: "vuurbal, bevriezen, zweven" }, jongen: { naam: "Jongetje", model: "kind", wat: "telefoon: gat, bellen, sproeier" },
+};
 const SPREUKEN = ["vuurbal", "bevries", "zweef"];
 const spelers = {};
 let staf = null, magie = null, karateGeladen = false;
@@ -146,6 +149,7 @@ async function kiesSpeler(id) {
   loop.raamVuurwerk = false;
   zetWapen(heks ? "vuurbal" : kind ? "gat" : "pistool");
   for (const b of document.querySelectorAll("#spelers button")) b.classList.toggle("aan", b.dataset.speler === id);
+  $("#kiesSpeler b").textContent = SPELERS[id].naam;
 }
 const oog = new THREE.Vector3(); // waar je ogen zijn (de kogel vertrekt hier)
 const wisselt = () => performance.now() < wisselTot;
@@ -202,7 +206,7 @@ async function laad() {
   straat = maakStraat({ scene, reizigers, loop, spel, graaf, data, geluid, $, vrij: (x, z) => !geblokkeerd(x, z), naarBinnen: () => zetLopen(false, true), tekenHud, weg });
   { const echt = straat.strafbaar; straat.strafbaar = (n) => { if (opties.handhaving && !kind) echt(n); }; } // handhaving kan uit in de opties
   { const lijst = $("#spelers"); lijst.textContent = "";
-    for (const [id, sp] of Object.entries(SPELERS)) { const k = document.createElement("button"); k.dataset.speler = id; k.textContent = sp.naam; k.addEventListener("click", () => kiesSpeler(id)); lijst.append(k); } }
+    for (const [id, sp] of Object.entries(SPELERS)) { const k = document.createElement("button"); k.dataset.speler = id; k.innerHTML = `<b>${sp.naam}</b><small>${sp.wat}</small>`; k.addEventListener("click", () => { kiesSpeler(id); $("#spelerPaneel").hidden = true; }); lijst.append(k); } }
   // de laatst gekozen speler; de eerste keer in Zoetermeer de karateman, anders De Kale
   await kiesSpeler(localStorage.getItem("fbs-speler") ?? (data.karate ? "karate" : "kale"));
   // ▲▼ gaan van laag naar hoog: eerst de plekken op de grond, dan de verdiepingen
@@ -1178,6 +1182,7 @@ function toonStart() {
   tekenOpties();
   $("#startBest").textContent = bonus ? (bestBonus ? `Record: ${bestBonus} fatbikes` : "") : best ? `Beste score: ${best}` : "";
   for (const b of document.querySelectorAll("#levels button")) b.classList.toggle("aan", b.dataset.level === LOCATIE);
+  $("#kiesLevel b").textContent = LEVELS[LOCATIE];
 }
 function begin() {
   geluid.start();
@@ -1521,6 +1526,7 @@ function heksPose(yaw, pitch, richt) {
     const hand = m.plek("DEF-handR").clone(), langs = hand.clone().sub(m.plek("DEF-forearmR")).normalize();
     staf.position.copy(hand); staf.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), langs);
   }
+  waaiCape(m, yaw, loop.aan ? loop.snelheid : 0, tijd);
   staf.updateMatrixWorld(true);
 }
 /** Waar een schot met een zwaar wapen vertrekt en heen gaat. */
@@ -2022,6 +2028,10 @@ function zoomNaarSchuif(z) { return z < 1.5 ? 0 : ONDER + ((1000 - ONDER) * Math
 }
 $("#begin").addEventListener("click", begin);
 // level kiezen: een ander level laadt een andere wereld, dus de pagina opnieuw
+$("#kiesSpeler").addEventListener("click", () => { $("#spelerPaneel").hidden = false; });
+$("#kiesLevel").addEventListener("click", () => { $("#levelPaneel").hidden = false; });
+$("#makersKnop").addEventListener("click", () => { $("#makersPaneel").hidden = false; });
+for (const el of document.querySelectorAll(".paneel")) el.addEventListener("click", (e) => { if (e.target === el || e.target.classList.contains("groot")) el.hidden = true; }); // naast de knoppen tikken = sluiten
 $("#kooiKnop").addEventListener("click", () => { location.href = `./kooi.html?v=${window.VERSIE ?? ""}`; });
 for (const b of document.querySelectorAll("#levels button[data-level]")) b.addEventListener("click", () => {
   if (b.dataset.level === LOCATIE) return;
