@@ -21,6 +21,7 @@ export const HANDWAPENS = {
   pistool: { as: "x", lengte: 0.22, greep: 0.2, op: 0.05 },
   mes: { as: "x", lengte: 0.3, greep: 0.2, op: 0 },
   knuppel: { as: "-x", lengte: 0.84, greep: 0.1, op: 0 },
+  staf: { as: "y", lengte: 1.3, greep: 0.42, op: 0, weg: /stone/ }, // de toverstaf (zonder het voetstuk van het model)
 };
 /**
  * Hoe je een lang wapen vasthoudt (legAan in main.js): waar de oorsprong van het wapen komt ten opzichte van je rechterschouder
@@ -66,9 +67,10 @@ export async function laadWapens() {
   const L = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder), v = window.VERSIE ?? "";
   await Promise.all(Object.entries({ ...WAPENKAST, ...HANDWAPENS }).filter(([, w]) => w.as).map(async ([id, w]) => {
     const g = (await L.loadAsync(`assets/wapens/${id}.glb?v=${v}`)).scene;
+    if (w.weg) { const weg = []; g.traverse((o) => { if (o.isMesh && w.weg.test(o.name)) weg.push(o); }); for (const o of weg) o.removeFromParent(); }
     maakVast(g);
     // de loop naar +z, op maat, en de greep op de oorsprong
-    const draai = new THREE.Group(); draai.add(g); if (w.as === "x") draai.rotation.y = -Math.PI / 2; else if (w.as === "-x") draai.rotation.y = Math.PI / 2;
+    const draai = new THREE.Group(); draai.add(g); if (w.as === "x") draai.rotation.y = -Math.PI / 2; else if (w.as === "-x") draai.rotation.y = Math.PI / 2; else if (w.as === "y") draai.rotation.x = Math.PI / 2;
     draai.updateMatrixWorld(true);
     let b = new THREE.Box3().setFromObject(draai); const s = w.lengte / (b.max.z - b.min.z); draai.scale.setScalar(s); draai.updateMatrixWorld(true);
     b = new THREE.Box3().setFromObject(draai);

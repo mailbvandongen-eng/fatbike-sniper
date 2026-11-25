@@ -149,6 +149,10 @@ h1 span{color:var(--geel)}
   h1{font-size:clamp(30px,7vh,44px)}.plek{margin-bottom:10px}.doel{margin-bottom:8px}
   .klein{margin-top:8px}
 }
+#spelers{display:flex;gap:8px;justify-content:center;margin:0 0 10px;flex-wrap:wrap}
+#spelers button{appearance:none;border:2px solid #fff3;background:#ffffff10;color:var(--ink);border-radius:999px;padding:7px 14px;font:700 14px system-ui;cursor:pointer}
+#spelers button.aan{border-color:var(--groen);color:var(--groen);background:#7be07b18}
+body.heks.loopt #richt,body.heks.loopt #sprint{display:grid}body.heks.loopt #richt{display:none!important}
 #levels{display:flex;gap:8px;justify-content:center;margin:0 0 14px;flex-wrap:wrap}
 #levels button{appearance:none;border:2px solid #fff3;background:#ffffff10;color:var(--ink);border-radius:999px;padding:9px 16px;font:700 15px system-ui;cursor:pointer}
 #levels button.aan{border-color:var(--geel);color:var(--geel);background:#ffc83d18}
@@ -228,6 +232,9 @@ body.gepakt #wissel{opacity:1}body.gepakt #wissel svg{opacity:.9}
     <svg data-w="vlam" viewBox="0 0 24 24" fill="currentColor" style="display:none"><path d="M12 2c1 4 5 6 5 11a5 5 0 01-10 0c0-2 1-3.500 2-4.500.2 2 1 3 2 3.500-.500-3 0-7 1-10z"/></svg>
     <svg data-w="cobra" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><rect x="5" y="10" width="8" height="12" rx="1.5" transform="rotate(-25 9 16)"/><path d="M13 9c1-2 3-2 4-4M19 3v2M21.500 6h-2M20.500 9.500l-1.400-1.400M8 14l4 2"/></svg>
     <svg data-w="granaat" viewBox="0 0 24 24" fill="currentColor" style="display:none"><path d="M9 3h5v3h-1.200v1.200A6.500 6.500 0 1110.200 7.200V6H9zM15 4h4v5h-1.500V5.500H15z"/></svg>
+    <svg data-w="vuurbal" viewBox="0 0 24 24" fill="currentColor" style="display:none"><circle cx="15" cy="13" r="6"/><path d="M2 5l7 5M1 11l6 2M4 19l5-3" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+    <svg data-w="bevries" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="display:none"><path d="M12 2v20M3.300 7l17.400 10M20.700 7L3.300 17M12 6l-2.500-2.500M12 6l2.500-2.500M12 18l-2.500 2.500M12 18l2.500 2.500"/></svg>
+    <svg data-w="zweef" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><circle cx="12" cy="6" r="2.200" fill="currentColor"/><path d="M12 9v6M8 11l4-1 4 1M10 20l2-5 2 5M5 22h14" /><path d="M4 8v-4M2.500 5.500L4 4l1.500 1.500M20 8v-4M18.500 5.500L20 4l1.500 1.500"/></svg>
     <svg data-w="mes" viewBox="0 0 24 24" fill="currentColor" style="display:none"><path d="M21 3c-6 1-11 5-13 10l3 3c5-2 9-7 10-13zM7 14l-4 4 3 3 4-4z"/></svg>
   </div>
   <div class="knop" id="richt" aria-label="Richten of trappen"><svg class="trap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4v7l5 3 4 3h5a1.5 1.5 0 000-3h-3l-3-3V4"/><path d="M5 11h9"/></svg><svg class="mik" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg></div>
@@ -249,11 +256,12 @@ body.gepakt #wissel{opacity:1}body.gepakt #wissel svg{opacity:.9}
       <p class="doel" id="startDoel"></p>
     </div>
     <div class="knoppen">
+      <div id="spelers"></div>
       <div id="levels"><button data-level="julianaplein">Julianaplein</button><button data-level="steelaan">Bonus: Van Steelaan</button><button data-level="buskenhuet">Busken Huethove</button><button id="kooiKnop">Kooigevecht</button></div>
       <button class="groot" id="begin">Begin</button>
       <div><button id="optieKnop">⚙ Opties</button></div>
       <p class="klein" id="startBest"></p>
-      <p class="klein">Gebouwen: 3D BAG (CC BY 4.0) · Kaart: © OpenStreetMap-bijdragers, BGT (PDOK) · Grond: Poly Haven (CC0) · Mensen: MakeHuman, Quaternius (CC0) · Fatbike: GokuSSJB, fiets: Fairyflosslord7, winkelwagen: adrianxy, auto's: NNXST, scailman, VertexVendingMac, tonielpro520, speeltoestel: JanStano, wapens: TastyTony, bumstrum, Planetrix23, San.Dro, bomen: wersaus33 (Sketchfab, CC BY 4.0) · Geluid: opnames van ezwa, thore, Dsw4 (publiek domein) en Sonothèque ADVL (CC0) via Wikimedia Commons · Karatebewegingen: ACCAD/The Ohio State University (CC BY 3.0), Kyokushin-dataset Szczęsna e.a. (CC0), tutusho (Sketchfab Standard)</p>
+      <p class="klein">Gebouwen: 3D BAG (CC BY 4.0) · Kaart: © OpenStreetMap-bijdragers, BGT (PDOK) · Grond: Poly Haven (CC0) · Mensen: MakeHuman, Quaternius (CC0) · Fatbike: GokuSSJB, fiets: Fairyflosslord7, winkelwagen: adrianxy, auto's: NNXST, scailman, VertexVendingMac, tonielpro520, speeltoestel: JanStano, wapens: TastyTony, bumstrum, Planetrix23, San.Dro, roguecache, bomen: wersaus33 (Sketchfab, CC BY 4.0) · Geluid: opnames van ezwa, thore, Dsw4 (publiek domein) en Sonothèque ADVL (CC0) via Wikimedia Commons · Karatebewegingen: ACCAD/The Ohio State University (CC BY 3.0), Kyokushin-dataset Szczęsna e.a. (CC0), tutusho (Sketchfab Standard)</p>
       <p class="klein" id="versie"></p>
     </div>
   </div>
@@ -277,9 +285,9 @@ body.gepakt #wissel{opacity:1}body.gepakt #wissel svg{opacity:.9}
 </div>
 
 <!-- versie -->
-<script>window.VERSIE = "bd93488711"; window.VERSIE_DATUM = "25-11, 20:32";</script>
-<script type="importmap">{"imports":{"three":"./lib/three.module.js?v=bd93488711","./lib/three.module.js":"./lib/three.module.js?v=bd93488711","./lib/meshopt_decoder.mjs":"./lib/meshopt_decoder.mjs?v=bd93488711","./lib/three-addons.js":"./lib/three-addons.js?v=bd93488711","./src/autos.js":"./src/autos.js?v=bd93488711","./src/config.js":"./src/config.js?v=bd93488711","./src/effecten.js":"./src/effecten.js?v=bd93488711","./src/figuren.js":"./src/figuren.js?v=bd93488711","./src/geluid.js":"./src/geluid.js?v=bd93488711","./src/karate.js":"./src/karate.js?v=bd93488711","./src/kooi.js":"./src/kooi.js?v=bd93488711","./src/main.js":"./src/main.js?v=bd93488711","./src/mensen.js":"./src/mensen.js?v=bd93488711","./src/muziek.js":"./src/muziek.js?v=bd93488711","./src/straat.js":"./src/straat.js?v=bd93488711","./src/verkeer.js":"./src/verkeer.js?v=bd93488711","./src/wapens.js":"./src/wapens.js?v=bd93488711","./src/wereld.js":"./src/wereld.js?v=bd93488711"}}</script>
-<script type="module" src="./src/main.js?v=bd93488711"></script>
+<script>window.VERSIE = "f42a317b03"; window.VERSIE_DATUM = "25-11, 21:18";</script>
+<script type="importmap">{"imports":{"three":"./lib/three.module.js?v=f42a317b03","./lib/three.module.js":"./lib/three.module.js?v=f42a317b03","./lib/meshopt_decoder.mjs":"./lib/meshopt_decoder.mjs?v=f42a317b03","./lib/three-addons.js":"./lib/three-addons.js?v=f42a317b03","./src/autos.js":"./src/autos.js?v=f42a317b03","./src/config.js":"./src/config.js?v=f42a317b03","./src/effecten.js":"./src/effecten.js?v=f42a317b03","./src/figuren.js":"./src/figuren.js?v=f42a317b03","./src/geluid.js":"./src/geluid.js?v=f42a317b03","./src/karate.js":"./src/karate.js?v=f42a317b03","./src/kooi.js":"./src/kooi.js?v=f42a317b03","./src/magie.js":"./src/magie.js?v=f42a317b03","./src/main.js":"./src/main.js?v=f42a317b03","./src/mensen.js":"./src/mensen.js?v=f42a317b03","./src/muziek.js":"./src/muziek.js?v=f42a317b03","./src/straat.js":"./src/straat.js?v=f42a317b03","./src/verkeer.js":"./src/verkeer.js?v=f42a317b03","./src/wapens.js":"./src/wapens.js?v=f42a317b03","./src/wereld.js":"./src/wereld.js?v=f42a317b03"}}</script>
+<script type="module" src="./src/main.js?v=f42a317b03"></script>
 <!-- /versie -->
 </body>
 </html>

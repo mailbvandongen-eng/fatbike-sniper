@@ -289,10 +289,27 @@ function renWeg(wie, w) {
   if (!wie.g) { wie.richting = Math.atan2(w.wx ?? w.vx, w.wz ?? w.vz) + tussen(-0.5, 0.5); wie.schrik = 4.5; } // staat ergens: rent weg en verdwijnt
   else { wie.schrik = 4.3; wie.wacht = 0; }
 }
+/** De zweefspreuk: iemand stijgt op, hangt een paar tellen in de lucht en valt dan. */
+export function laatZweven(wie, duur = 3.2) {
+  if (wie.worp || wie.groep?.visible === false) return false;
+  wie.worp = { fase: "zweef", t: 0, y: 0.05, duur, f: Math.random() * 6, rx: tussen(-0.5, 0.5), rz: tussen(-0.5, 0.5) };
+  wie.ruzieT = 0; wie.ruzieNeer = 0; wie.schrik = 0; wie.dreigt = false; wie.zit = false;
+  return true;
+}
 /** Eén stap van zo'n vlucht; geeft true zolang hij duurt. */
 function stapWorp(wie, dt) {
   const w = wie.worp; if (!w) return false;
+  if (w.fase === "ijs") return true; // bevroren: het standbeeld staat er in zijn plaats (src/magie.js)
   w.t += dt;
+  if (w.fase === "zweef") {
+    // de zweefspreuk: langzaam omhoog, hulpeloos ronddraaien, en na een paar tellen weer vallen
+    w.y += (2.4 - w.y) * Math.min(1, dt * 1.6) + Math.sin(w.t * 3 + w.f) * 0.004;
+    wie.groep.rotation.x += w.rx * dt; wie.groep.rotation.z += w.rz * dt; wie.richting += 0.9 * dt;
+    wie.m.zet("vliegen", 0.7); wie.m.mixer.update(dt);
+    wie.groep.position.set(wie.pos.x, w.y, wie.pos.z); wie.groep.rotation.y = wie.richting;
+    if (w.t > w.duur) { w.fase = "lucht"; w.t = 0; w.vy = 0; w.vx = Math.sin(wie.richting) * 0.6; w.vz = Math.cos(wie.richting) * 0.6; w.tol = -wie.groep.rotation.x / 0.6; w.rol = -wie.groep.rotation.z / 0.6; w.ligT = tussen(0.9, 2); w.hink = Math.random() < 0.5; }
+    return true;
+  }
   const vrij = (x, z) => !(wie.g?.blok?.(x, z, 0.3) ?? false);
   if (w.fase === "lucht") {
     w.vy -= 12 * dt; w.y += w.vy * dt;
@@ -552,6 +569,13 @@ export class Fietser extends Reiziger {
   }
   stap(dt, spel) {
     if (this.toestand !== "rijden") return;
+    if (this.zweef) {
+      // de zweefspreuk: fiets en berijder stijgen op en draaien rond; main.js laat hem daarna vallen
+      const z = this.zweef; z.t += dt; z.y += (2.6 - z.y) * Math.min(1, dt * 1.6);
+      this.groep.position.set(this.pos.x, z.y, this.pos.z); this.groep.rotation.y += 1.1 * dt; this.groep.rotation.z = Math.sin(z.t * 2) * 0.35; this.groep.rotation.x = Math.sin(z.t * 1.4) * 0.25;
+      this.snelheid = 0; for (const m of this.berijders) m.mixer.update(dt);
+      return;
+    }
     if (this.vlucht > 0) { this.vlucht -= dt; this.v = this.vBasis * 1.5; if (this.vlucht <= 0) this.v = this.vBasis; }
     if (this.fat && !this.geenStop && this.vlucht <= 0 && this.wacht <= 0) {
       // fatbikes hangen bij de Jumbo, Bon Appetit en de fietsenrekken

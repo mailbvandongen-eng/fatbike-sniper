@@ -275,6 +275,21 @@
    "pak": "male_worksuit01",
    "pakTint": "#8d8a84",
    "vacht": "#8d8a84"
+  },
+  {
+   "naam": "tovenares",
+   "rol": "heks",
+   "geslacht": "female",
+   "afkomst": "caucasian",
+   "oud": 0.25,
+   "spier": 0.1,
+   "gewicht": -0.1,
+   "pak": "female_elegantsuit01",
+   "pakTint": "#5b2a86",
+   "schoenen": "shoes06",
+   "haar": "long01",
+   "haarTint": "#16121a",
+   "ogen": "green"
   }
  ]
 }

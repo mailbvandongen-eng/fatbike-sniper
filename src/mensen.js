@@ -8,7 +8,7 @@ const ROLLEN = {
   voetganger: ["m_wit", "m_spijker", "m_jas", "m_streep", "m_pak", "m_groen", "v_spijker", "v_kort", "v_net", "v_lang"],
   fatbiker: ["f_zwart", "f_grijs", "f_sport"],
   schutter: ["schutter"],
-  handhaver: ["handhaver"], agent: ["agent"], karateka: ["karateka"],
+  handhaver: ["handhaver"], agent: ["agent"], karateka: ["karateka"], heks: ["tovenares"],
 };
 // houding in het spel -> beweging uit de bibliotheek
 const CLIP = {
@@ -18,9 +18,9 @@ const CLIP = {
   zitten: "Sitting_Idle_Loop", zittenPraten: "Sitting_Talking_Loop", fietsen: "Driving_Loop", achterop: "Sitting_Idle_Loop",
   schrik: "Hit_Chest", vliegen: "Jump_Loop", klap: "Hit_Knockback", liggen: "Death01", opstaan: "LayToIdle", boos: "Idle_No_Loop",
   hurken: "Crouch_Idle_Loop", richten: "Pistol_Aim_Neutral",
-  stomp: "Punch_Cross", jab: "Punch_Jab", klapHoofd: "Hit_Head", vechtklaar: "Punch_Enter", zwaai: "Sword_Attack", knuppel: "Sword_Idle", gooien: "OverhandThrow",
+  stomp: "Punch_Cross", jab: "Punch_Jab", klapHoofd: "Hit_Head", vechtklaar: "Punch_Enter", zwaai: "Sword_Attack", knuppel: "Sword_Idle", gooien: "OverhandThrow", toverklaar: "Spell_Simple_Idle_Loop", toveren: "Spell_Simple_Shoot",
 };
-const EENMALIG = new Set(["Hit_Chest", "Death01", "LayToIdle", "Hit_Knockback", "Punch_Cross", "Punch_Jab", "Hit_Head", "Punch_Enter", "Sword_Attack", "OverhandThrow"]);
+const EENMALIG = new Set(["Hit_Chest", "Death01", "LayToIdle", "Hit_Knockback", "Punch_Cross", "Punch_Jab", "Hit_Head", "Punch_Enter", "Sword_Attack", "OverhandThrow", "Spell_Simple_Shoot"]);
 
 let modellen = {}, clips = {}, zithoogte = {};
 /** Een beweging van buitenaf toevoegen (karate). */
@@ -82,7 +82,7 @@ export function maakMens(rol = "voetganger") {
   const object = SkeletonUtils.clone(modellen[naam]);
   let hoog = null, laag = null;
   object.traverse((o) => { if (o.isMesh) { if (o.name.includes("Laag")) laag = o; else hoog = o; } });
-  const schaal = rol === "schutter" || rol === "karateka" ? 1 : 0.94 + Math.random() * 0.12;
+  const schaal = rol === "schutter" || rol === "karateka" || rol === "heks" ? 1 : 0.94 + Math.random() * 0.12;
   object.scale.setScalar(schaal);
   const mixer = new THREE.AnimationMixer(object);
   let heup = null;
@@ -151,6 +151,7 @@ export function maakMens(rol = "voetganger") {
   m.detail(false, false);
   if (rol === "handhaver" || rol === "agent") uniform(m, rol);
   if (rol === "karateka") band(m);
+  if (rol === "heks") cape(m);
   if (zwart) hoodie(m, Math.random() < 0.8);
   return m;
 }
@@ -177,6 +178,30 @@ function hoodie(m, op) {
   const kraag = new THREE.Mesh(new THREE.TorusGeometry(0.075 * s, 0.035 * s, 6, 12), STOF);
   kraag.rotation.x = Math.PI / 2;
   zet(romp, kraag, new THREE.Vector3(hp.x, top - 0.275 * s, hp.z + 0.005 * s));
+}
+/** De cape van de tovenares: paars, met een zwarte opstaande kraag, een zwarte zoom en een zwarte sluiting. Hangt aan de schouders. */
+function cape(m) {
+  const o = m.object; o.updateMatrixWorld(true);
+  let romp = null; o.traverse((b) => { if (b.isBone && b.name === "DEF-spine003") romp = b; });
+  if (!romp || !m.hoog) return;
+  const s = m.schaal, top = new THREE.Box3().setFromObject(m.hoog).max.y, rp = romp.getWorldPosition(new THREE.Vector3());
+  const paars = new THREE.MeshStandardMaterial({ color: "#5b2a86", roughness: 0.85, side: THREE.DoubleSide }), zwart = new THREE.MeshStandardMaterial({ color: "#0f0d12", roughness: 0.9, side: THREE.DoubleSide });
+  const zet = (mesh, p) => { mesh.position.copy(p); mesh.castShadow = true; o.add(mesh); mesh.updateMatrixWorld(true); romp.attach(mesh); };
+  // het doek: een halve, naar onderen wijder wordende koker om de rug, van de schouders tot de kuiten
+  const yBoven = top - 0.27 * s, lengte = 1.0 * s, N = 12, R = 5, pos = [], idx = [];
+  for (let r = 0; r <= R; r++) for (let i = 0; i <= N; i++) {
+    const h = Math.PI * (0.12 + 0.76 * (i / N)), t = r / R, straal = (0.2 + 0.17 * t) * s, golf = Math.sin(i * 1.7) * 0.012 * t * s;
+    pos.push(Math.cos(h) * straal, -t * lengte, -Math.sin(h) * (straal * 0.72 + golf) - 0.02 * s);
+  }
+  for (let r = 0; r < R; r++) for (let i = 0; i < N; i++) { const a = r * (N + 1) + i, b = a + N + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+  const maak = (rijVan, rijTot, mat) => { const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx.slice(rijVan * N * 6, rijTot * N * 6)); g.computeVertexNormals(); return new THREE.Mesh(g, mat); };
+  const hier = new THREE.Vector3(rp.x, yBoven, rp.z);
+  zet(maak(0, R - 1, paars), hier); zet(maak(R - 1, R, zwart), hier); // de onderste baan is de zwarte zoom
+  // opstaande kraag en de sluiting op de borst
+  const kraag = new THREE.Mesh(new THREE.CylinderGeometry(0.125 * s, 0.16 * s, 0.075 * s, 14, 1, true, Math.PI * 0.62, Math.PI * 1.76), zwart);
+  zet(kraag, new THREE.Vector3(rp.x, yBoven - 0.03 * s, rp.z - 0.02 * s)); // onder de kin, open aan de voorkant
+  for (const k of [-1, 1]) { const band = new THREE.Mesh(new THREE.BoxGeometry(0.035 * s, 0.03 * s, 0.26 * s), zwart); band.rotation.y = k * 0.75; zet(band, new THREE.Vector3(rp.x + k * 0.1 * s, yBoven - 0.03 * s, rp.z + 0.06 * s)); }
+  zet(new THREE.Mesh(new THREE.SphereGeometry(0.022 * s, 8, 6), new THREE.MeshStandardMaterial({ color: "#c9a23a", metalness: 0.6, roughness: 0.3 })), new THREE.Vector3(rp.x, yBoven - 0.03 * s, rp.z + 0.15 * s));
 }
 /** De band om het karatepak: zwart, met een knoop en twee uiteinden aan de voorkant. */
 const BAND = new THREE.MeshStandardMaterial({ color: "#111113", roughness: 0.9 });

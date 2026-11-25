@@ -3,7 +3,8 @@ import * as THREE from "three";
 import { CAMERA, CAMERA_BOTSING, CAMERA_STAND, KIJKEN, SCHOT } from "./config.js";
 import { laadKarate, TECHNIEK, STOTEN, TRAPPEN } from "./karate.js";
 import { bouwWereld, zetFietsenInRekken, bevries, laadSpeeltoestel, laadNatuur } from "./wereld.js";
-import { Graaf, Voetganger, Fietser, Auto, Boodschapper, Staander, werp, schrikVan } from "./verkeer.js";
+import { Graaf, Voetganger, Fietser, Auto, Boodschapper, Staander, werp, schrikVan, laatZweven } from "./verkeer.js";
+import { maakMagie } from "./magie.js";
 import { WAPENKAST, HOUVAST, laadWapens, maakWapen, laadWerp, maakWerp, maakRaket } from "./wapens.js";
 import { Muziek } from "./muziek.js";
 import { kies, tussen, MAT, laadFietsen } from "./figuren.js";
@@ -125,7 +126,24 @@ let wereld, graaf, data;
 // standplaatsen: balkons en dak van Pleinzicht, en op de grond achter muurtjes
 let standen = [], standNr = 0, standDecor = null, wisselTot = 0;
 let schutter = null, geweer = null; // jij, van achteren te zien
-let sluiper = null, karateka = null; // in dit level ga je in karatepak de straat op
+let sluiper = null, karateka = null, heks = null; // wie je speelt: karateka of heks is gezet als je die gekozen hebt (anders De Kale)
+// De spelers waaruit je op het beginscherm kiest. Een nieuwe speler = hier een regel, een model en zijn eigen wapens.
+const SPELERS = { kale: { naam: "De Kale", model: "schutter" }, karate: { naam: "Karateman", model: "karateka" }, heks: { naam: "Tovenares", model: "heks" } };
+const SPREUKEN = ["vuurbal", "bevries", "zweef"];
+const spelers = {};
+let staf = null, magie = null, karateGeladen = false;
+/** Kies wie je speelt (bewaard op dit toestel). */
+async function kiesSpeler(id) {
+  if (!SPELERS[id]) id = "kale";
+  if (id === "karate" && !karateGeladen) { karateGeladen = true; await laadKarate(); }
+  for (const m of Object.values(spelers)) m.object.visible = false;
+  schutter = spelers[id]; sluiper = schutter; karateka = id === "karate" ? schutter : null; heks = id === "heks" ? schutter : null;
+  localStorage.setItem("fbs-speler", id); spel.speler_id = id;
+  document.body.classList.toggle("karate", id === "karate"); document.body.classList.toggle("heks", id === "heks");
+  loop.raamVuurwerk = false;
+  zetWapen(heks ? "vuurbal" : "pistool");
+  for (const b of document.querySelectorAll("#spelers button")) b.classList.toggle("aan", b.dataset.speler === id);
+}
 const oog = new THREE.Vector3(); // waar je ogen zijn (de kogel vertrekt hier)
 const wisselt = () => performance.now() < wisselTot;
 const reizigers = [];
@@ -156,7 +174,6 @@ async function laad() {
     }
   }
   await Promise.all([laadMensen((v) => $("#laden").style.setProperty("--v", v)), laadFietsen(), laadWapens(), laadWerp(), laadNatuur().catch(() => {}), laadAutos((data.vasteAutos ?? []).map((a) => a[4])), data.speeltuinen?.length ? laadSpeeltoestel() : null]);
-  if (data.karate) await laadKarate();
   wereld = bouwWereld(data, scene);
   graaf = new Graaf(data.graaf);
   blokken = data.voetafdrukken.map((v) => ({ r: v.ring, x0: Math.min(...v.ring.map((p) => p[0])), x1: Math.max(...v.ring.map((p) => p[0])), z0: Math.min(...v.ring.map((p) => p[1])), z1: Math.max(...v.ring.map((p) => p[1])) }));
@@ -168,7 +185,10 @@ async function laad() {
   graaf.autosBij = autosBij; // het verkeer stuurt om geparkeerde auto's heen
   graaf.uitAuto = uitAuto; // en ze lopen om geparkeerde auto's heen
   // jij: de schutter met het geweer
-  schutter = maakMens(data.karate ? "karateka" : "schutter"); // in het karatelevel draag je het pak ook bij het raam
+  for (const [id, sp] of Object.entries(SPELERS)) { const m = maakMens(sp.model); m.object.visible = false; scene.add(m.object); spelers[id] = m; }
+  schutter = spelers.kale;
+  staf = maakWapen("staf"); scene.add(staf);
+  magie = maakMagie({ scene, geluid, fx });
   geweer = maakWapen("geweer");
   scene.add(geweer); // los in de wereld: elk beeld tegen de schouder gelegd, in de kijkrichting
   for (const id of ZWAAR) scene.add((kast.mesh[id] = maakWapen(id)));
@@ -178,10 +198,10 @@ async function laad() {
   zetWapen("pistool");
   straat = maakStraat({ scene, reizigers, loop, spel, graaf, data, geluid, $, vrij: (x, z) => !geblokkeerd(x, z), naarBinnen: () => zetLopen(false, true), tekenHud, weg });
   { const echt = straat.strafbaar; straat.strafbaar = (n) => { if (opties.handhaving) echt(n); }; } // handhaving kan uit in de opties
-  scene.add(schutter.object);
-  sluiper = schutter;
-  if (data.karate) karateka = schutter;
-  document.body.classList.toggle("karate", !!data.karate);
+  { const lijst = $("#spelers"); lijst.textContent = "";
+    for (const [id, sp] of Object.entries(SPELERS)) { const k = document.createElement("button"); k.dataset.speler = id; k.textContent = sp.naam; k.addEventListener("click", () => kiesSpeler(id)); lijst.append(k); } }
+  // de laatst gekozen speler; de eerste keer in Zoetermeer de karateman, anders De Kale
+  await kiesSpeler(localStorage.getItem("fbs-speler") ?? (data.karate ? "karate" : "kale"));
   // ▲▼ gaan van laag naar hoog: eerst de plekken op de grond, dan de verdiepingen
   standen = data.standplaatsen.map((st, i) => ({ ...st, i })).sort((a, b) => a.pos[1] - b.pos[1]);
   // geen hangplek of groepje vlak bij een standplaats op de grond
@@ -331,7 +351,7 @@ const kast = { keuze: "geweer", munitie: {}, mesh: {} };
 const ZWAAR = new Set(["mg", "bazooka", "vlam"]), GOOI = new Set(["cobra", "granaat"]);
 let vuurVast = false; // houd je de vuurknop ingedrukt (machinegeweer, vlammenwerper)
 /** Het wapen waar de vuurknop nu op werkt. */
-const huidigWapen = () => (loop.aan ? loop.wapen : loop.raamVuurwerk ? "vuurwerk" : kast.keuze);
+const huidigWapen = () => (heks || loop.aan ? loop.wapen : loop.raamVuurwerk ? "vuurwerk" : kast.keuze);
 let blokken = null; // gebouwen (met omhullende rechthoek) waar je niet doorheen kunt
 let pistool = null, mes = null, knuppel = null;
 let straat = null; // gezocht-niveau en missies (src/straat.js)
@@ -342,7 +362,7 @@ function zichtVrij(a, b) {
   zichtRay.set(van, naar.normalize()); zichtRay.far = d - 0.3;
   return !zichtRay.intersectObjects(wereld.botsers, false).length;
 }
-function zetWapen(w) { loop.wapen = w; if (w !== "pistool") zetMikken(false); toonWapen(w); tekenHud(); }
+function zetWapen(w) { if (heks && !SPREUKEN.includes(w)) w = "vuurbal"; loop.wapen = w; if (w !== "pistool") zetMikken(false); toonWapen(w); tekenHud(); }
 function zetMikken(aan) { loop.mikken = aan && loop.wapen === "pistool"; document.body.classList.toggle("mikt", loop.mikken); }
 /** Mikhulp: de band van de fatbike die het dichtst bij het kruisje staat (ruimer als je richt). */
 function zoekDoel() {
@@ -373,7 +393,7 @@ function zoekDoel() {
   return null;
 }
 /** Wat je bij je hebt: gewoon pistool, vuisten en mes; in karatepak je vuisten en voeten, of een honkbalknuppel. */
-const wapens = () => [...(karateka && loop.aan ? ["vuist", "knuppel", "vuurwerk"] : WAPENS), ...(ZWAAR.has(kast.keuze) || GOOI.has(kast.keuze) ? [kast.keuze] : [])];
+const wapens = () => heks ? SPREUKEN : [...(karateka && loop.aan ? ["vuist", "knuppel", "vuurwerk"] : WAPENS), ...(ZWAAR.has(kast.keuze) || GOOI.has(kast.keuze) ? [kast.keuze] : [])];
 // Klein vuurwerk (categorie 1: knetteren en vonken, geen schade): je gooit het voor de voeten van de hangjeugd.
 const vuurwerk = [];
 /**
@@ -499,6 +519,7 @@ function volgendWapen() { const w = wapens(); zetWapen(w[(w.indexOf(loop.wapen) 
 /** De actieknop: bij je raam schieten met het geweer; lopend het wapen dat je in je hand hebt. */
 function actie() {
   if (loop.boeien > 0) return;
+  if (heks) return rij.aan ? geluid.toeter(1) : tover();
   if (!loop.aan && loop.raamVuurwerk && karateka) return gooiRaam();
   if (rij.aan) return geluid.toeter(1); // in de auto: de claxon
   const hw = huidigWapen();
@@ -525,7 +546,8 @@ function zetLopen(aan, gedwongen = false) {
     loop.aan = aan;
     document.body.classList.toggle("loopt", aan);
     if (karateka && aan) zetWapen("vuist");
-    if (!aan) toonWapen(loop.raamVuurwerk ? "vuurwerk" : kast.keuze === "geweer" ? "pistool" : kast.keuze);
+    if (heks) toonWapen(loop.wapen);
+    else if (!aan) toonWapen(loop.raamVuurwerk ? "vuurwerk" : kast.keuze === "geweer" ? "pistool" : kast.keuze);
     else if (!wapens().includes(loop.wapen)) zetWapen(wapens()[0]);
     zetZoom(1);
     if (aan) {
@@ -1311,7 +1333,7 @@ function schiet() {
 // ---------- de wapenkast ----------
 function openKast() {
   const el = $("#kast"), lijst = $("#kastLijst"); lijst.textContent = "";
-  const keuzes = [...Object.keys(WAPENKAST).filter((id) => !WAPENKAST[id].alleen || WAPENKAST[id].alleen === (karateka ? "karate" : "gewoon")), ...(karateka ? ["vuurwerk"] : [])];
+  const keuzes = [...Object.keys(WAPENKAST).filter((id) => !WAPENKAST[id].alleen || WAPENKAST[id].alleen === (data.karate ? "karate" : "gewoon")), ...(karateka ? ["vuurwerk"] : [])];
   for (const id of keuzes) {
     const k = document.createElement("button"), nu = loop.raamVuurwerk ? "vuurwerk" : kast.keuze;
     k.className = id === nu ? "aan" : ""; k.textContent = WAPENKAST[id]?.naam ?? "Vuurwerk";
@@ -1337,6 +1359,74 @@ function legAan(m, wapen, soort, yaw, pitch) {
   const omlaag = new THREE.Vector3(0, -1, 0);
   m.arm("R", wapen.localToWorld(new THREE.Vector3(...H.R)), omlaag.clone().addScaledVector(links, -0.6));
   m.arm("L", wapen.localToWorld(new THREE.Vector3(...H.L)), omlaag.clone().addScaledVector(links, 0.4));
+}
+// ---------- de tovenares: vuurbal, bevriezen en laten zweven ----------
+/** Spreek de gekozen spreuk uit: ze strekt haar arm, richt de staf en vuurt. */
+function tover() {
+  const L = loop;
+  if (!spel.bezig || herlaad > 0 || filmCam || wisselt() || (L.aan && (L.neer > 0 || L.boeien > 0))) return;
+  const spreuk = L.wapen, doel = richtPunt();
+  staf.updateMatrixWorld(true);
+  const van = staf.visible ? staf.localToWorld(new THREE.Vector3(0, 0, staf.userData.loop)) : (L.aan ? new THREE.Vector3(L.pos.x, 1.5, L.pos.z) : oog.clone());
+  const d = doel.clone().sub(van).normalize();
+  L.richt = 1.3; L.toverT = 0.45; if (L.aan) { L.richting = kijk.yaw; L.slag = 0.4; L.slagRaak = true; L.slagRaakOp = -1; L.slagSoort = "tover"; }
+  schutter.zet("toveren", 1.3, 0);
+  spel.schoten++;
+  if (spreuk === "vuurbal") {
+    herlaad = 0.7;
+    const m = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 10), new THREE.MeshBasicMaterial({ color: "#ffb347" }));
+    const gloed = new THREE.Mesh(new THREE.SphereGeometry(0.3, 10, 8), new THREE.MeshBasicMaterial({ color: "#ff5a1e", transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false })); m.add(gloed);
+    m.position.copy(van); scene.add(m);
+    kogels.push({ p: van.clone(), v: d.multiplyScalar(30), leeftijd: 0, raket: m, vuurbal: true, straal: 2.6 });
+    geluid.raket(); if (L.aan) straat.strafbaar(0.4);
+  } else if (spreuk === "bevries") {
+    herlaad = 0.9;
+    // de straal raakt wie het dichtst bij het kruisje staat (binnen 35 m)
+    let best = null;
+    for (const r of reizigers) {
+      if (!r.m || !r.groep || r.groep.visible === false || r.wordBoos) continue;
+      const p = new THREE.Vector3(r.pos.x, 1.1, r.pos.z), naar = p.clone().sub(camera.position), afst = naar.length(), hoek = Math.acos(THREE.MathUtils.clamp(naar.dot(richting()) / afst, -1, 1));
+      if (afst < 60 && van.distanceTo(p) < 35 && hoek < 0.09 + 1.2 / afst && (!best || hoek < best.hoek)) best = { r, p, hoek };
+    }
+    const eind = best ? best.p : van.clone().addScaledVector(d, Math.min(35, van.distanceTo(doel)));
+    for (let i = 0; i <= 14; i++) fx.deeltje(van.clone().lerp(eind, i / 14), { leven: 0.35 + i * 0.02, kleur: i % 2 ? "#bfe9ff" : "#ffffff", r0: 0.07, r1: 0.3, v: new THREE.Vector3(0, 0.3, 0), licht: true });
+    geluid.tik(1); geluid.sis();
+    if (best) {
+      const r = best.r;
+      if (r.fat && r.toestand === "rijden") fatbikeGeraakt(r, "klap", r.pos.clone().setY(0.8)); // een bevroren fatbike glijdt onderuit
+      else if (!r.fiets) { if (magie.bevries(r) && L.aan) straat.strafbaar(r.soort === "agent" ? 1 : 0.4); }
+    }
+  } else {
+    herlaad = 1.2;
+    // zweven: alles binnen een paar meter van het kruisje stijgt op, hangt daar hulpeloos en valt dan weer
+    const p = van.distanceTo(doel) > 40 ? van.clone().addScaledVector(d, 40) : doel.clone(); p.y = 0;
+    let n = 0;
+    for (const r of reizigers) {
+      if (Math.hypot(r.pos.x - p.x, r.pos.z - p.z) > 4.5) continue;
+      if (r.fat && r.toestand === "rijden") { if (!r.zweef) { r.zweef = { t: 0, y: 0 }; n++; } }
+      else if (r.m && r.groep && !r.fiets && !r.wordBoos) { if (laatZweven(r)) { n++; r.plof = () => geluid.stomp(afstandVol(r.pos) * 2); } }
+    }
+    for (let i = 0; i < 22; i++) { const h = Math.random() * 6.283, a = Math.random() * 4.2; fx.deeltje(new THREE.Vector3(p.x + Math.cos(h) * a, 0.1, p.z + Math.sin(h) * a), { leven: 1 + Math.random(), kleur: i % 2 ? "#c79bff" : "#ffffff", r0: 0.05, r1: 0.25, v: new THREE.Vector3(0, 1.6 + Math.random(), 0), licht: true }); }
+    geluid.zwiep(1); geluid.bel(1.2);
+    if (n && L.aan) straat.strafbaar(0.4);
+  }
+}
+/** De houding van de tovenares: de staf rechtop naast haar, of met gestrekte arm gericht als ze tovert. */
+function heksPose(yaw, pitch, richt) {
+  const m = schutter, fx_ = Math.sin(yaw), fz = Math.cos(yaw), cp = Math.cos(pitch), links = new THREE.Vector3(fz, 0, -fx_), dir = new THREE.Vector3(fx_ * cp, Math.sin(pitch), fz * cp), omlaag = new THREE.Vector3(0, -1, 0);
+  staf.visible = m.object.visible;
+  if (richt) {
+    // arm gestrekt, de staf in het verlengde; de andere arm naar achteren voor het evenwicht
+    const sR = m.plek("DEF-upper_armR").clone(), sL = m.plek("DEF-upper_armL").clone();
+    m.arm("R", sR.clone().addScaledVector(dir, 0.6).addScaledVector(links, 0.04), omlaag.clone().addScaledVector(links, -0.4));
+    m.arm("L", sL.clone().addScaledVector(dir, -0.25).addScaledVector(links, 0.3).add(new THREE.Vector3(0, 0.12, 0)), omlaag.clone().addScaledVector(dir, -0.6));
+    staf.position.copy(m.plek("DEF-handR")); staf.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
+  } else {
+    // in rust: de staf rechtop in haar rechterhand, de voet op de grond
+    const h = m.plek("DEF-handR");
+    staf.position.set(h.x, Math.max(h.y, 0.56), h.z); staf.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(fx_ * 0.08, 1, fz * 0.08).normalize());
+  }
+  staf.updateMatrixWorld(true);
 }
 /** Waar een schot met een zwaar wapen vertrekt en heen gaat. */
 function loopVan() {
@@ -1479,9 +1569,9 @@ function stapKogels(dt) {
     if (b.y < 0 && (!raak || a.y / (a.y - b.y) < raak.t)) raak = { t: a.y / (a.y - b.y), deel: "grond" };
     if (raak) {
       const p = a.clone().lerp(b, raak.t);
-      if (k.raket) { scene.remove(k.raket); ontplof(p); } else treffer(raak, p);
+      if (k.raket) { scene.remove(k.raket); ontplof(p, k.straal); } else treffer(raak, p);
       kogels.splice(kogels.indexOf(k), 1);
-    } else if (k.leeftijd > (k.raket ? 5 : 1.2)) { if (k.raket) { scene.remove(k.raket); ontplof(k.p.clone()); } kogels.splice(kogels.indexOf(k), 1); }
+    } else if (k.leeftijd > (k.raket ? 5 : 1.2)) { if (k.raket) { scene.remove(k.raket); ontplof(k.p.clone(), k.straal); } kogels.splice(kogels.indexOf(k), 1); }
   }
 }
 function afstandVol(p) { return 1 / (1 + p.distanceTo(camera.position) / 60); }
@@ -1792,7 +1882,7 @@ const knop = (sel, neer, op) => {
 knop("#vuur", () => { vuurVast = true; actie(); }, () => { vuurVast = false; });
 knop("#hoger", () => wisselStand(1));
 knop("#loopKnop", () => zetLopen(!loop.aan));
-knop("#wapen", () => { if (loop.aan) return volgendWapen(); openKast(); });
+knop("#wapen", () => { if (loop.aan || heks) return volgendWapen(); openKast(); });
 knop("#instap", () => (rij.aan ? stapUit() : stapIn()));
 addEventListener("keydown", (e) => { if (!e.repeat && e.code === "KeyT" && loop.aan) rij.aan ? stapUit() : stapIn(); });
 knop("#richt", () => ((karateka && loop.aan) ? sla("trap") : zetMikken(!loop.mikken)));
@@ -2011,6 +2101,9 @@ function lus() {
   if (vuurVast && huidigWapen() === "vlam") vuurVlam(echt); else geluid.vlam(false);
   stapKogels(dt);
   stapVuurwerk(dt);
+  magie.stap(dt, loop.aan && !rij.aan ? loop.pos : null);
+  if (loop.toverT > 0) loop.toverT -= echt;
+  for (const r of [...reizigers]) if (r.zweef?.t > 3 && r.toestand === "rijden") { r.zweef = null; fatbikeGeraakt(r, "klap", r.groep.position.clone()); } // de zweefspreuk is uitgewerkt: hij valt
   stapVallers(dt);
   fx.stap(dt);
 
@@ -2056,6 +2149,7 @@ function lus() {
     schutter.object.rotation.set(0, rij.richting, 0);
     schutter.object.visible = true; geweer.visible = pistool.visible = mes.visible = knuppel.visible = false; $("#slot").hidden = true;
     for (const m of Object.values(kast.mesh)) m.visible = false;
+    staf.visible = false;
     const cy = Math.sin(kijk.yaw), cz = Math.cos(kijk.yaw), cp = Math.cos(kijk.pitch);
     loop.camDoel.lerp(new THREE.Vector3(a.position.x, 1.5, a.position.z), 1 - Math.exp(-echt * 12));
     const terug = new THREE.Vector3(-cy * cp, -Math.sin(kijk.pitch), -cz * cp);
@@ -2075,7 +2169,8 @@ function lus() {
     // de beweging loopt op het tempo van je vaart, zodat je voeten niet over de grond glijden
     if (L.neer <= 0 && L.slag <= 0 && L.wankel <= 0) {
       const v = L.snelheid;
-      if (richtend && (L.wapen === "pistool" || zwaar) && v <= 0.25) schutter.zet("richten");
+      if (heks && v <= 0.25) schutter.zet("toverklaar");
+      else if (richtend && (L.wapen === "pistool" || zwaar) && v <= 0.25) schutter.zet("richten");
       else if (L.wapen === "knuppel" && v <= 0.25) schutter.zet("knuppel");
       else if ((karateka && loop.aan) && v <= 0.25 && reizigers.some((r) => r.ruzieT > 0 && !(r.ruzieNeer > 0) && r.pos.distanceToSquared(L.pos) < 36)) schutter.zet("k_idle"); // kamae: klaar voor de volgende
       else if (v > 4.6) schutter.zet("sprinten", v / 5.6); else if (v > 2.3) schutter.zet("rennen", v / 3.3); else if (v > 0.25) schutter.zet("lopen", THREE.MathUtils.clamp(v / 1.4, 0.7, 1.5)); else schutter.zet("staan");
@@ -2086,7 +2181,7 @@ function lus() {
     schutter.object.visible = true;
     // het geweer blijft bij het raam; in je hand heb je het pistool of het mes (of niets: vuisten)
     geweer.visible = false;
-    const ding = L.neer > 0 || L.boeien > 0 ? null : L.wapen === "pistool" ? pistool : L.wapen === "mes" ? mes : L.wapen === "knuppel" ? knuppel : zwaar || GOOI.has(L.wapen) ? kast.mesh[L.wapen] ?? null : null;
+    const ding = heks || L.neer > 0 || L.boeien > 0 ? null : L.wapen === "pistool" ? pistool : L.wapen === "mes" ? mes : L.wapen === "knuppel" ? knuppel : zwaar || GOOI.has(L.wapen) ? kast.mesh[L.wapen] ?? null : null;
     pistool.visible = ding === pistool; mes.visible = ding === mes; knuppel.visible = ding === knuppel;
     for (const m of Object.values(kast.mesh)) m.visible = ding === m && !(GOOI.has(L.wapen) && L.slag > 0); // tijdens de worp is je hand leeg
     schutter.los("DEF-spine002"); schutter.los("DEF-shoulderR");
@@ -2136,6 +2231,7 @@ function lus() {
       }
     }
     if (worp) worpHanden(L.richting);
+    if (heks) { if (L.neer > 0 || L.boeien > 0) staf.visible = false; else heksPose(kijkt, kijk.pitch, L.richt > 0); } else staf.visible = false;
     // camera achter je, iets over de rechterschouder. Ze veert mee (loopt een fractie achter), komt dichterbij als je
     // richt, gaat wat verder weg als je sprint, en schuift naar voren als er een muur achter je staat.
     // De getallen staan in src/config.js (CAMERA en CAMERA_BOTSING).
@@ -2184,7 +2280,7 @@ function lus() {
     const terug = raam ? 0.8 : grond ? 0.3 : 0.15;
     schutter.object.position.set(oog.x - fx * terug, grond ? 0 : oog.y - (raam ? 1.45 : 1.6), oog.z - fz * terug);
     schutter.object.rotation.set(raam ? 0.16 : grond ? 0.14 : 0.05, kijk.yaw, 0, "YXZ");
-    if (worp) worpClip(); else schutter.zet("staan");
+    if (worp) worpClip(); else if (heks) { if (!(loop.toverT > 0)) schutter.zet("toverklaar"); } else schutter.zet("staan");
     schutter.mixer.update(echt);
     schutter.object.updateMatrixWorld(true);
     schutter.los("DEF-spine001"); schutter.los("DEF-neck");
@@ -2201,10 +2297,11 @@ function lus() {
     schutter.object.visible = !scoop;
     const rw = ZWAAR.has(kast.keuze) && !loop.raamVuurwerk ? kast.mesh[kast.keuze] : null;
     // met een granaat of cobra (of vuurwerk) in de hand leg je geen geweer aan
-    const hand = GOOI.has(kast.keuze) && !loop.raamVuurwerk ? kast.mesh[kast.keuze] : null, los = hand || loop.raamVuurwerk || worp;
+    const hand = GOOI.has(kast.keuze) && !loop.raamVuurwerk ? kast.mesh[kast.keuze] : null, los = hand || loop.raamVuurwerk || worp || heks;
     if (!los) legAan(schutter, rw ?? geweer, rw ? kast.keuze : "geweer", kijk.yaw, kijk.pitch);
     geweer.visible = !scoop && !rw && !los;
-    for (const m of Object.values(kast.mesh)) m.visible = !scoop && (m === rw || m === hand);
+    for (const m of Object.values(kast.mesh)) m.visible = !scoop && !heks && (m === rw || m === hand);
+    if (heks) heksPose(kijk.yaw, kijk.pitch, true); else staf.visible = false;
     if (hand && !worp) hand.position.copy(schutter.plek("DEF-handR")).add(new THREE.Vector3(0, -0.04, 0));
     if (worp) worpHanden(kijk.yaw);
     pistool.visible = mes.visible = knuppel.visible = false;
@@ -2250,4 +2347,4 @@ function lus() {
 }
 zetZoom(1);
 laad().then(() => requestAnimationFrame(lus)).catch((e) => { $("#laden").textContent = "Laden mislukt: " + e.message; console.error(e); });
-window.__spel = { worp: () => worp, uitAuto, get muziek() { return muziek; }, geluid, opties, kast, openKast, ontplof, vuurMg, vuurRaket, vuurVlam, kogels, get schutter() { return schutter; }, vuurwerk, stapVuurwerk, karate: () => Object.keys(TECHNIEK), spel, reizigers, stil, uitAuto, verlaten, get herlaad() { return herlaad; }, kijk, camera, oog, loop, rij, stapIn, stapUit, stapLopen, get straat() { return straat; }, get graaf() { return graaf; }, zetLopen, sla, actie, zetWapen, klapKrijgen, vallers, schiet, begin, zetZoom, draai, scene, renderer, stand: () => standen[standNr]?.naam };
+window.__spel = { kiesSpeler, tover, get magie() { return magie; }, get heks() { return heks; }, staf: () => staf, worp: () => worp, uitAuto, get muziek() { return muziek; }, geluid, opties, kast, openKast, ontplof, vuurMg, vuurRaket, vuurVlam, kogels, get schutter() { return schutter; }, vuurwerk, stapVuurwerk, karate: () => Object.keys(TECHNIEK), spel, reizigers, stil, uitAuto, verlaten, get herlaad() { return herlaad; }, kijk, camera, oog, loop, rij, stapIn, stapUit, stapLopen, get straat() { return straat; }, get graaf() { return graaf; }, zetLopen, sla, actie, zetWapen, klapKrijgen, vallers, schiet, begin, zetZoom, draai, scene, renderer, stand: () => standen[standNr]?.naam };

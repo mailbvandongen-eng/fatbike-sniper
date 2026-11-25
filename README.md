@@ -133,6 +133,17 @@ Rijdende auto's sturen om geparkeerde auto's heen (`uitwijk` in `Auto.stap`, via
 - **Cobra's en handgranaten** zijn modellen (`laadWerp`/`maakWerp` in `src/wapens.js`): F1-granaat van TastyTony en een staaf met lont van bumstrum (CC BY 4.0). Je ziet ze in je hand en in de lucht.
 - Opnieuw bouwen: `tools/natuur/bouw.sh` en `tools/wapens/bouw.sh`.
 
+## Spelers kiezen
+
+Op het beginscherm kies je wie je speelt (`SPELERS` en `kiesSpeler` in `src/main.js`, bewaard als `fbs-speler`), op elk level:
+- **De Kale:** geweer, wapenkast, pistool, vuisten, mes, knuppel.
+- **Karateman:** stoten en trappen, knuppel, vuurwerk (en de kast bij het raam).
+- **Tovenares** (model `tovenares`, paarse cape met zwarte kraag en zoom: `cape` in `src/mensen.js`): geen vuurwapens maar een toverstaf ("Low Poly Wizard Staff 2.0" van roguecache, CC BY 4.0). Ze staat in een toverhouding en richt de staf met gestrekte arm (`heksPose`). De wapenknop wisselt tussen drie spreuken (`tover`):
+  - **Vuurbal:** vliegt naar het kruisje en ontploft klein (2,6 m): fatbikes gaan eraan, mensen vliegen een paar meter.
+  - **Bevriezen** (`src/magie.js`): wie bij het kruisje staat wordt een standbeeld van ijs. Loop ertegenaan en het valt stijf om, breekt in stukken (hoofd, armen, benen), ontdooit, klikt weer in elkaar, staat op en rent weg. Laat je het staan, dan ontdooit het na 9 s. Een fatbike glijdt onderuit.
+  - **Zweven:** alles binnen 4,5 m van het kruisje stijgt op, hangt drie tellen hulpeloos in de lucht en valt. Fatbikes vallen kapot.
+- Testen: `node tools/heks.cjs`.
+
 ## Opties
 
 Op het beginscherm staat een knop Opties (`OPTIES` en `opties` in `src/main.js`, bewaard in `localStorage` onder `fbs-opties`): handhaving aan/uit, tijdslimiet aan/uit (standaard zoals het level bedoeld is: alleen het bonuslevel heeft een klok; aan = 45 s plus 10 s per fatbike), fatbikes normaal/veel/heel veel (×1, ×1,8, ×3; hoogstens 16 tegelijk), onbeperkt kogels, mikhulp op straat, geluid, fatbikes markeren, en het volume van de muziek en van de achtergrond (uit, zacht, gewoon, hard). Het nootje rechtsboven in beeld opent tijdens het spelen alleen de drie geluidsregels. De muziek is een gespannen 16-bit-deuntje (`src/muziek.js`, stijl `sluip`; de kooi gebruikt stijl `kooi`) dat alleen tijdens een ronde speelt. Testen: `node tools/opties.cjs`.
