@@ -89,9 +89,7 @@ export class Geluid {
     this.toon({ freq: 70, freq2: 25, duur: 1.2, gain: 1 * v, start: 0.12 });
   }
   tik(v = 1) { this.ruisStoot({ duur: 0.06, filter: "bandpass", freq: 3000, q: 2, gain: 0.5 * v, start: 0.12 }); }
-  alarm(v = 0.5) {
-    for (let i = 0; i < 14; i++) this.toon({ freq: i % 2 ? 1250 : 850, duur: 0.22, type: "square", gain: 0.06 * v, start: 0.15 + i * 0.25 });
-  }
+  alarm() {} // geen piepend autoalarm meer (op verzoek); de knipperlichten blijven
   bel(v = 0.4) { this.toon({ freq: 2300, duur: 0.6, gain: 0.12 * v }); this.toon({ freq: 3480, duur: 0.4, gain: 0.06 * v, start: 0.12 }); }
   stappen() { for (let i = 0; i < 6; i++) this.ruisStoot({ duur: 0.07, filter: "bandpass", freq: 500 + Math.random() * 200, q: 1.5, gain: 0.35, start: i * 0.22 }); }
   /** Een voetstap; harder en doffer naarmate je sneller gaat. */
@@ -259,7 +257,7 @@ export class Geluid {
   /** Je eigen auto gaat van het slot. */
   slot() { this.toon({ freq: 1500, duur: 0.07, type: "square", gain: 0.06 }); this.toon({ freq: 1500, duur: 0.07, type: "square", gain: 0.06, start: 0.14 }); }
   /** Tweetonige sirene, in de verte. */
-  sirene(v = 1) { for (let i = 0; i < 4; i++) this.toon({ freq: i % 2 ? 620 : 470, duur: 0.5, type: "sawtooth", gain: 0.05 * v, start: i * 0.5 }); }
+  sirene() {} // geen politiesirene meer (op verzoek)
   /** Claxon: twee tonen tegelijk, een beetje scherp, zoals een echte auto. */
   toeter(v = 1) {
     if (!this.ctx) return;
