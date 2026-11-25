@@ -231,7 +231,6 @@ function cape(m) {
   // opstaande kraag en de sluiting op de borst
   const kraag = new THREE.Mesh(new THREE.CylinderGeometry(0.125 * s, 0.16 * s, 0.075 * s, 14, 1, true, Math.PI * 0.62, Math.PI * 1.76), zwart);
   zet(kraag, new THREE.Vector3(rp.x, yBoven - 0.03 * s, rp.z - 0.02 * s)); // onder de kin, open aan de voorkant
-  for (const k of [-1, 1]) { const band = new THREE.Mesh(new THREE.BoxGeometry(0.035 * s, 0.03 * s, 0.26 * s), zwart); band.rotation.y = k * 0.75; zet(band, new THREE.Vector3(rp.x + k * 0.1 * s, yBoven - 0.03 * s, rp.z + 0.06 * s)); }
   zet(new THREE.Mesh(new THREE.SphereGeometry(0.022 * s, 8, 6), new THREE.MeshStandardMaterial({ color: "#c9a23a", metalness: 0.6, roughness: 0.3 })), new THREE.Vector3(rp.x, yBoven - 0.03 * s, rp.z + 0.15 * s));
 }
 /** De band om het karatepak: zwart, met een knoop en twee uiteinden aan de voorkant. */

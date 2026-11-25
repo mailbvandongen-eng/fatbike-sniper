@@ -2384,7 +2384,7 @@ function lus() {
     const grond = st.soort === "grond", raam = st.soort === "raam";
     // uit het raam hangen: je voeten staan binnen, je bovenlijf leunt ver over de vensterbank
     const recht = heks || kind; // die leunen niet over de vensterbank: ze staan rechtop voor het raam
-    const terug = raam ? (recht ? 0.45 : 0.8) : grond ? 0.3 : 0.15;
+    const terug = raam ? (recht ? 1.0 : 0.8) : grond ? 0.3 : 0.15; // rechtop: achter de vensterbank en de radiator, in de kamer
     schutter.object.position.set(oog.x - fx * terug, grond ? 0 : oog.y - (raam ? 1.45 : 1.6), oog.z - fz * terug);
     schutter.object.rotation.set(recht ? 0 : raam ? 0.16 : grond ? 0.14 : 0.05, kijk.yaw, 0, "YXZ");
     if (worp) worpClip(); else schutter.zet("staan");
@@ -2417,7 +2417,7 @@ function lus() {
     if (scoop) camera.position.copy(oog);
     else {
       // over de schouder: per plek een andere afstand en hoogte (op het dak hoger, anders zie je alleen grind)
-      const [ach, rechts, op] = kind && st.soort === "raam" ? [1.1, 0.4, 0.3] : CAMERA_STAND[st.soort]; // het jongetje is klein: de camera dichter op het raam
+      const [ach, rechts, op] = kind && st.soort === "raam" ? [1.5, 0.15, 0.3] : heks && st.soort === "raam" ? [1.8, 0.42, 0.55] : CAMERA_STAND[st.soort]; // het jongetje is klein: de camera dichter op het raam
       camera.position.set(oog.x - fx * ach - fz * rechts, oog.y + op, oog.z - fz * ach + fx * rechts);
     }
   }
