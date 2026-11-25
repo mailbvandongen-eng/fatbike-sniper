@@ -66,12 +66,21 @@ const maaivelden = [];
 //   jaren50 roodbruine baksteen · jaren60 gele baksteen · galerij beton met witte schotten (hoogbouw 1960-1980)
 //   kop rode kopgevel van die galerijflats · winkel glazen pui met lichte luifelband · huis rijtjeshuis
 //   modern licht metselwerk (1990-2010) · nieuw donker metselwerk (na 2010)
-const stijlen = ["jaren50", "bruinwit", "portiek", "geel", "creme", "zeilschip", "galerij", "kop", "winkel", "huis", "modern", "nieuw", "jaren70"];
+const stijlen = ["jaren50", "bruinwit", "portiek", "geel", "creme", "zeilschip", "galerij", "kop", "winkel", "huis", "modern", "nieuw", "jaren70", "jaren70kop"];
 const muren = Object.fromEntries(stijlen.map((s) => [s, { pos: [], uv: [] }]));
 const daken = { plat: { pos: [] }, pannen: { pos: [] } };
 const voetafdrukken = [];
 let sluip = null;
 
+// Het midden van elk pand, om bij rijtjeshuizen de richting van de rij te vinden (de buren).
+const pandMiddens = [];
+for (const f of panden) {
+  const t = f.transform, deel = Object.values(f.CityObjects).find((o) => o.type === "BuildingPart"), g = deel?.geometry.at(-1);
+  const i = g?.boundaries[0].findIndex((_, k) => g.semantics.surfaces[g.semantics.values[0][k]].type === "GroundSurface");
+  if (!(i >= 0)) continue;
+  const r = g.boundaries[0][i][0].map((k) => [f.vertices[k][0] * t.scale[0] + t.translate[0] - OX, -(f.vertices[k][1] * t.scale[1] + t.translate[1] - OY)]);
+  pandMiddens.push(r.reduce((m, q) => [m[0] + q[0] / r.length, m[1] + q[1] / r.length], [0, 0]));
+}
 for (const f of panden) {
   const t = f.transform;
   const V = f.vertices.map((v) => [v[0] * t.scale[0] + t.translate[0] - OX, v[2] * t.scale[2] + t.translate[2], -(v[1] * t.scale[1] + t.translate[1] - OY)]);
@@ -114,6 +123,11 @@ for (const f of panden) {
     const isFlat = L.flatPand ? f.id.endsWith(L.flatPand) : og?.t.name === L.flat;
     if (isFlat && !sluip) sluip = { grond, h0: a.b3_h_maaiveld ?? 0, lagen, dak: a.b3_h_dak_70p ?? 28 };
     const pannen = a.b3_dak_type === "slanted" && (stijl === "huis" || stijl === "jaren50");
+    let rij = null;
+    if (stijl === "jaren70") {
+      const buur = pandMiddens.map((q) => [q, Math.hypot(q[0] - mid[0], q[1] - mid[1])]).filter(([, d]) => d > 3 && d < 12).sort((p, q) => p[1] - q[1])[0];
+      if (buur) rij = [(buur[0][0] - mid[0]) / buur[1], (buur[0][1] - mid[1]) / buur[1]];
+    }
     vlakken.forEach((vlak, k) => {
       const soort = sem.surfaces[sem.values[0][k]].type;
       if (soort === "GroundSurface") return;
@@ -125,8 +139,12 @@ for (const f of panden) {
         let breedte = 0;
         if (stijl === "galerij") { const r0 = ringen[0]; for (const p of r0) for (const q of r0) breedte = Math.max(breedte, Math.hypot(p[0] - q[0], p[2] - q[2])); }
         const kop = stijl === "galerij" && Math.abs(n[0] * as[0] + n[2] * as[1]) > 0.7 && breedte > 6;
-        const m = muren[kop ? "kop" : stijl];
-        for (const tri of tris) for (const p of tri) { m.pos.push(...p); m.uv.push(p[0] * tan[0] + p[2] * tan[2], p[1]); }
+        // rijtjeshuis: de zijgevel (in de richting van de buren) is een kale muur met één raam boven, zoals in het echt
+        const zij = stijl === "jaren70" && rij && Math.abs(n[0] * rij[0] + n[2] * rij[1]) > 0.7;
+        const m = muren[kop ? "kop" : zij ? "jaren70kop" : stijl];
+        // bij de zijgevel begint de tekening aan het begin van de muur, zodat het ene raam op een vaste plek zit
+        const u0 = zij ? Math.min(...ringen[0].map((p) => p[0] * tan[0] + p[2] * tan[2])) : 0;
+        for (const tri of tris) for (const p of tri) { m.pos.push(...p); m.uv.push(p[0] * tan[0] + p[2] * tan[2] - u0, p[1]); }
       } else {
         const d = pannen && Math.abs(n[1]) < 0.97 ? daken.pannen : daken.plat;
         // zorg dat daken naar boven wijzen
@@ -154,7 +172,7 @@ for (let i = 0; i < g.length; i++) {
   const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
   if (binnen([m[0] + nrm[0], m[1] + nrm[1]], g)) nrm = nrm.map((v) => -v); // naar buiten
   const naarP = N([J[0] - m[0], J[1] - m[1]]);
-  kandidaten.push({ dot: nrm[0] * naarP[0] + nrm[1] * naarP[1], m, nrm, len, afst: Math.hypot(...m) });
+  kandidaten.push({ dot: nrm[0] * naarP[0] + nrm[1] * naarP[1], m, nrm, len, afst: Math.hypot(...m), a, b });
 }
 const maxDot = Math.max(...kandidaten.map((k) => k.dot));
 const beste = kandidaten.filter((k) => k.dot > maxDot - 0.12).sort((a, b) => a.afst - b.afst)[0];
@@ -164,6 +182,13 @@ if (L.raam) {
   const t = (rp[0] - beste.m[0]) * -beste.nrm[1] + (rp[1] - beste.m[1]) * beste.nrm[0];
   const tt = Math.max(-beste.len / 2 + 1, Math.min(beste.len / 2 - 1, t));
   beste.m = [beste.m[0] - beste.nrm[1] * tt, beste.m[1] + beste.nrm[0] * tt];
+}
+// een rijtjeshuis met het raam in de zijgevel: je staat achter het ene raam dat op die muur getekend is
+// (6,75 m vanaf het begin van de muur, zie de stijl jaren70kop in src/wereld.js)
+if (L.raamStand) {
+  const tan = N([-beste.nrm[1], beste.nrm[0]]), ua = beste.a[0] * tan[0] + beste.a[1] * tan[1], ub = beste.b[0] * tan[0] + beste.b[1] * tan[1];
+  const f = (Math.min(ua, ub) + 6.75 - ua) / (ub - ua);
+  if (f > 0.1 && f < 0.9) beste.m = [beste.a[0] + (beste.b[0] - beste.a[0]) * f, beste.a[1] + (beste.b[1] - beste.a[1]) * f];
 }
 // buiten de muur, op de galerij of het balkon van de 4e verdieping
 // vloer van de eerste woonlaag (standaard 3,4 m, bij een verhoogd parterre ~1,2 m), daarna 2,8 m per laag
