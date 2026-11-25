@@ -106,6 +106,10 @@ Bij het raam opent de wapenknop een **kast** (`openKast`, `src/wapens.js`): gewe
 - **Honkbalknuppel** (nu op elk level in de rij): wie voor je staat vliegt door de lucht, ligt even, staat op en hinkt weg (`werp` en `stapWorp` in `src/verkeer.js`). Dat geldt ook voor de ontploffing. Niemand raakt gewond of gaat dood; het telt wel als strafbaar.
 - Testen: `node tools/kast.cjs`.
 
+## Reacties op schieten
+
+Geen piepjes en geen kruizen meer bij een treffer of een fout (`geluid.goed`/`fout` en `melding` doen niets meer). Schiet je op of vlak naast een omstander, dan springt hij op of valt om en rent weg (`schrikVan` in `src/verkeer.js`); het telt nog steeds als fout. Een fatbike die omligt met een hele accu blijft een doelwit (`soort: "wrak"` in `stil`): raak je hem, of ontploft er iets naast, dan knalt de accu alsnog (`wrakOntploft`) en vliegen de berijders die er nog bij zijn door de lucht.
+
 ## Opties
 
 Op het beginscherm staat een knop Opties (`OPTIES` en `opties` in `src/main.js`, bewaard in `localStorage` onder `fbs-opties`): handhaving aan/uit, tijdslimiet aan/uit (standaard zoals het level bedoeld is: alleen het bonuslevel heeft een klok; aan = 45 s plus 10 s per fatbike), fatbikes normaal/veel/heel veel (×1, ×1,8, ×3; hoogstens 16 tegelijk), onbeperkt kogels, mikhulp op straat, geluid, fatbikes markeren, en het volume van de muziek en van de achtergrond (uit, zacht, gewoon, hard). Het nootje rechtsboven in beeld opent tijdens het spelen alleen de drie geluidsregels. De muziek is een gespannen 16-bit-deuntje (`src/muziek.js`, stijl `sluip`; de kooi gebruikt stijl `kooi`) dat alleen tijdens een ronde speelt. Testen: `node tools/opties.cjs`.

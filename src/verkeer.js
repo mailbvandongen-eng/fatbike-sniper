@@ -254,6 +254,26 @@ export function werp(wie, van, kracht = 1) {
   wie.m.zet("vliegen", 1, 0);
   return true;
 }
+/**
+ * Er wordt op iemand geschoten (niemand wordt geraakt): hij springt op van schrik, of valt om, en rent dan weg.
+ * van = waar het schot vandaan kwam of insloeg; val = omvallen in plaats van opspringen.
+ */
+export function schrikVan(wie, van, val = Math.random() < 0.5) {
+  if (wie.worp || wie.groep?.visible === false) return false;
+  const dx = wie.pos.x - van.x, dz = wie.pos.z - van.z, d = Math.hypot(dx, dz) || 1;
+  wie.worp = val ? { fase: "lucht", vx: (dx / d) * 1.6, vz: (dz / d) * 1.6, vy: 2.6, y: 0.05, t: 0, tol: (Math.random() < 0.5 ? -1 : 1) * 3.2, ren: true }
+    : { fase: "lucht", vx: 0, vz: 0, vy: 3.6, y: 0.05, t: 0, tol: 0, hop: true, ren: true, wx: dx / d, wz: dz / d };
+  wie.ruzieT = 0; wie.ruzieNeer = 0; wie.dreigt = false; wie.zit = false;
+  wie.m.zet(val ? "klap" : "vliegen", 1, 0);
+  return true;
+}
+/** Na het opspringen of omvallen: wegrennen, van het schot af. */
+function renWeg(wie, w) {
+  wie.worp = null; wie.groep.rotation.x = wie.groep.rotation.z = 0;
+  if (wie.soort === "agent") return;
+  if (!wie.g) { wie.richting = Math.atan2(w.wx ?? w.vx, w.wz ?? w.vz) + tussen(-0.5, 0.5); wie.schrik = 4.5; } // staat ergens: rent weg en verdwijnt
+  else { wie.schrik = 4.3; wie.wacht = 0; }
+}
 /** Eén stap van zo'n vlucht; geeft true zolang hij duurt. */
 function stapWorp(wie, dt) {
   const w = wie.worp; if (!w) return false;
@@ -264,9 +284,10 @@ function stapWorp(wie, dt) {
     const nx = wie.pos.x + w.vx * dt, nz = wie.pos.z + w.vz * dt;
     if (vrij(nx, nz)) wie.pos.set(nx, 0, nz); else { w.vx *= -0.3; w.vz *= -0.3; } // tegen een muur: terugstuiten
     wie.groep.rotation.x += w.tol * dt;
+    if (w.y <= 0 && w.hop) { renWeg(wie, w); return true; }
     if (w.y <= 0) { w.y = 0; w.fase = "ligt"; w.t = 0; wie.groep.rotation.x = 0; wie.m.zet("liggen", 1, "eind"); wie.plof?.(); }
-  } else if (w.fase === "ligt") { if (w.t > 1.3) { w.fase = "op"; w.t = 0; wie.m.zet("opstaan", 1, 0); } }
-  else if (w.fase === "op") { if (w.t > 1.5) { w.fase = "hinkt"; w.t = 0; wie.richting = Math.atan2(w.vx, w.vz) + tussen(-0.5, 0.5); } }
+  } else if (w.fase === "ligt") { if (w.t > (w.ren ? 0.7 : 1.3)) { w.fase = "op"; w.t = 0; wie.m.zet("opstaan", w.ren ? 1.4 : 1, 0); } }
+  else if (w.fase === "op") { if (w.ren && w.t > 1.1) { renWeg(wie, w); return true; } if (w.t > 1.5) { w.fase = "hinkt"; w.t = 0; wie.richting = Math.atan2(w.vx, w.vz) + tussen(-0.5, 0.5); } }
   else {
     // hinkend weg: langzaam, met een knik bij elke stap
     const nx = wie.pos.x + Math.sin(wie.richting) * 0.85 * dt, nz = wie.pos.z + Math.cos(wie.richting) * 0.85 * dt;

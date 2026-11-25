@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { CAMERA, CAMERA_BOTSING, CAMERA_STAND, KIJKEN, SCHOT } from "./config.js";
 import { laadKarate, TECHNIEK, STOTEN, TRAPPEN } from "./karate.js";
 import { bouwWereld, zetFietsenInRekken, bevries, laadSpeeltoestel } from "./wereld.js";
-import { Graaf, Voetganger, Fietser, Auto, Boodschapper, Staander, werp } from "./verkeer.js";
+import { Graaf, Voetganger, Fietser, Auto, Boodschapper, Staander, werp, schrikVan } from "./verkeer.js";
 import { WAPENKAST, laadWapens, maakWapen } from "./wapens.js";
 import { Muziek } from "./muziek.js";
 import { kies, tussen, maakGeweer, maakPistool, maakMes, maakKnuppel, MAT, laadFietsen } from "./figuren.js";
@@ -1228,10 +1228,7 @@ function tekenHud() {
   $("#score").textContent = spel.score + spel.rondeScore;
 }
 /** Geen tekst in beeld: een kort teken midden in het vizier (geel = raak, oranje = accu, rood = fout). */
-function melding(soort = "goed") {
-  const m = $("#raakteken");
-  m.className = ""; void m.offsetWidth; m.className = `aan ${soort}`;
-}
+function melding() {} // de gele en rode kruizen in beeld zijn weg (op verzoek)
 
 // ---------- schieten ----------
 const kogels = [];
@@ -1335,7 +1332,10 @@ function ontplof(p, R = WAPENKAST.bazooka.straal, cobra = false) {
     else if (r.m && r.groep && !r.fiets) { if (d < R + 1) { if (werp(r, p, 1.2 + (1 - d / (R + 1)) * 0.5)) r.plof = () => geluid.stomp(afstandVol(r.pos) * 2); } else if (d < R * 3) r.schrikken?.(); }
     else if (d < R * 2.5) r.schrikken?.();
   }
-  for (const st of stil) if (st.soort === "auto" && st.object.position.distanceTo(p) < R) { knipper(st.object); geluid.alarm(afstandVol(p) * 2); }
+  for (const st of [...stil]) {
+    if (st.soort === "auto" && st.object.position.distanceTo(p) < R) { knipper(st.object); geluid.alarm(afstandVol(p) * 2); }
+    else if (st.soort === "wrak" && st.groep.position.distanceTo(p) < R) wrakOntploft(st, st.groep.position.clone().setY(0.4));
+  }
   if (loop.aan && !rij.aan && Math.hypot(loop.pos.x - p.x, loop.pos.z - p.z) < R * 0.7) klapKrijgen(); // te dichtbij: je ligt zelf ook
   straat?.strafbaar(1.5);
 }
@@ -1413,7 +1413,7 @@ function stapKogels(dt) {
       if (h && (!raak || h.t < raak.t)) raak = { ...h, wie, soort };
     };
     for (const r of reizigers) if (!r.toestand || r.toestand === "rijden") bekijk(r.object, r.raak, r, r.soort);
-    for (const s of stil) if (s.object.position.distanceToSquared(a) < (KOGEL_V * dt + 6) ** 2) bekijk(s.object, s.raak, s, s.soort);
+    for (const s of stil) if ((s.groep ?? s.object).position.distanceToSquared(a) < (KOGEL_V * dt + 6) ** 2) bekijk(s.object, s.raak, s, s.soort);
     // gebouwen en grond
     const lengte = a.distanceTo(b);
     ray.set(a, b.clone().sub(a).normalize()); ray.far = lengte;
@@ -1432,14 +1432,22 @@ function afstandVol(p) { return 1 / (1 + p.distanceTo(camera.position) / 60); }
 function treffer(r, p) {
   spel.laatste = { deel: r.deel, soort: r.soort, p: p.toArray().map((v) => +v.toFixed(2)) };
   // iedereen in de buurt schrikt; fatbikes geven gas
-  for (const x of reizigers) if (x.pos.distanceTo(p) < (x.fat ? 30 : 12)) x.schrikken();
+  const mens = (x) => x.m && x.groep && !x.fiets && !x.wordBoos && x.soort !== "agent";
+  for (const x of reizigers) {
+    const d = x.pos.distanceTo(p);
+    // vlak naast de inslag: opspringen (of omvallen) en wegrennen; verder weg: schrikken
+    if (d < 4 && mens(x) && x !== r.wie) schrikVan(x, p, Math.random() < 0.3);
+    else if (d < (x.fat ? 30 : 12)) x.schrikken();
+  }
+  if (r.wie?.soort === "wrak") return wrakOntploft(r.wie, p);
   if (r.deel === "muur" || r.deel === "grond") { fx.inslag(p, r.deel === "grond" ? "#9b968c" : "#b9a89a"); geluid.tik(afstandVol(p)); return; }
   const wie = r.wie;
   if (r.deel === "mens") {
     // niemand raakt gewond: de kogel scheert langs en ze schrikken zich rot
     straat?.strafbaar(wie.soort === "agent" ? 1.5 : 1);
     fout("Bijna een mens geraakt!", "Schiet op de fiets, niet op de mensen");
-    if (wie.mens) wie.schrikken();
+    // er is op hem geschoten: hij valt om van schrik, krabbelt op en rent weg
+    if (mens(wie)) schrikVan(wie, loop.aan ? loop.pos : oog, true); else if (wie.mens) wie.schrikken();
     return;
   }
   if (wie.soort === "auto") {
@@ -1504,6 +1512,8 @@ function fatbikeGeraakt(f, deel, p) {
     if (klap) geluid.tik(1); else { fx.klap(p); geluid.klap(afstandVol(p)); }
     const zij = Math.random() < 0.5 ? 1 : -1;
     vallers.push({ obj: f.groep, v, w: new THREE.Vector3(0, tussen(-1, 1), 0), soort: "fiets", r: 0, kantel: zij, kantelT: 0 });
+    // de accu is nog heel: zolang de fiets er ligt kun je hem alsnog opblazen
+    stil.push({ object: fiets, raak: fiets.userData.raak, soort: "wrak", groep: f.groep });
     // lekke band: platter
     const wi = deel === "band" ? fiets.userData.wielen[p.distanceTo(fiets.userData.wielen[0].getWorldPosition(new THREE.Vector3())) < p.distanceTo(fiets.userData.wielen[1].getWorldPosition(new THREE.Vector3())) ? 0 : 1] : null;
     if (wi) wi.scale.set(1, 0.82, 1.06);
@@ -1604,7 +1614,29 @@ function stapVallers(dt) {
     }
   }
 }
-function opruimen(obj, na) { setTimeout(() => scene.remove(obj), na * 1000); }
+function opruimen(obj, na) { setTimeout(() => { scene.remove(obj); const i = stil.findIndex((s) => s.groep === obj); if (i >= 0) stil.splice(i, 1); }, na * 1000); }
+/** De accu van een fatbike die al op de grond ligt: een knal, de fiets vliegt de lucht in en de berijders die er nog bij zijn ook. */
+function wrakOntploft(w, p) {
+  const i = stil.indexOf(w); if (i < 0) return; stil.splice(i, 1);
+  const g = w.groep, fiets = w.object;
+  spel.rondeScore += 150; spel.laatste = { deel: "accu", soort: "wrak", p: p.toArray().map((v) => +v.toFixed(2)) };
+  fx.ontploffing(p); geluid.boem(afstandVol(p) * 1.4); fx.brand(fiets, 10);
+  for (const wi of fiets.userData.wielen) { wi.material = wi.material.clone(); wi.material.color?.set("#444"); }
+  const oud = vallers.findIndex((x) => x.obj === g); if (oud >= 0) vallers.splice(oud, 1);
+  vallers.push({ obj: g, v: new THREE.Vector3(tussen(-1, 1), 6.5, tussen(-1, 1)), w: new THREE.Vector3(tussen(-4, 4), tussen(-3, 3), tussen(-5, 5)), soort: "fiets", r: 0.25 });
+  // de berijders die er nog bij liggen, staan of lopen
+  for (const x of vallers) {
+    if (x.soort !== "mens" || x.toestand === "vliegt" || x.toestand === "rent") continue;
+    const dx = x.obj.position.x - p.x, dz = x.obj.position.z - p.z, d = Math.hypot(dx, dz) || 1;
+    if (d > 6) continue;
+    Object.assign(x, { toestand: "vliegt", t: 0.4, vlucht: true });
+    x.v.set((dx / d) * tussen(2, 4), tussen(7, 9.5), (dz / d) * tussen(2, 4)); x.w.set(tussen(-7, 7), tussen(-2, 2), tussen(-3, 3));
+    x.m.zet("vliegen", 1, 0);
+  }
+  // en omstanders vlakbij
+  for (const r of reizigers) { const d = Math.hypot(r.pos.x - p.x, r.pos.z - p.z); if (d < 3.5 && r.m && r.groep && !r.fiets && !r.wordBoos) werp(r, p, 1.1); else if (d < 14) r.schrikken?.(); }
+  tekenHud();
+}
 
 // ---------- besturing ----------
 const RICHT = { pitchMin: -0.95, pitchMax: 0.3, yawMax: 1.35 };

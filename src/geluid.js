@@ -272,6 +272,6 @@ export class Geluid {
     const e = ctx.createGain(); e.gain.value = 0.3; g.connect(e); e.connect(this.echo);
   }
   hart() { this.toon({ freq: 55, freq2: 40, duur: 0.18, gain: 0.5 }); this.toon({ freq: 50, freq2: 38, duur: 0.16, gain: 0.35, start: 0.22 }); }
-  goed() { this.toon({ freq: 880, duur: 0.12, gain: 0.15 }); this.toon({ freq: 1320, duur: 0.2, gain: 0.15, start: 0.09 }); }
-  fout() { this.toon({ freq: 220, duur: 0.35, type: "sawtooth", gain: 0.12 }); this.toon({ freq: 160, duur: 0.45, type: "sawtooth", gain: 0.12, start: 0.15 }); }
+  goed() {} // geen piepjes meer bij een treffer of een fout (op verzoek)
+  fout() {}
 }
