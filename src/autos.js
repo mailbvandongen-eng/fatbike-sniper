@@ -54,7 +54,7 @@ export async function laadAutos(extra = []) {
   for (const n of duo) {
     // alles van het plaatwerk boven de raamlijn (dak en stijlen) wordt zwart, via een kleur per punt
     const a = M[n.replace(/duo$/, "")], lak = a.lak.clone(); lak.vertexColors = true;
-    const v = new THREE.Vector3(), grens = a.H * 0.8;
+    const v = new THREE.Vector3(), grens = a.H * 0.9; // alleen het dak zelf
     const kleur = (d) => {
       if (d.mat !== a.lak) return d;
       const geo = d.geo.clone(), P = geo.attributes.position, col = new Float32Array(P.count * 3);

@@ -66,7 +66,7 @@ const maaivelden = [];
 //   jaren50 roodbruine baksteen · jaren60 gele baksteen · galerij beton met witte schotten (hoogbouw 1960-1980)
 //   kop rode kopgevel van die galerijflats · winkel glazen pui met lichte luifelband · huis rijtjeshuis
 //   modern licht metselwerk (1990-2010) · nieuw donker metselwerk (na 2010)
-const stijlen = ["jaren50", "bruinwit", "portiek", "geel", "creme", "zeilschip", "galerij", "kop", "winkel", "huis", "modern", "nieuw", "jaren70", "jaren70kop", "schuur"];
+const stijlen = ["jaren50", "bruinwit", "portiek", "geel", "creme", "zeilschip", "galerij", "kop", "winkel", "huis", "modern", "nieuw", "jaren70", "jaren70kop", "schuur", "huis85"];
 const muren = Object.fromEntries(stijlen.map((s) => [s, { pos: [], uv: [] }]));
 const daken = { plat: { pos: [] }, pannen: { pos: [] } };
 const voetafdrukken = [];
@@ -112,6 +112,7 @@ for (const f of panden) {
     else if (jaar >= 1990) stijl = "modern";
     else if (lagen >= 8 && jaar >= 1960) stijl = "galerij";
     else if (jaar >= 1955) stijl = "bruinwit"; // donkerbruine baksteen met witte raambanden, zoals rond het plein
+    if (stijl === "huis" && L.huisStijl) stijl = L.huisStijl;
     for (const g of GEDEELD.stijlGebieden) if (stijl === g.van && Math.hypot(mid[0] + OX - g.midden[0], OY - mid[1] - g.midden[1]) < g.straal) stijl = g.naar;
     const eigen = GEDEELD.stijlPerPand[f.id.replace("NL.IMBAG.Pand.", "")];
     if (eigen) stijl = eigen;
@@ -124,7 +125,7 @@ for (const f of panden) {
     voetafdrukken.push({ ring: grond.map((p) => p.map(r1)), h: r1(a.b3_h_dak_70p ?? 6), naam: og?.t.name });
     const isFlat = L.flatPand ? f.id.endsWith(L.flatPand) : og?.t.name === L.flat;
     if (isFlat && !sluip) sluip = { grond, h0: a.b3_h_maaiveld ?? 0, lagen, dak: a.b3_h_dak_70p ?? 28 };
-    const pannen = a.b3_dak_type === "slanted" && (stijl === "huis" || stijl === "jaren50");
+    const pannen = a.b3_dak_type === "slanted" && (stijl === "huis" || stijl === "huis85" || stijl === "jaren50");
     let rij = null;
     if (stijl === "jaren70") {
       const buur = pandMiddens.map((q) => [q, Math.hypot(q[0] - mid[0], q[1] - mid[1])]).filter(([, d]) => d > 3 && d < 12).sort((p, q) => p[1] - q[1])[0];
@@ -277,7 +278,7 @@ if (L.bgt && existsSync(`data/ruw/${id}/bgt.json`)) {
   for (const f of bgt.paal) if (/licht/.test(`${f.plus} ${f.soort}`)) { const [x, z] = lokaal(f.g.coordinates[1], f.g.coordinates[0]).map(r1); if (!dingen.some((d) => d[0] === "lamp" && Math.hypot(d[1] - x, d[2] - z) < 3)) dingen.push(["lamp", x, z]); }
   // tuinen: om elk erf een schutting of een heg, behalve waar het tegen een gebouw of een ander erf aan ligt
   const erven = bv.filter((v) => v.s === "b_erf" && Math.hypot(...v.r[0]) < 150);
-  const straten = lijnen.filter((l) => l.s === "weg");
+  const straten = lijnen.filter((l) => l.s === "weg"), opritten = [];
   const bijStraat = (q) => straten.some((l) => { for (let i = 0; i < l.p.length - 1; i++) { const [a, b] = [l.p[i], l.p[i + 1]], dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz || 1, t = Math.max(0, Math.min(1, ((q[0] - a[0]) * dx + (q[1] - a[1]) * dz) / L2)); if (Math.hypot(q[0] - a[0] - dx * t, q[1] - a[1] - dz * t) < l.b / 2 + 7) return true; } return false; });
   const inGebouw = (p) => voetafdrukken.some((v) => binnen(p, v.ring));
   erven.forEach((e, nr) => {
@@ -289,10 +290,16 @@ if (L.bgt && existsSync(`data/ruw/${id}/bgt.json`)) {
       // de buitenkant van deze rand
       const buiten = binnen([m[0] + nx * 0.3, m[1] + nz * 0.3], e.r) ? [m[0] - nx * 0.45, m[1] - nz * 0.45] : [m[0] + nx * 0.45, m[1] + nz * 0.45];
       if (inGebouw(buiten) || inGebouw(m) || erven.some((o) => o !== e && binnen(buiten, o.r))) continue;
-      if (bijStraat(m)) continue; // de voorkant aan de straat is open: geen schutting voor de voordeur
+      if (bijStraat(m)) {
+        // de voorkant aan de straat is open (geen schutting voor de voordeur) en bestraat: opritten en tegelpaden tot aan de gevel
+        const inx = (m[0] - buiten[0]) / 0.45, inz = (m[1] - buiten[1]) / 0.45, diep = 6;
+        opritten.push({ s: "b_oprit", r: [a, b, [r1(b[0] + inx * diep), r1(b[1] + inz * diep)], [r1(a[0] + inx * diep), r1(a[1] + inz * diep)], a] });
+        continue;
+      }
       schuttingen.push([a[0], a[1], b[0], b[1], soort]);
     }
   });
+  vlakken.push(...opritten);
   console.log(`BGT: ${bv.length} vlakken, ${erven.length} tuinen, ${schuttingen.length} stukken schutting of heg, ${bomen.length} bomen`);
 }
 
@@ -521,7 +528,7 @@ for (const v of vlakken) if (v.s.startsWith("speel")) {
 }
 
 const uit = {
-  naam: L.naam, kort: L.kort, modus: L.modus ?? "rondes", seizoen: L.seizoen ?? "zomer", tijd: L.tijd, grond: L.grond, druk: L.druk, karate: L.karate, hangjeugd: L.hangjeugd, fatDruk: L.fatDruk, bron: "3D BAG (CC BY 4.0), © OpenStreetMap-bijdragers (ODbL)",
+  naam: L.naam, kort: L.kort, modus: L.modus ?? "rondes", seizoen: L.seizoen ?? "zomer", tijd: L.tijd, grond: L.grond, druk: L.druk, pannen: L.pannen, karate: L.karate, hangjeugd: L.hangjeugd, fatDruk: L.fatDruk, bron: "3D BAG (CC BY 4.0), © OpenStreetMap-bijdragers (ODbL)",
   sluipschutter, muren, daken, voetafdrukken: voetafdrukken.filter((v) => Math.hypot(...v.ring[0]) < VER + 20),
   vlakken, lijnen, bomen, heggen, dingen, plekken: plekken.filter((p) => !p.bezet), vasteAutos, winkels, oversteken, muurtjes, standplaatsen, startStand, bogen, dakboog, hangplekken, speeltuinen, schuttingen, graaf: { knopen, kanten },
 };

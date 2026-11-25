@@ -84,6 +84,7 @@ export function maakMens(rol = "voetganger") {
   object.traverse((o) => { if (o.isMesh) { if (o.name.includes("Laag")) laag = o; else hoog = o; } });
   const schaal = rol === "kind" ? 0.74 : rol === "schutter" || rol === "karateka" || rol === "heks" ? 1 : 0.94 + Math.random() * 0.12;
   object.scale.setScalar(schaal);
+  if (rol === "kind") object.scale.set(schaal * 1.12, schaal * 0.95, schaal * 1.12); // een kind van acht: kleiner en steviger
   const mixer = new THREE.AnimationMixer(object);
   let heup = null;
   const bot = {};

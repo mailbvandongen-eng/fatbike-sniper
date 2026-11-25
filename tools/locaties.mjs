@@ -16,7 +16,7 @@ export const GEDEELD = {
   bogen: { bij: [84420, 454690], straal: 45, nietBij: [84415.9, 454737.4], nietStraal: 32 },
   // Vaste auto's op de vrije parkeerplekken het dichtst bij een punt (op verzoek van Bob: voor de deur aan de Van Steelaan)
   // (rav4duo = dezelfde RAV4 met een zwart dak; zilvergrijs, voor de deur aan de Hoekerkade)
-  vasteAutos: [{ soort: "rav4", kleur: "#08080a", bij: [84276.85, 454838.53] }, { soort: "colt", kleur: "#a3151a", bij: [84276.85, 454838.53] }, { soort: "rav4duo", kleur: "#8d9297", bij: [93712, 454234], deur: "hoekerkade" }],
+  vasteAutos: [{ soort: "rav4", kleur: "#08080a", bij: [84276.85, 454838.53] }, { soort: "colt", kleur: "#a3151a", bij: [84276.85, 454838.53] }, { soort: "rav4duo", kleur: "#70757b", bij: [93712, 454234], deur: "hoekerkade" }],
 };
 export const LOCATIES = {
   julianaplein: {
@@ -87,6 +87,7 @@ export const LOCATIES = {
     dak: false,
     kijkpunt: [93716, 454245],
     bgt: true,
+    huisStijl: "huis85", pannen: "#8a4636", // donkerrode dakpannen
     hangjeugd: true, hangRond: [[93716, 454247], [93700, 454250], [93735, 454238], [93690, 454240]], // groepjes op het hofje en langs de straat
     fatDruk: 1.5,
     druk: 0.4,

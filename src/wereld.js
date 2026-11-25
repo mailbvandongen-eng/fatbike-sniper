@@ -29,6 +29,9 @@ const GEVEL = {
   jaren70: { b: 2.75, h: 2.7, steen: ["#6a4338", "#74493c", "#5f3b31", "#7a4f41"], voeg: "#8b766a", raam: [1.5, 1.35], kozijn: "#efece4", latei: "#6a4338", band: "#e9e6de" },
   // de zijgevel van zo'n rijtjeshuis: kale baksteen, een witte band boven de begane grond, een donkere dakrand en één raam boven
   jaren70kop: { b: 2.75, h: 2.7, zijgevel: true },
+  // rijtjeshuis uit de jaren 80 (Hoekerkade, naar Street View): roodbruine baksteen, witte kozijnen, een witte dakrand
+  // en op de begane grond om en om een voordeur (donkerblauw of wit)
+  huis85: { b: 2.7, h: 2.7, steen: ["#8a5a45", "#93604a", "#7d503d", "#9a6a52"], voeg: "#b7a595", raam: [1.35, 1.3], kozijn: "#f5f3ee", latei: "#e9e6de", deur: true, dakrand: true },
   // schuurtje of garage: donkere houten delen, geen ramen
   schuur: { b: 2.4, h: 2.6, schuur: true },
   nieuw: { b: 3.0, h: 3.0, steen: ["#4d423c", "#5a4b44", "#463c37"], voeg: "#6d625b", raam: [1.3, 2.1], kozijn: "#2b2b2b", latei: "#3a3330" },
@@ -135,11 +138,21 @@ function gevelTextuur(st) {
       x.fillRect(0, H - 0.12 * PX, W, 0.12 * PX);
     } else {
       stenen(x, W, H, st.steen, st.voeg);
-      const [rb, rh] = st.raam, rx = (st.b - rb) / 2 * PX, ry = (st.h - rh) / 2 * PX - 0.1 * PX;
-      x.fillStyle = st.latei; x.fillRect(rx - 6, ry - 0.16 * PX, rb * PX + 12, 0.12 * PX);
-      ruit(x, rx, ry, rb * PX, rh * PX, st.kozijn, Math.random() < 0.3);
-      x.fillStyle = st.latei; x.fillRect(rx - 4, ry + rh * PX + 3, rb * PX + 8, 0.06 * PX);
+      if (st.deur && l === LAAG - 1 && k % 2 === 1) {
+        // een voordeur met een smal raampje ernaast
+        const dx = 0.5 * PX, db = 0.95 * PX, dh = 2.1 * PX;
+        x.fillStyle = "#f5f3ee"; x.fillRect(dx - 4, H - dh - 4, db + 8, dh + 4);
+        x.fillStyle = k === 1 ? "#1c2740" : "#ecebe6"; x.fillRect(dx, H - dh, db, dh);
+        x.fillStyle = "#2a3644"; x.fillRect(dx + db * 0.38, H - dh * 0.8, db * 0.24, dh * 0.3);
+        ruit(x, dx + db + 0.25 * PX, H * 0.3, 0.55 * PX, H * 0.4, st.kozijn, false);
+      } else {
+        const [rb, rh] = st.raam, rx = (st.b - rb) / 2 * PX, ry = (st.h - rh) / 2 * PX - 0.1 * PX;
+        x.fillStyle = st.latei; x.fillRect(rx - 6, ry - 0.16 * PX, rb * PX + 12, 0.12 * PX);
+        ruit(x, rx, ry, rb * PX, rh * PX, st.kozijn, Math.random() < 0.3);
+        x.fillStyle = st.latei; x.fillRect(rx - 4, ry + rh * PX + 3, rb * PX + 8, 0.06 * PX);
+      }
     }
+    if (st.dakrand && l === LAAG - 2) { x.fillStyle = "#f2f0ea"; x.fillRect(0, 0, W, 0.17 * PX); x.fillStyle = "#00000030"; x.fillRect(0, 0.17 * PX, W, 0.04 * PX); }
     if (st.band) { x.fillStyle = st.band; x.fillRect(0, 0, W, 0.085 * PX); }
     x.restore();
   }
@@ -265,7 +278,7 @@ const GRONDKLEUR = {
   basis: "#b5a88f", plein: "#cdb98e", stoep: "#d2be8f", weg: "#86645e", asfalt: "#4d4e52", parkeer: "#86604f", vak: "#5f5d5d", fietspad: "#93524c",
   gras: "#5f7f42", struik: "#3f5f2f", eiland: "#a59f93", speel: "#c4ad7f", speelgroen: "#5f9c7c",
   // BGT: de echte indeling van de grond
-  b_gras: "#5f7f42", b_erf: "#75805a", b_open: "#9a9285", b_voetpad: "#b5af9f", b_klinker: "#86645e", b_parkeer: "#6d6a66", b_asfalt: "#4d4e52", b_fietspad: "#93524c", b_water: "#4c676c", fietsvlak: "#a9a196", tram: "#6d6a63", gebouw: "#3c3a37",
+  b_oprit: "#a39d92", b_gras: "#5f7f42", b_erf: "#75805a", b_open: "#9a9285", b_voetpad: "#b5af9f", b_klinker: "#86645e", b_parkeer: "#6d6a66", b_asfalt: "#4d4e52", b_fietspad: "#93524c", b_water: "#4c676c", fietsvlak: "#a9a196", tram: "#6d6a63", gebouw: "#3c3a37",
 };
 export function tekenGrond(d, midden, maat, px) {
   const c = document.createElement("canvas");
@@ -591,7 +604,7 @@ export function bouwWereld(d, scene) {
     const g = new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.Float32BufferAttribute(m.pos, 3));
     g.computeVertexNormals();
-    const mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: soort === "pannen" ? "#b8532e" : "#6a6863", roughness: 0.95 }));
+    const mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: soort === "pannen" ? d.pannen ?? "#b8532e" : "#6a6863", roughness: 0.95 }));
     mesh.castShadow = mesh.receiveShadow = true;
     scene.add(mesh); wereld.botsers.push(mesh);
   }
