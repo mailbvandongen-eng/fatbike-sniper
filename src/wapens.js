@@ -21,7 +21,7 @@ export const HANDWAPENS = {
   pistool: { as: "x", lengte: 0.22, greep: 0.2, op: 0.05 },
   mes: { as: "x", lengte: 0.3, greep: 0.2, op: 0 },
   knuppel: { as: "-x", lengte: 0.84, greep: 0.1, op: 0 },
-  staf: { as: "y", lengte: 1.3, greep: 0.42, op: 0, weg: /stone/ }, // de toverstaf (zonder het voetstuk van het model)
+  staf: { as: "y", lengte: 0.5, greep: 0.1, op: 0, weg: /stone/ }, // een toverstokje: klein, met de steen aan de punt // de toverstaf (zonder het voetstuk van het model)
 };
 /**
  * Hoe je een lang wapen vasthoudt (legAan in main.js): waar de oorsprong van het wapen komt ten opzichte van je rechterschouder

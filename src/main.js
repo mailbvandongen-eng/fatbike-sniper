@@ -1467,7 +1467,6 @@ function tover() {
   const van = staf.visible ? staf.localToWorld(new THREE.Vector3(0, 0, staf.userData.loop)) : (L.aan ? new THREE.Vector3(L.pos.x, 1.5, L.pos.z) : oog.clone());
   const d = doel.clone().sub(van).normalize();
   L.richt = 1.3; L.toverT = 0.45; if (L.aan) { L.richting = kijk.yaw; L.slag = 0.4; L.slagRaak = true; L.slagRaakOp = -1; L.slagSoort = "tover"; }
-  schutter.zet("toveren", 1.3, 0);
   spel.schoten++;
   if (spreuk === "vuurbal") {
     herlaad = 0.7;
@@ -1510,18 +1509,17 @@ function tover() {
 }
 /** De houding van de tovenares: de staf rechtop naast haar, of met gestrekte arm gericht als ze tovert. */
 function heksPose(yaw, pitch, richt) {
-  const m = schutter, fx_ = Math.sin(yaw), fz = Math.cos(yaw), cp = Math.cos(pitch), links = new THREE.Vector3(fz, 0, -fx_), dir = new THREE.Vector3(fx_ * cp, Math.sin(pitch), fz * cp), omlaag = new THREE.Vector3(0, -1, 0);
+  const m = schutter, fx_ = Math.sin(yaw), fz = Math.cos(yaw), cp = Math.cos(pitch), links = new THREE.Vector3(fz, 0, -fx_), dir = new THREE.Vector3(fx_ * cp, Math.sin(pitch), fz * cp);
   staf.visible = m.object.visible;
   if (richt) {
-    // arm gestrekt, de staf in het verlengde; de andere arm naar achteren voor het evenwicht
-    const sR = m.plek("DEF-upper_armR").clone(), sL = m.plek("DEF-upper_armL").clone();
-    m.arm("R", sR.clone().addScaledVector(dir, 0.6).addScaledVector(links, 0.04), omlaag.clone().addScaledVector(links, -0.4));
-    m.arm("L", sL.clone().addScaledVector(dir, -0.25).addScaledVector(links, 0.3).add(new THREE.Vector3(0, 0.12, 0)), omlaag.clone().addScaledVector(dir, -0.6));
+    // de rechterarm gestrekt naar het doel, iets naar buiten en omhoog zodat je hem langs haar schouder ziet; het stokje in het verlengde
+    const sR = m.plek("DEF-upper_armR").clone();
+    m.arm("R", sR.clone().addScaledVector(dir, 0.6).addScaledVector(links, -0.1).add(new THREE.Vector3(0, 0.1, 0)), new THREE.Vector3(0, -1, 0).addScaledVector(links, -0.3));
     staf.position.copy(m.plek("DEF-handR")); staf.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
   } else {
-    // in rust: de staf rechtop in haar rechterhand, de voet op de grond
-    const h = m.plek("DEF-handR");
-    staf.position.set(h.x, Math.max(h.y, 0.56), h.z); staf.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(fx_ * 0.08, 1, fz * 0.08).normalize());
+    // in rust: het stokje in haar hand, in het verlengde van haar onderarm
+    const hand = m.plek("DEF-handR").clone(), langs = hand.clone().sub(m.plek("DEF-forearmR")).normalize();
+    staf.position.copy(hand); staf.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), langs);
   }
   staf.updateMatrixWorld(true);
 }
@@ -2267,8 +2265,7 @@ function lus() {
     // de beweging loopt op het tempo van je vaart, zodat je voeten niet over de grond glijden
     if (L.neer <= 0 && L.slag <= 0 && L.wankel <= 0) {
       const v = L.snelheid;
-      if (heks && v <= 0.25) schutter.zet("toverklaar");
-      else if (richtend && (L.wapen === "pistool" || zwaar) && v <= 0.25) schutter.zet("richten");
+      if (richtend && (L.wapen === "pistool" || zwaar) && v <= 0.25) schutter.zet("richten");
       else if (L.wapen === "knuppel" && v <= 0.25) schutter.zet("knuppel");
       else if ((karateka && loop.aan) && v <= 0.25 && reizigers.some((r) => r.ruzieT > 0 && !(r.ruzieNeer > 0) && r.pos.distanceToSquared(L.pos) < 36)) schutter.zet("k_idle"); // kamae: klaar voor de volgende
       else if (v > 4.6) schutter.zet("sprinten", v / 5.6); else if (v > 2.3) schutter.zet("rennen", v / 3.3); else if (v > 0.25) schutter.zet("lopen", THREE.MathUtils.clamp(v / 1.4, 0.7, 1.5)); else schutter.zet("staan");
@@ -2376,14 +2373,15 @@ function lus() {
     // staan en (op straat) iets voorover leunen over het muurtje; het lijf staat een stukje achter het oog
     const grond = st.soort === "grond", raam = st.soort === "raam";
     // uit het raam hangen: je voeten staan binnen, je bovenlijf leunt ver over de vensterbank
-    const terug = raam ? 0.8 : grond ? 0.3 : 0.15;
+    const recht = heks || kind; // die leunen niet over de vensterbank: ze staan rechtop voor het raam
+    const terug = raam ? (recht ? 0.45 : 0.8) : grond ? 0.3 : 0.15;
     schutter.object.position.set(oog.x - fx * terug, grond ? 0 : oog.y - (raam ? 1.45 : 1.6), oog.z - fz * terug);
-    schutter.object.rotation.set(raam ? 0.16 : grond ? 0.14 : 0.05, kijk.yaw, 0, "YXZ");
-    if (worp) worpClip(); else if (heks) { if (!(loop.toverT > 0)) schutter.zet("toverklaar"); } else schutter.zet("staan");
+    schutter.object.rotation.set(recht ? 0 : raam ? 0.16 : grond ? 0.14 : 0.05, kijk.yaw, 0, "YXZ");
+    if (worp) worpClip(); else schutter.zet("staan");
     schutter.mixer.update(echt);
     schutter.object.updateMatrixWorld(true);
     schutter.los("DEF-spine001"); schutter.los("DEF-neck");
-    if (raam) {
+    if (raam && !recht) {
       // over de vensterbank: je buigt in je heup naar buiten en kijkt weer op
       const op = new THREE.Vector3(0, 1, 0), buk = (h) => new THREE.Vector3(fx * Math.sin(h), Math.cos(h), fz * Math.sin(h));
       schutter.buig("DEF-spine001", op, buk(0.72));
