@@ -109,6 +109,9 @@ huid = laad(sorted(glob.glob(f'{S}/skins/{lft}_{C["afkomst"]}_{G}/*diffuse*.png'
 if C.get('huid'):   # kleine verschuiving in tint, zodat niet iedereen dezelfde huid heeft
     gem = huid[..., :3].reshape(-1, 3).mean(axis=0)
     huid[..., :3] = np.clip(huid[..., :3] * (0.75 + 0.25 * hexrgb(C['huid']) / np.maximum(gem, 1e-3)), 0, 1)
+if C.get('vacht'):   # een dier: de hele huid in de kleur van de vacht, met behoud van licht en donker
+    lum = (huid[..., :3] @ np.array([0.3, 0.59, 0.11], dtype=np.float32))[..., None]
+    huid[..., :3] = np.clip(lum / max(1e-3, float(lum.mean())) * hexrgb(C['vacht']), 0, 1)
 huid[..., 3] = 1
 zet('huid', huid)
 def kleding(pad, tint, vak):

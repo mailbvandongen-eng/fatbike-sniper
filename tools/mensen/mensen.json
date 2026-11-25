@@ -245,6 +245,36 @@
    "ogen": "brown",
    "zijkantenKaal": true,
    "staartKort": 0.3
+  },
+  {
+   "rol": "dier",
+   "geslacht": "male",
+   "afkomst": "caucasian",
+   "oud": 0.4,
+   "schoenen": "shoes03",
+   "haar": null,
+   "ogen": "brown",
+   "naam": "beer",
+   "spier": 1,
+   "gewicht": 1,
+   "pak": "male_worksuit01",
+   "pakTint": "#7d5733",
+   "vacht": "#7d5733"
+  },
+  {
+   "rol": "dier",
+   "geslacht": "male",
+   "afkomst": "caucasian",
+   "oud": 0.4,
+   "schoenen": "shoes03",
+   "haar": null,
+   "ogen": "brown",
+   "naam": "wolf",
+   "spier": 0.7,
+   "gewicht": -0.4,
+   "pak": "male_worksuit01",
+   "pakTint": "#8d8a84",
+   "vacht": "#8d8a84"
   }
  ]
 }

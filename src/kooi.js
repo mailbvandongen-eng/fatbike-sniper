@@ -1,7 +1,9 @@
 // Kooigevecht: twee vechters in een achthoekige kooi, publiek eromheen, muziek erbij. K.O. wint.
 // Een eigen pagina (kooi.html) die de mensen, de karatebewegingen en het geluid van het spel hergebruikt.
 import * as THREE from "three";
-import { laadMensen, maakMens } from "./mensen.js";
+import { laadMensen, laadModel, maakMens } from "./mensen.js";
+import { GLTFLoader } from "../lib/three-addons.js";
+import { MeshoptDecoder } from "../lib/meshopt_decoder.mjs";
 import { laadKarate, TECHNIEK } from "./karate.js";
 import { Geluid } from "./geluid.js";
 import { Muziek } from "./muziek.js";
@@ -11,15 +13,21 @@ import { Muziek } from "./muziek.js";
  * stoot/trap = hoe hard hij raakt; trapTempo = hoe snel hij trapt; stamina = hoeveel adem; herstel = adem per seconde.
  */
 export const VECHTERS = [
-  { id: "bokser", naam: "De Kale", stijl: "Bokser", model: "schutter", stoot: 1.28, trap: 0.5, trapTempo: 0.8, stamina: 150, herstel: 14,
-    stoten: ["jab", "jab", "gyaku", "shita", "jodan_tsuki"], trappen: ["gedan", "mae"], balken: [0.9, 0.3, 1] },
-  { id: "karateka", naam: "Karateman", stijl: "Kyokushin", model: "karateka", stoot: 0.95, trap: 1.25, trapTempo: 1.1, stamina: 105, herstel: 11,
-    stoten: ["jab", "gyaku", "shita", "hiji", "jodan_tsuki"], trappen: ["gedan", "mae", "chudan_mawashi", "jodan_mawashi", "ushiro_mawashi"], balken: [0.65, 0.9, 0.65] },
+  { id: "bokser", naam: "De Kale", stijl: "Bokser", model: "schutter", stoot: 1.3, trap: 0.5, trapTempo: 0.8, snel: 1.25, leven: 110, stamina: 150, herstel: 14,
+    stoten: ["jab", "jab", "gyaku", "shita", "jodan_tsuki"], trappen: ["gedan", "mae"], balken: [0.8, 0.3, 1, 0.6] },
+  { id: "karateka", naam: "Karateman", stijl: "Kyokushin", model: "karateka", stoot: 0.95, trap: 1.2, trapTempo: 1.0, stamina: 105, herstel: 11,
+    stoten: ["jab", "gyaku", "shita", "hiji", "jodan_tsuki"], trappen: ["gedan", "mae", "chudan_mawashi", "jodan_mawashi", "ushiro_mawashi"], balken: [0.6, 0.85, 0.65, 0.65] },
+  // de dieren: een eigen lijf (assets/dieren/lijf_*.glb) met een dierenkop erop (kop_*.glb)
+  { id: "beer", naam: "Beer", stijl: "Krachtpatser", model: "beer", dier: true, schaal: 1.12, kop: [0, 0.03, 0.03, 1.15], kopTint: "#c79a66", stoot: 1.62, trap: 1.1, trapTempo: 0.85, tempo: 0.8, snel: 0.8, leven: 135, stug: true, stamina: 76, herstel: 7.5,
+    stoten: ["gyaku", "shita", "hiji", "jodan_tsuki"], trappen: ["gedan", "mae", "hiza"], balken: [1, 0.55, 0.4, 0.35] },
+  { id: "wolf", naam: "Wolf", stijl: "Snel en fel", model: "wolf", dier: true, schaal: 0.97, kop: [0, 0.0, 0.05, 1], staart: true, stoot: 0.78, trap: 0.85, trapTempo: 1.15, tempo: 1.25, snel: 1.35, leven: 82, stamina: 125, herstel: 15,
+    stoten: ["jab", "jab", "gyaku", "jab", "shita"], trappen: ["gedan", "mae", "chudan_mawashi", "ushiro_geri"], balken: [0.45, 0.5, 0.85, 1] },
 ];
 /** Afstellen van het gevecht. */
 export const KOOI = {
   straal: 3.7, // zo ver kun je van het midden (de kooi zelf is 4,6 m)
-  loopSnel: 2.3, achteruit: 1.8,
+  loopSnel: 1.6, achteruit: 1.25, // rustig voetenwerk: stappen, niet rennen
+  draai: 1.1, // hoe snel de camera meedraait als de vechters om elkaar heen gaan (lager = rustiger beeld)
   bereikStoot: 1.25, bereikTrap: 1.6,
   kostStoot: 7, kostTrap: 10, // adem per aanval
   blok: 0.2, // zoveel schade komt er nog door een blok
@@ -27,7 +35,7 @@ export const KOOI = {
   tempo: 1.3, // afspeelsnelheid van de technieken
   ai: { wacht: [0.45, 1.1], blokKans: 0.42 }, // hoe snel de tegenstander weer aanvalt, en hoe vaak hij blokt
 };
-const SCHADE = { jab: 4, gyaku: 7, shita: 8, hiji: 9, jodan_tsuki: 11, gedan: 8, mae: 9, chudan_mawashi: 12, jodan_mawashi: 17, ushiro_mawashi: 20 };
+const SCHADE = { jab: 4, gyaku: 7, shita: 8, hiji: 9, jodan_tsuki: 11, gedan: 8, mae: 9, hiza: 10, chudan_mawashi: 12, ushiro_geri: 13, jodan_mawashi: 17, ushiro_mawashi: 20 };
 
 const $ = (s) => document.querySelector(s);
 const tussen = (a, b) => a + Math.random() * (b - a), kies = (a) => a[(Math.random() * a.length) | 0];
@@ -76,6 +84,7 @@ function bouwKooi() {
   scene.add(new THREE.HemisphereLight("#a9b8d6", "#3a2c22", 1.0));
   const spot = new THREE.DirectionalLight("#fff4e0", 2.4); spot.position.set(1.5, 9, 2); spot.castShadow = !telefoon; spot.shadow.mapSize.set(1024, 1024);
   Object.assign(spot.shadow.camera, { left: -6, right: 6, top: 6, bottom: -6, near: 1, far: 20 }); scene.add(spot);
+  const vul = new THREE.DirectionalLight("#dfe6ff", 1.3); vul.position.set(-3, 5, -4); scene.add(vul); // van de andere kant, zodat niemand een zwart silhouet wordt
   const r = new THREE.PointLight("#ff3b2e", 40, 14); r.position.set(-5, 3.2, -4); const b = new THREE.PointLight("#3b7bff", 40, 14); b.position.set(5, 3.2, 4); scene.add(r, b);
 }
 
@@ -106,16 +115,43 @@ function stapPubliek(dt, beeld) {
   });
 }
 
+// ---------- dieren: een kop (en staart) op het lijf ----------
+const koppen = {};
+async function laadDieren() {
+  const L = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder), v = window.VERSIE ?? "";
+  await Promise.all(VECHTERS.filter((d) => d.dier).map(async (d) => {
+    const [, g] = await Promise.all([laadModel(d.model, `assets/dieren/lijf_${d.model}.glb?v=${v}`), L.loadAsync(`assets/dieren/kop_${d.model}.glb?v=${v}`)]);
+    koppen[d.model] = g.scene;
+  }));
+}
+/** De dierenkop over het hoofd (hij beweegt mee met het hoofd), en bij de wolf een staart aan de heup. */
+function zetKop(m, def) {
+  const o = m.object; o.updateMatrixWorld(true);
+  let hoofd = null, heup = null; o.traverse((b) => { if (b.isBone && b.name === "DEF-head") hoofd = b; if (b.isBone && b.name === "DEF-hips") heup = b; });
+  const [kx, ky, kz, maat] = def.kop, top = new THREE.Box3().setFromObject(m.hoog).max.y, hp = hoofd.getWorldPosition(new THREE.Vector3()), s = def.schaal ?? 1;
+  const kop = koppen[def.model].clone(); kop.traverse((c) => { if (c.isMesh) { c.castShadow = true; if (def.kopTint) { c.material = c.material.clone(); c.material.color.set(def.kopTint); } } });
+  kop.scale.setScalar(maat * s); kop.position.set(hp.x + kx, top - 0.13 * s + ky, hp.z + kz * s);
+  o.attach(kop); kop.updateMatrixWorld(true); hoofd.attach(kop);
+  if (def.staart) {
+    const staart = new THREE.Mesh(new THREE.ConeGeometry(0.055 * s, 0.5 * s, 8), new THREE.MeshStandardMaterial({ color: "#8d8a84", roughness: 1 }));
+    const h = heup.getWorldPosition(new THREE.Vector3()); staart.position.set(h.x, h.y - 0.12 * s, h.z - 0.2 * s); staart.rotation.x = -2.2; staart.castShadow = true;
+    o.attach(staart); staart.updateMatrixWorld(true); heup.attach(staart);
+  }
+}
+
 // ---------- de vechters ----------
 class Vechter {
   constructor(def, x) {
     this.def = def; this.m = maakMens(def.model); this.m.detail(true, true);
+    if (def.schaal) this.m.object.scale.setScalar(def.schaal);
+    if (def.kop) zetKop(this.m, def);
+    this.leven = def.leven ?? 100;
     this.pos = new THREE.Vector3(x, 0, 0); this.start = x; this.richting = 0;
     scene.add(this.m.object);
     this.reset(true);
   }
   reset(alles) {
-    this.pos.set(this.start, 0, 0); this.st = this.def.stamina; if (alles) this.hp = 100;
+    this.pos.set(this.start, 0, 0); this.st = this.def.stamina; if (alles) this.hp = this.leven;
     Object.assign(this, { aanval: null, blok: false, wankel: 0, ko: false, combo: -1, comboT: 0, duwX: 0, duwZ: 0, veilig: 0, reeks: 0, reeksT: 0 });
     this.m.huidig = null; this.m.zet("k_idle");
   }
@@ -126,7 +162,7 @@ class Vechter {
     this.combo = this.comboT > 0 && this.laatste === soort ? this.combo + 1 : 0; this.laatste = soort;
     const naam = lijst[this.combo % lijst.length], t = TECHNIEK[naam], kost = soort === "trap" ? KOOI.kostTrap : KOOI.kostStoot;
     const moe = this.st < kost; // buiten adem: trager
-    const tempo = KOOI.tempo * (soort === "trap" ? d.trapTempo : 1) * (moe ? 0.7 : 1);
+    const tempo = KOOI.tempo * (d.tempo ?? 1) * (soort === "trap" ? d.trapTempo : 1) * (moe ? 0.7 : 1);
     this.st = Math.max(0, this.st - kost);
     this.aanval = { naam, soort, t: 0, raak: t.raak / tempo, duur: t.duur / tempo, hit: false, zwaar: t.zwaar };
     this.blok = false;
@@ -138,7 +174,7 @@ class Vechter {
   stap(dt, ander, inn) {
     const dx = ander.pos.x - this.pos.x, dz = ander.pos.z - this.pos.z, d = Math.hypot(dx, dz) || 1;
     this.veilig = Math.max(0, (this.veilig ?? 0) - dt); this.reeksT = Math.max(0, (this.reeksT ?? 0) - dt);
-    if (!this.ko) { let h = Math.atan2(dx, dz) - this.richting; h = Math.atan2(Math.sin(h), Math.cos(h)); this.richting += h * Math.min(1, dt * 12); }
+    if (!this.ko) { let h = Math.atan2(dx, dz) - this.richting; h = Math.atan2(Math.sin(h), Math.cos(h)); this.richting += h * Math.min(1, dt * 8); }
     // achteruit door een klap
     if (this.duwX || this.duwZ) { this.pos.x += this.duwX * dt; this.pos.z += this.duwZ * dt; const rem = Math.exp(-dt * 7); this.duwX *= rem; this.duwZ *= rem; if (Math.abs(this.duwX) + Math.abs(this.duwZ) < 0.05) this.duwX = this.duwZ = 0; }
     if (this.ko) { /* ligt */ }
@@ -158,9 +194,10 @@ class Vechter {
         const kracht = Math.min(1, Math.hypot(inn.x, inn.z));
         if (this.blok) { if (this.m.huidig !== "k_block") this.m.zet("k_block", 2, 0.1); if (this.m.actie && this.m.actie.time > 0.3) this.m.actie.paused = true; }
         else if (kracht > 0.15) {
-          const naar = (inn.x * dx + inn.z * dz) / d, v = naar < -0.3 ? KOOI.achteruit : KOOI.loopSnel;
+          const naar = (inn.x * dx + inn.z * dz) / d, v = (naar < -0.3 ? KOOI.achteruit : KOOI.loopSnel) * (this.def.snel ?? 1);
           this.pos.x += inn.x * v * dt; this.pos.z += inn.z * v * dt;
-          this.m.zet(naar < -0.3 ? "k_retreat" : "k_advance", 1.5);
+          // de stapbeweging op het tempo van de voeten, zodat ze niet glijden
+          this.m.zet(naar < -0.3 ? "k_retreat" : "k_advance", 0.55 + kracht * 0.75 * (this.def.snel ?? 1));
         } else this.m.zet("k_idle");
         this.st = Math.min(this.def.stamina, this.st + this.def.herstel * dt * (this.blok ? 0.5 : 1));
       }
@@ -190,7 +227,8 @@ function raak(van, doel, a) {
     const los = doel.reeks >= 3 || a.zwaar;
     if (los) { doel.reeks = 0; doel.veilig = 0.75; }
     // een lichte stoot stopt een trap die al onderweg is niet: je incasseert hem, maar je trap komt nog
-    const doorzetten = !a.zwaar && doel.aanval?.soort === "trap" && !doel.aanval.hit;
+    // (en de beer is zo stug dat een lichte klap hem helemaal niet van zijn stuk brengt)
+    const doorzetten = !a.zwaar && (doel.def.stug || (doel.aanval?.soort === "trap" && !doel.aanval.hit));
     if (doorzetten) { doel.hp = Math.max(0, doel.hp - schade); geluid.stomp(0.6); vonk(p, "#fff1c9", 0.7); if (doel.hp <= 0) knockOut(van, doel); tekenBalken(); return; }
     doel.wankel = a.zwaar ? 0.5 : 0.26; doel.aanval = null; doel.blok = false;
     doel.duwX = (dx / l) * (los ? 3.6 : 1.6); doel.duwZ = (dz / l) * (los ? 3.6 : 1.6);
@@ -228,12 +266,12 @@ function knockOut(winnaar, verliezer) {
 }
 function toon(tekst, ms = 1400) { const el = $("#groot"); el.textContent = tekst; el.classList.remove("aan"); void el.offsetWidth; el.classList.add("aan"); clearTimeout(toon.t); toon.t = setTimeout(() => el.classList.remove("aan"), ms); }
 function tekenBalken() {
-  for (const [v, k] of [[A, "a"], [B, "b"]]) { $(`#hp-${k}`).style.transform = `scaleX(${v.hp / 100})`; $(`#st-${k}`).style.transform = `scaleX(${v.st / v.def.stamina})`; }
+  for (const [v, k] of [[A, "a"], [B, "b"]]) { $(`#hp-${k}`).style.transform = `scaleX(${v.hp / v.leven})`; $(`#st-${k}`).style.transform = `scaleX(${v.st / v.def.stamina})`; }
   const t = Math.max(0, Math.ceil(spel.tijd)); $("#klok").textContent = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`; $("#ronde").textContent = `${spel.ronde} / ${spel.rondes}`;
 }
 function beginRonde(eerste) {
   A.reset(eerste); B.reset(eerste);
-  if (!eerste) for (const v of [A, B]) v.hp = Math.min(100, v.hp + KOOI.herstelRonde);
+  if (!eerste) for (const v of [A, B]) v.hp = Math.min(v.leven, v.hp + KOOI.herstelRonde);
   spel.tijd = KOOI.rondeTijd; spel.fase = "klaar"; spel.pauze = 1.8;
   toon(`Ronde ${spel.ronde}`, 1500); tekenBalken(); muziek?.tempo(148);
 }
@@ -243,7 +281,7 @@ function beginGevecht() {
   muziek?.start(0.42);
   geluid.drukte(1.5);
   for (const v of [A, B]) if (v) scene.remove(v.m.object);
-  const mijn = VECHTERS[spel.keuze], zijn = VECHTERS.filter((v) => v !== mijn)[(Math.random() * (VECHTERS.length - 1)) | 0];
+  const mijn = VECHTERS[spel.keuze], zijn = spel.tegen != null ? VECHTERS[spel.tegen] : VECHTERS.filter((v) => v !== mijn)[(Math.random() * (VECHTERS.length - 1)) | 0];
   A = new Vechter(mijn, -1.6); B = new Vechter(zijn, 1.6);
   $("#naam-a").textContent = mijn.naam; $("#naam-b").textContent = zijn.naam;
   spel.ronde = 1; spel.winnaar = null; spel.punten = false; ai = nieuwBrein();
@@ -258,25 +296,35 @@ function einde(tekst) {
   $("#uitslag").hidden = false; $("#hud").hidden = true;
   muziek?.stop();
 }
-/** De computer: komt op je af, valt aan als hij kan, blokt soms en neemt afstand als hij buiten adem is. */
+/**
+ * De computer. Rustig voetenwerk zoals echte vechters: recht op de ander af, op afstand blijven staan in de vechthouding,
+ * af en toe een kleine stap opzij of terug, en dan uithalen. Geen rondjes rennen.
+ */
 function denk(dt, ik, hij, ai) {
   const dx = hij.pos.x - ik.pos.x, dz = hij.pos.z - ik.pos.z, d = Math.hypot(dx, dz) || 1, ux = dx / d, uz = dz / d, uit = { x: 0, z: 0, stoot: false, trap: false, blok: false };
-  ai.wacht -= dt; ai.zijT -= dt; if (ai.zijT <= 0) { ai.zijT = tussen(0.8, 2.2); ai.zij = Math.random() < 0.5 ? -1 : 1; }
+  ai.wacht -= dt; ai.faseT -= dt;
   if (hij.aanval && !hij.aanval.hit && d < 2 && ai.blokT <= 0 && Math.random() < KOOI.ai.blokKans * dt * 12) ai.blokT = 0.5;
   if (ai.blokT > 0) { ai.blokT -= dt; uit.blok = true; return uit; }
-  // buiten adem: afstand nemen tot hij weer lucht heeft
+  // buiten adem: achteruit stappen met de dekking hoog, tot hij weer lucht heeft
   if (ik.st < 20) ai.moe = true; else if (ik.st > ik.def.stamina * 0.55) ai.moe = false;
-  if (ai.moe) { uit.x = -ux * 0.9 - uz * ai.zij * 0.5; uit.z = -uz * 0.9 + ux * ai.zij * 0.5; if (d < 1.2) uit.blok = true; return uit; }
+  if (ai.moe) { if (d < 2.6) { uit.x = -ux * 0.8; uit.z = -uz * 0.8; } if (d < 1.3) uit.blok = true; return uit; }
   const trapper = ik.def.trap > ik.def.stoot, ver = trapper ? KOOI.bereikTrap - 0.15 : KOOI.bereikStoot - 0.1;
-  if (d > ver) { uit.x = ux * 0.9 - uz * ai.zij * 0.35; uit.z = uz * 0.9 + ux * ai.zij * 0.35; }
-  else if (ai.wacht <= 0) {
-    const trap = d > KOOI.bereikStoot - 0.1 ? true : Math.random() < (trapper ? 0.5 : 0.12);
+  if (d > ver + 0.25) { const v = d > 2.4 ? 0.95 : 0.6; uit.x = ux * v; uit.z = uz * v; return uit; } // recht erop af; dichtbij voorzichtiger
+  if (ai.wacht <= 0 && d <= ver + 0.25) {
+    // wie het van zijn vuisten moet hebben, stapt in met een stoot; een trapper trapt van afstand
+    const trap = trapper ? d > KOOI.bereikStoot - 0.1 || Math.random() < 0.5 : Math.random() < 0.12;
     if (trap) uit.trap = true; else uit.stoot = true;
     ai.wacht = ik.comboT > 0 && Math.random() < 0.4 ? 0.05 : tussen(...KOOI.ai.wacht); // soms een reeks
-  } else { uit.x = -uz * ai.zij * 0.5; uit.z = ux * ai.zij * 0.5; }
+    return uit;
+  }
+  // op afstand: meestal stilstaan in de vechthouding; af en toe een kort stapje opzij, in of uit
+  if (ai.faseT <= 0) { const r = Math.random(); ai.fase = r < 0.55 ? "sta" : r < 0.8 ? "zij" : r < 0.92 ? "uit" : "in"; ai.faseT = ai.fase === "sta" ? tussen(0.5, 1.3) : tussen(0.25, 0.45); ai.zij = Math.random() < 0.5 ? -1 : 1; }
+  if (ai.fase === "zij") { uit.x = -uz * ai.zij * 0.6; uit.z = ux * ai.zij * 0.6; }
+  else if (ai.fase === "uit") { uit.x = -ux * 0.6; uit.z = -uz * 0.6; }
+  else if (ai.fase === "in" && d > 0.95) { uit.x = ux * 0.5; uit.z = uz * 0.5; }
   return uit;
 }
-function nieuwBrein() { return { wacht: 1, blokT: 0, zij: 1, zijT: 0, moe: false }; }
+function nieuwBrein() { return { wacht: 1, blokT: 0, zij: 1, faseT: 0, fase: "sta", moe: false }; }
 /** Eén stap van het gevecht (los van het beeld, zodat een test het kan vooruitspoelen). mijn = wat de speler doet. */
 function stapGevecht(dt, mijn) {
   A.stap(dt, B, mijn); B.stap(dt, A, denk(dt, B, A, ai));
@@ -296,7 +344,7 @@ function lus(nu) {
       invoer.stoot = invoer.trap = false;
       if (Math.floor(spel.tijd) !== spel.tik) { spel.tik = Math.floor(spel.tijd); if (spel.tijd < 10) muziek?.tempo(164); }
       if (spel.tijd <= 0 && spel.fase === "vecht") {
-        if (spel.ronde >= spel.rondes) { spel.winnaar = A.hp > B.hp + 0.5 ? A : B.hp > A.hp + 0.5 ? B : null; spel.fase = "ko"; spel.pauze = 2.5; toon("Tijd", 1500); joel(0.6); spel.punten = true; }
+        if (spel.ronde >= spel.rondes) { spel.winnaar = A.hp / A.leven > B.hp / B.leven + 0.005 ? A : B.hp / B.leven > A.hp / A.leven + 0.005 ? B : null; spel.fase = "ko"; spel.pauze = 2.5; toon("Tijd", 1500); joel(0.6); spel.punten = true; }
         else { spel.ronde++; joel(0.4); beginRonde(false); }
       }
       tekenBalken();
@@ -305,12 +353,12 @@ function lus(nu) {
       A.stap(dt, B, stil); B.stap(dt, A, stil);
       spel.pauze -= dt;
       if (spel.fase === "klaar" && spel.pauze <= 0) { spel.fase = "vecht"; toon("Vecht!", 700); geluid.bel?.(1.5); }
-      if (spel.fase === "ko" && spel.pauze <= 0) einde(spel.punten ? `Op punten: ${Math.round(A.hp)} tegen ${Math.round(B.hp)}` : `K.O. in ronde ${spel.ronde}`);
+      if (spel.fase === "ko" && spel.pauze <= 0) einde(spel.punten ? `Op punten: ${Math.round((A.hp / A.leven) * 100)} tegen ${Math.round((B.hp / B.leven) * 100)}` : `K.O. in ronde ${spel.ronde}`);
     }
     // camera: van opzij, loodrecht op de lijn tussen de vechters, en verder weg als ze uit elkaar staan
     const mx = (A.pos.x + B.pos.x) / 2, mz = (A.pos.z + B.pos.z) / 2, lx = B.pos.x - A.pos.x, lz = B.pos.z - A.pos.z, afst = Math.hypot(lx, lz) || 1;
     const p = new THREE.Vector3(-lz / afst, 0, lx / afst); if (p.dot(loodrecht) < 0) p.negate();
-    loodrecht.lerp(p, Math.min(1, dt * 2.5)).normalize();
+    loodrecht.lerp(p, Math.min(1, dt * KOOI.draai)).normalize();
     const ver = 3.0 + afst * 0.55, doel = new THREE.Vector3(mx + loodrecht.x * ver, 1.45, mz + loodrecht.z * ver);
     const r = Math.hypot(doel.x, doel.z); if (r > 4.25) { doel.x *= 4.25 / r; doel.z *= 4.25 / r; } // binnen het gaas blijven
     camDoel.lerp(doel, 1 - Math.exp(-dt * 5)); kijkDoel.lerp(new THREE.Vector3(mx, 1.05, mz), 1 - Math.exp(-dt * 8));
@@ -321,6 +369,7 @@ function lus(nu) {
     // keuzescherm: langzaam om de kooi draaien
     const h = nu / 6000; camera.position.set(Math.sin(h) * 7.5, 2.6, Math.cos(h) * 7.5); camera.lookAt(0, 1, 0);
   }
+  const vc = window.__kooi.vrijeCamera; if (vc) { camera.position.set(...vc.pos); camera.lookAt(...vc.doel); } // alleen voor tests
   for (const v of [...vonken]) { v.t -= dt; v.m.scale.multiplyScalar(1 + dt * 14); v.m.material.opacity = Math.max(0, v.t / 0.14); if (v.t <= 0) { scene.remove(v.m); vonken.splice(vonken.indexOf(v), 1); } }
   stapPubliek(dt, beeld);
   renderer.render(scene, camera);
@@ -346,7 +395,7 @@ function knoppen() {
     lijst.textContent = "";
     VECHTERS.forEach((v, i) => {
       const k = document.createElement("button"); k.className = i === spel.keuze ? "aan" : "";
-      k.innerHTML = `<b>${v.naam}</b><span>${v.stijl}</span>` + ["Stoten", "Trappen", "Adem"].map((n, j) => `<i>${n}<u><s style="width:${v.balken[j] * 100}%"></s></u></i>`).join("");
+      k.innerHTML = `<b>${v.naam}</b><span>${v.stijl}</span>` + ["Stoten", "Trappen", "Adem", "Snelheid"].map((n, j) => `<i>${n}<u><s style="width:${v.balken[j] * 100}%"></s></u></i>`).join("");
       k.addEventListener("click", () => { spel.keuze = i; teken(); }); lijst.append(k);
     });
     for (const b of document.querySelectorAll("#rondes button")) b.classList.toggle("aan", +b.dataset.n === spel.rondes);
@@ -361,6 +410,7 @@ function knoppen() {
   bouwKooi();
   await laadMensen((v) => { $("#laden").style.setProperty("--v", v); });
   await laadKarate();
+  await laadDieren();
   bouwPubliek();
   knoppen();
   $("#laden").hidden = true; $("#kies").hidden = false;

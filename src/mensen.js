@@ -37,6 +37,24 @@ function draaiBot(bot, van, naar) {
 }
 const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
 
+/** Laadt één model (ook van buiten assets/mensen: de dieren van het kooigevecht) en maakt het klaar voor gebruik. */
+export async function laadModel(n, pad = null) {
+  const g = await loader.loadAsync(pad ?? `assets/mensen/${n}.glb?v=${window.VERSIE ?? ""}`);
+  g.scene.traverse((o) => {
+    if (!o.isMesh) return;
+    const m = o.material;
+    // de exporter zet het materiaal op mengen; wij knippen uit en schrijven diepte, anders vechten de vlakjes
+    Object.assign(m, { transparent: false, depthWrite: true, alphaTest: 0.5, side: THREE.FrontSide, metalness: 0, roughness: 0.85 });
+    // op de telefoon de textuur verkleinen (1024 -> 512): scheelt 4x geheugen, op afstand zie je het verschil niet
+    if (KLEIN && m.map?.image && !m.map.userData.klein) {
+      const c = document.createElement("canvas"); c.width = c.height = 512;
+      c.getContext("2d").drawImage(m.map.image, 0, 0, 512, 512);
+      m.map.image = c; m.map.userData.klein = true; m.map.needsUpdate = true;
+    }
+    o.frustumCulled = false;
+  });
+  modellen[n] = g.scene;
+}
 export async function laadMensen(voortgang) {
   const namen = Object.values(ROLLEN).flat();
   let klaar = 0;
@@ -47,24 +65,7 @@ export async function laadMensen(voortgang) {
       clips[c.name] = c;
     }
   });
-  await Promise.all([bew, ...namen.map(async (n) => {
-    const g = await loader.loadAsync(`assets/mensen/${n}.glb?v=${window.VERSIE ?? ""}`);
-    g.scene.traverse((o) => {
-      if (!o.isMesh) return;
-      const m = o.material;
-      // de exporter zet het materiaal op mengen; wij knippen uit en schrijven diepte, anders vechten de vlakjes
-      Object.assign(m, { transparent: false, depthWrite: true, alphaTest: 0.5, side: THREE.FrontSide, metalness: 0, roughness: 0.85 });
-      // op de telefoon de textuur verkleinen (1024 -> 512): scheelt 4x geheugen, op afstand zie je het verschil niet
-      if (KLEIN && m.map?.image && !m.map.userData.klein) {
-        const c = document.createElement("canvas"); c.width = c.height = 512;
-        c.getContext("2d").drawImage(m.map.image, 0, 0, 512, 512);
-        m.map.image = c; m.map.userData.klein = true; m.map.needsUpdate = true;
-      }
-      o.frustumCulled = false;
-    });
-    modellen[n] = g.scene;
-    voortgang?.(++klaar / namen.length);
-  })]);
+  await Promise.all([bew, ...namen.map(async (n) => { await laadModel(n); voortgang?.(++klaar / namen.length); })]);
   // hoe hoog zit de heup bij het fietsen (om de berijder op het zadel te zetten)
   for (const n of namen) {
     const m = maakMens(n);

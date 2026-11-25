@@ -13,14 +13,14 @@ const T = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javasc
   await p.goto("http://spel.test/kooi.html"); await p.waitForSelector("#kies:not([hidden])", { timeout: 240000 });
   if (!process.env.SNEL) {
   await p.waitForTimeout(2500); await p.screenshot({ path: `${UIT}/1-kies.png` });
-  await p.evaluate(() => document.querySelectorAll("#vechters button")[1].click()); // de karateman
+  await p.evaluate(() => { document.querySelectorAll("#vechters button")[2].click(); window.__kooi.spel.tegen = 3; }); // de beer tegen de wolf
   await p.evaluate(() => document.querySelector('#rondes button[data-n="1"]').click());
   await p.tap("#start");
   await p.waitForFunction(() => window.__kooi.spel.fase === "vecht", null, { timeout: 120000 });
   console.log("vechters:", await p.evaluate(() => `${window.__kooi.A.def.naam} tegen ${window.__kooi.B.def.naam}, muziek ${!!window.__kooi.muziek?.timer}, publiek ${window.__kooi.publiek.length}`));
   // een paar tellen laten vechten: jij trapt steeds als je kunt
   const iv = setInterval(() => p.evaluate(() => { const k = window.__kooi; k.invoer.x = 0; k.invoer.toets.KeyD = k.A.pos.x < k.B.pos.x; k.invoer.toets.KeyA = !k.invoer.toets.KeyD; if (Math.random() < 0.6) k.invoer.trap = true; else k.invoer.stoot = true; }).catch(() => {}), 400);
-  await p.waitForTimeout(14000); await p.screenshot({ path: `${UIT}/2-vecht.png` });
+  await p.waitForTimeout(9000); await p.screenshot({ path: `${UIT}/2-vecht.png` });
   console.log("na een tijdje:", await p.evaluate(() => { const k = window.__kooi; return JSON.stringify({ jij: Math.round(k.A.hp), hij: Math.round(k.B.hp), ademJij: Math.round(k.A.st), ademHij: Math.round(k.B.st), afstand: +k.A.pos.distanceTo(k.B.pos).toFixed(1) }); }));
   await p.waitForTimeout(14000); await p.screenshot({ path: `${UIT}/3-vecht.png` });
   clearInterval(iv);
@@ -31,23 +31,23 @@ const T = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javasc
   await p.waitForSelector("#uitslag:not([hidden])", { timeout: 120000 });
   console.log("uitslag:", await p.textContent("#uitslagKop"), "|", await p.textContent("#uitslagTekst"));
   }
-  // balans: dertig gevechten van computer tegen computer, alleen de regels (geen beeld)
+  // balans: elke vechter tegen elke andere, tien gevechten per paar, computer tegen computer, alleen de regels (geen beeld)
   console.log("balans:", await p.evaluate(() => {
-    const k = window.__kooi, uit = { winst: {}, duur: [], ko: 0 };
-    for (let g = 0; g < 30; g++) {
-      k.spel.keuze = g % 2; k.spel.rondes = 3; k.beginGevecht(); k.spel.fase = "vecht";
+    const k = window.__kooi, N = k.VECHTERS.length, winst = {}, paren = {}; let duur = 0, n = 0, ko = 0;
+    for (let a = 0; a < N; a++) for (let b = a + 1; b < N; b++) for (let g = 0; g < 10; g++) {
+      k.spel.keuze = g % 2 ? a : b; k.spel.tegen = g % 2 ? b : a; k.spel.rondes = 3; k.beginGevecht(); k.spel.fase = "vecht";
       const brein = k.nieuwBrein(); let t = 0, ronde = 1;
       while (k.spel.fase === "vecht" && t < 200) {
         k.stapGevecht(0.05, k.denk(0.05, k.A, k.B, brein)); t += 0.05;
         if (k.spel.tijd <= 0) { if (ronde >= 3) break; ronde++; k.beginRonde(false); k.spel.fase = "vecht"; }
       }
-      const w = k.A.ko ? k.B : k.B.ko ? k.A : k.A.hp > k.B.hp ? k.A : k.B;
-      uit.winst[w.def.naam] = (uit.winst[w.def.naam] ?? 0) + 1; uit.duur.push(Math.round(t)); if (k.A.ko || k.B.ko) uit.ko++;
+      const w = k.A.ko ? k.B : k.B.ko ? k.A : k.A.hp / k.A.leven > k.B.hp / k.B.leven ? k.A : k.B, sl = `${k.VECHTERS[a].naam}-${k.VECHTERS[b].naam}`;
+      winst[w.def.naam] = (winst[w.def.naam] ?? 0) + 1; (paren[sl] ??= [0, 0])[w.def === k.VECHTERS[a] ? 0 : 1]++;
+      duur += t; n++; if (k.A.ko || k.B.ko) ko++;
     }
-    uit.gemiddeld = Math.round(uit.duur.reduce((a, b) => a + b, 0) / 30); uit.duur = `${Math.min(...uit.duur)}-${Math.max(...uit.duur)} s`;
-    return JSON.stringify(uit);
+    k.spel.tegen = null;
+    return JSON.stringify({ winst, paren, gemiddeld: Math.round(duur / n), ko: `${ko}/${n}` });
   }));
-  // de bokser tegen de karateman, alleen de regels: wie wint er zonder speler? (beide door de computer gespeeld is er niet; we meten de schade per techniek)
   console.log(fout.join("\n") || "geen fouten");
   await b.close();
 })();

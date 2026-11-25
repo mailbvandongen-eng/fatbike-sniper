@@ -15,10 +15,10 @@ canvas{position:fixed;inset:0;display:block}
 .scherm{position:fixed;inset:0;display:grid;place-content:center;justify-items:center;gap:12px;padding:14px;background:#06070ab8;text-align:center}
 h1{margin:0;font:900 clamp(26px,7vh,44px) system-ui;letter-spacing:.02em;text-transform:uppercase}h1 span{color:var(--geel)}
 #vechters{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
-#vechters button{appearance:none;width:190px;text-align:left;border:2px solid #fff3;background:#ffffff10;color:var(--ink);border-radius:14px;padding:10px 12px;font:600 13px system-ui;cursor:pointer;display:grid;gap:4px}
+#vechters button{appearance:none;width:172px;text-align:left;border:2px solid #fff3;background:#ffffff10;color:var(--ink);border-radius:14px;padding:8px 11px;font:600 12px system-ui;cursor:pointer;display:grid;gap:3px}
 #vechters button.aan{border-color:var(--geel);background:#ffc83d1c}
 #vechters b{font-size:17px}#vechters span{color:var(--dim)}
-#vechters i{font-style:normal;display:grid;grid-template-columns:62px 1fr;align-items:center;color:var(--dim)}
+#vechters i{font-style:normal;display:grid;grid-template-columns:64px 1fr;align-items:center;color:var(--dim)}
 #vechters u{display:block;height:7px;border-radius:4px;background:#fff2;overflow:hidden;text-decoration:none}#vechters s{display:block;height:100%;background:var(--geel)}
 #rondes{display:flex;gap:8px;align-items:center;color:var(--dim);font-weight:600}
 #rondes button,.klein{appearance:none;border:2px solid #fff3;background:#ffffff10;color:var(--ink);border-radius:999px;padding:7px 16px;font:700 15px system-ui;cursor:pointer;text-decoration:none}
@@ -52,6 +52,7 @@ h1{margin:0;font:900 clamp(26px,7vh,44px) system-ui;letter-spacing:.02em;text-tr
   <div id="rondes">Rondes <button data-n="1">1</button><button data-n="3">3</button><button data-n="5">5</button></div>
   <button class="groot" id="start">Vecht</button>
   <a class="klein" id="terug" href="./">← Fatbike Sniper</a>
+  <div style="position:fixed;right:10px;bottom:8px;font-size:10px;color:#f5f3ea66;max-width:46%;text-align:right">Koppen: Wilka.io (beer), Hipsteralbatros (wolf), Sketchfab, CC BY 4.0</div>
 </div>
 <div id="hud" hidden>
   <div class="balk a"><span id="naam-a"></span><div><em id="hp-a"></em></div><div><em id="st-a"></em></div></div>
@@ -68,9 +69,9 @@ h1{margin:0;font:900 clamp(26px,7vh,44px) system-ui;letter-spacing:.02em;text-tr
   <button class="klein" id="anders">Andere vechter</button>
 </div>
 <!-- versie -->
-<script>window.VERSIE = "d84043ad48"; window.VERSIE_DATUM = "24-11, 21:14";</script>
-<script type="importmap">{"imports":{"three":"./lib/three.module.js?v=d84043ad48","./lib/three.module.js":"./lib/three.module.js?v=d84043ad48","./lib/meshopt_decoder.mjs":"./lib/meshopt_decoder.mjs?v=d84043ad48","./lib/three-addons.js":"./lib/three-addons.js?v=d84043ad48","./src/autos.js":"./src/autos.js?v=d84043ad48","./src/config.js":"./src/config.js?v=d84043ad48","./src/effecten.js":"./src/effecten.js?v=d84043ad48","./src/figuren.js":"./src/figuren.js?v=d84043ad48","./src/geluid.js":"./src/geluid.js?v=d84043ad48","./src/karate.js":"./src/karate.js?v=d84043ad48","./src/kooi.js":"./src/kooi.js?v=d84043ad48","./src/main.js":"./src/main.js?v=d84043ad48","./src/mensen.js":"./src/mensen.js?v=d84043ad48","./src/muziek.js":"./src/muziek.js?v=d84043ad48","./src/straat.js":"./src/straat.js?v=d84043ad48","./src/verkeer.js":"./src/verkeer.js?v=d84043ad48","./src/wereld.js":"./src/wereld.js?v=d84043ad48"}}</script>
-<script type="module" src="./src/kooi.js?v=d84043ad48"></script>
+<script>window.VERSIE = "a4ef6d3aea"; window.VERSIE_DATUM = "25-11, 15:12";</script>
+<script type="importmap">{"imports":{"three":"./lib/three.module.js?v=a4ef6d3aea","./lib/three.module.js":"./lib/three.module.js?v=a4ef6d3aea","./lib/meshopt_decoder.mjs":"./lib/meshopt_decoder.mjs?v=a4ef6d3aea","./lib/three-addons.js":"./lib/three-addons.js?v=a4ef6d3aea","./src/autos.js":"./src/autos.js?v=a4ef6d3aea","./src/config.js":"./src/config.js?v=a4ef6d3aea","./src/effecten.js":"./src/effecten.js?v=a4ef6d3aea","./src/figuren.js":"./src/figuren.js?v=a4ef6d3aea","./src/geluid.js":"./src/geluid.js?v=a4ef6d3aea","./src/karate.js":"./src/karate.js?v=a4ef6d3aea","./src/kooi.js":"./src/kooi.js?v=a4ef6d3aea","./src/main.js":"./src/main.js?v=a4ef6d3aea","./src/mensen.js":"./src/mensen.js?v=a4ef6d3aea","./src/muziek.js":"./src/muziek.js?v=a4ef6d3aea","./src/straat.js":"./src/straat.js?v=a4ef6d3aea","./src/verkeer.js":"./src/verkeer.js?v=a4ef6d3aea","./src/wereld.js":"./src/wereld.js?v=a4ef6d3aea"}}</script>
+<script type="module" src="./src/kooi.js?v=a4ef6d3aea"></script>
 <!-- /versie -->
 </body>
 </html>
