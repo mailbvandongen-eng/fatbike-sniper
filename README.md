@@ -96,6 +96,15 @@ Een eigen pagina, bereikbaar met de knop Kooigevecht op het beginscherm: twee ve
 - De bewegingen zijn de karate-opnames (`src/karate.js`); de tegenstander wordt door de computer gespeeld (`denk`).
 - Testen: `node tools/kooi.cjs` (speelt een gevecht en laat dertig gevechten computer tegen computer de balans meten; `SNEL=1` slaat het beeld over).
 
+## Wapenkast en honkbalknuppel
+
+Bij het raam opent de wapenknop een **kast** (`openKast`, `src/wapens.js`): geweer, machinegeweer, bazooka en vlammenwerper (in Zoetermeer ook vuurwerk). Wat je kiest gebruik je bij het raam en neem je mee naar buiten (het staat dan in de rij van de wapenknop). De modellen komen van Sketchfab (CC BY 4.0, `tools/wapens/bouw.sh`): RPG-7 en MG 42 van TastyTony, Flamethrower van bumstrum. Munitie en gedrag staan in `WAPENKAST`; elke ronde is de kast weer vol.
+- **Machinegeweer:** vuurknop vasthouden, 90 kogels. De kogels gelden als die van het geweer: een mens raken is een fout.
+- **Bazooka:** 5 raketten. De ontploffing (`ontplof`) blaast fatbikes binnen 6,5 m op, laat auto's alarm slaan en gooit mensen door de lucht.
+- **Vlammenwerper:** vasthouden, 14 seconden vuur, 11 m ver. Fatbikes in de vlam vliegen in brand; mensen rennen weg (niemand brandt).
+- **Honkbalknuppel** (nu op elk level in de rij): wie voor je staat vliegt door de lucht, ligt even, staat op en hinkt weg (`werp` en `stapWorp` in `src/verkeer.js`). Dat geldt ook voor de ontploffing. Niemand raakt gewond of gaat dood; het telt wel als strafbaar.
+- Testen: `node tools/kast.cjs`.
+
 ## Opties
 
 Op het beginscherm staat een knop Opties (`OPTIES` en `opties` in `src/main.js`, bewaard in `localStorage` onder `fbs-opties`): handhaving aan/uit, tijdslimiet aan/uit (standaard zoals het level bedoeld is: alleen het bonuslevel heeft een klok; aan = 45 s plus 10 s per fatbike), fatbikes normaal/veel/heel veel (×1, ×1,8, ×3; hoogstens 16 tegelijk), onbeperkt kogels, mikhulp op straat, geluid. Testen: `node tools/opties.cjs`.

@@ -244,6 +244,47 @@ function stapRuzie(wie, dt) {
   return true;
 }
 
+// ---------- een dreun (honkbalknuppel, ontploffing): door de lucht, even liggen, opstaan en hinkend weg ----------
+/** Niemand raakt gewond: het is slapstick. van = waar de klap vandaan komt; kracht ~1 (knuppel) tot 1.6 (ontploffing). */
+export function werp(wie, van, kracht = 1) {
+  if (wie.worp || wie.groep?.visible === false) return false;
+  const dx = wie.pos.x - van.x, dz = wie.pos.z - van.z, d = Math.hypot(dx, dz) || 1;
+  wie.worp = { fase: "lucht", vx: (dx / d) * 6.5 * kracht, vz: (dz / d) * 6.5 * kracht, vy: 5.5 * kracht, y: 0.05, t: 0, tol: (Math.random() < 0.5 ? -1 : 1) * tussen(6, 11) };
+  wie.ruzieT = 0; wie.ruzieNeer = 0; wie.schrik = 0; wie.dreigt = false; wie.zit = false;
+  wie.m.zet("vliegen", 1, 0);
+  return true;
+}
+/** Eén stap van zo'n vlucht; geeft true zolang hij duurt. */
+function stapWorp(wie, dt) {
+  const w = wie.worp; if (!w) return false;
+  w.t += dt;
+  const vrij = (x, z) => !(wie.g?.blok?.(x, z, 0.3) ?? false);
+  if (w.fase === "lucht") {
+    w.vy -= 12 * dt; w.y += w.vy * dt;
+    const nx = wie.pos.x + w.vx * dt, nz = wie.pos.z + w.vz * dt;
+    if (vrij(nx, nz)) wie.pos.set(nx, 0, nz); else { w.vx *= -0.3; w.vz *= -0.3; } // tegen een muur: terugstuiten
+    wie.groep.rotation.x += w.tol * dt;
+    if (w.y <= 0) { w.y = 0; w.fase = "ligt"; w.t = 0; wie.groep.rotation.x = 0; wie.m.zet("liggen", 1, "eind"); wie.plof?.(); }
+  } else if (w.fase === "ligt") { if (w.t > 1.3) { w.fase = "op"; w.t = 0; wie.m.zet("opstaan", 1, 0); } }
+  else if (w.fase === "op") { if (w.t > 1.5) { w.fase = "hinkt"; w.t = 0; wie.richting = Math.atan2(w.vx, w.vz) + tussen(-0.5, 0.5); } }
+  else {
+    // hinkend weg: langzaam, met een knik bij elke stap
+    const nx = wie.pos.x + Math.sin(wie.richting) * 0.85 * dt, nz = wie.pos.z + Math.cos(wie.richting) * 0.85 * dt;
+    if (vrij(nx, nz)) wie.pos.set(nx, 0, nz); else wie.richting += 1.2 * dt;
+    wie.m.zet("lopen", 0.6);
+    const pas = Math.sin(w.t * 5.5); wie.groep.rotation.z = Math.max(0, pas) * 0.16; w.y = Math.max(0, -pas) * 0.03;
+    if (w.t > 7) {
+      wie.worp = null; wie.groep.rotation.z = 0; wie.ruzieKoel = 20; wie.conditie = 3;
+      if (wie.plaats && wie.g && !wie.lijn) { wie.van = wie.g.dichtbij(wie.pos.x, wie.pos.z, wie.bit); const v = wie.g.volgende(-1, wie.van, wie.bit, 1, wie.straal); if (v) { wie.naar = v.n; wie.breed = v.breed; wie.t = 0; wie.plaats(false); } }
+      else if (wie.thuis) wie.schrik = 0; else if (!wie.g) wie.weg = true;
+      return true;
+    }
+  }
+  wie.m.mixer.update(dt);
+  wie.groep.position.set(wie.pos.x, w.y, wie.pos.z); wie.groep.rotation.y = wie.richting;
+  return true;
+}
+
 // ---------- voetgangers ----------
 /** Afspeelsnelheid van de loopbeweging bij een bepaalde vaart (de beweging zelf is gemaakt voor ~1,3 m/s). */
 const loopTempo = (v) => THREE.MathUtils.clamp(v / 1.3, 0.6, 1.6);
@@ -287,6 +328,7 @@ export class Voetganger extends Reiziger {
   }
   ruzie(naar, slaat, klap, geraakt, zwaar) { return beginRuzie(this, naar, slaat, klap, geraakt, zwaar); }
   stap(dt) {
+    if (stapWorp(this, dt)) return;
     if (stapRuzie(this, dt)) return;
     if (this.schrik > 0) {
       this.schrik -= dt;
@@ -318,6 +360,7 @@ export class Boodschapper extends Voetganger {
     return [van, ...r.map((n) => this.g.k[n]), naar];
   }
   stap(dt) {
+    if (stapWorp(this, dt)) return;
     if (stapRuzie(this, dt)) return;
     if (this.schrik > 0) { this.schrik -= dt; if (this.schrik <= 0) this.klaar = true; }
     if (this.fase2 === "binnen") {
@@ -408,6 +451,7 @@ export class Staander {
     return true;
   }
   stap(dt, spel) {
+    if (stapWorp(this, dt)) return;
     if (stapRuzie(this, dt)) return;
     if (this.hang && !(this.schrik > 0) && !this.zit) {
       if (spel?.dreig && spel.speler && this.dreig(dt, spel)) return;
@@ -664,6 +708,7 @@ export class Agent {
       this.groep.position.copy(this.pos); this.groep.rotation.y = this.richting;
       return;
     }
+    if (stapWorp(this, dt)) return;
     if (doel && !this.afdruipen && stapRuzie(this, dt)) return;
     if (this.afdruipen || !doel) {
       // klaar: rustig weglopen en dan verdwijnen

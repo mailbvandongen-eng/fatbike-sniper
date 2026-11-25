@@ -92,7 +92,12 @@ body.rijdt #wapen,body.rijdt #richt,body.rijdt #sprint,body.rijdt #vuur{display:
 #optieLijst b{color:var(--geel)}#optieLijst b.uit{color:var(--dim)}
 #optieDicht{appearance:none;justify-self:center;border:0;border-radius:999px;padding:10px 30px;font:800 16px system-ui;background:var(--geel);color:#151515;cursor:pointer}
 #klok.krap{color:#ff6a5a}
-body.karate:not(.loopt):not(.rijdt) #wapen{display:grid}
+body:not(.loopt):not(.rijdt) #wapen{display:grid}
+#kast{position:fixed;inset:0;z-index:30;display:grid;place-content:center;gap:10px;background:#0b0c0ed8;pointer-events:auto;padding:16px}
+#kast[hidden]{display:none}
+#kastLijst{display:grid;grid-template-columns:repeat(2,minmax(0,220px));gap:8px}
+#kastLijst button{appearance:none;border:2px solid #fff3;background:#ffffff10;color:var(--ink);border-radius:14px;padding:14px;font:700 16px system-ui;cursor:pointer}
+#kastLijst button.aan{border-color:var(--geel);color:var(--geel);background:#ffc83d18}
 #richt .trap{display:none}body.karate.loopt #richt .trap{display:block}body.karate.loopt #richt .mik{display:none}
 body.rijdt #gas,body.rijdt #rem,body.rijdt #claxon{display:grid}
 #gas{right:max(22px,calc(var(--sar) + 14px));bottom:max(28px,calc(var(--sab) + 18px));width:92px;height:112px;border-radius:22px;background:#1f5a2cd8;border-color:#8dffa080}
@@ -217,6 +222,9 @@ body.gepakt #wissel{opacity:1}body.gepakt #wissel svg{opacity:.9}
     <svg data-w="vuist" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" style="display:none"><path d="M6 11V8a1.5 1.5 0 013 0v-1a1.5 1.5 0 013 0v1a1.5 1.5 0 013 0v1a1.5 1.5 0 013 0v5c0 4-3 6-6.5 6S5 19 5 15v-2a1.5 1.5 0 011-2z"/></svg>
     <svg data-w="knuppel" viewBox="0 0 24 24" fill="currentColor" style="display:none"><path d="M20.5 2.2c1.6 1.6 1.2 4.3-.9 6.4L8.2 18.9l-1.1 1.9-1.6 1-2.3-2.3 1-1.6 1.9-1.1L16.4 5.4c2.100-2.100 2.500-3.200 4.100-3.200z" transform="scale(1)"/></svg>
     <svg data-w="vuurwerk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><rect x="6" y="11" width="7" height="10" rx="1.5" transform="rotate(-25 9.5 16)"/><path d="M13 9c1-2 3-2 4-4M19 3v2M21.500 6h-2M20.500 9.500l-1.400-1.400"/></svg>
+    <svg data-w="mg" viewBox="0 0 24 24" fill="currentColor" style="display:none"><path d="M2 9h13v-1.500h2V9h5v2h-5v1h-4l-1 2h-2l.5-2H8l-1.500 5H3.500L5 12H2z"/><rect x="9" y="14" width="3" height="5" rx=".5"/></svg>
+    <svg data-w="bazooka" viewBox="0 0 24 24" fill="currentColor" style="display:none"><path d="M1 10h14l3-2 4 3-4 3-3-2H1z"/><rect x="7" y="13" width="2" height="5" rx=".5"/><rect x="11" y="13" width="2" height="4" rx=".5"/></svg>
+    <svg data-w="vlam" viewBox="0 0 24 24" fill="currentColor" style="display:none"><path d="M12 2c1 4 5 6 5 11a5 5 0 01-10 0c0-2 1-3.500 2-4.500.2 2 1 3 2 3.500-.500-3 0-7 1-10z"/></svg>
     <svg data-w="mes" viewBox="0 0 24 24" fill="currentColor" style="display:none"><path d="M21 3c-6 1-11 5-13 10l3 3c5-2 9-7 10-13zM7 14l-4 4 3 3 4-4z"/></svg>
   </div>
   <div class="knop" id="richt" aria-label="Richten of trappen"><svg class="trap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4v7l5 3 4 3h5a1.5 1.5 0 000-3h-3l-3-3V4"/><path d="M5 11h9"/></svg><svg class="mik" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg></div>
@@ -242,11 +250,13 @@ body.gepakt #wissel{opacity:1}body.gepakt #wissel svg{opacity:.9}
       <button class="groot" id="begin">Begin</button>
       <div><button id="optieKnop">⚙ Opties</button></div>
       <p class="klein" id="startBest"></p>
-      <p class="klein">Gebouwen: 3D BAG (CC BY 4.0) · Kaart: © OpenStreetMap-bijdragers, BGT (PDOK) · Mensen: MakeHuman, Quaternius (CC0) · Fatbike: GokuSSJB, fiets: Fairyflosslord7, winkelwagen: adrianxy, auto's: NNXST, scailman, VertexVendingMac, tonielpro520, speeltoestel: JanStano (Sketchfab, CC BY 4.0) · Geluid: opnames van ezwa, thore, Dsw4 (publiek domein) en Sonothèque ADVL (CC0) via Wikimedia Commons · Karatebewegingen: ACCAD/The Ohio State University (CC BY 3.0), Kyokushin-dataset Szczęsna e.a. (CC0), tutusho (Sketchfab Standard)</p>
+      <p class="klein">Gebouwen: 3D BAG (CC BY 4.0) · Kaart: © OpenStreetMap-bijdragers, BGT (PDOK) · Mensen: MakeHuman, Quaternius (CC0) · Fatbike: GokuSSJB, fiets: Fairyflosslord7, winkelwagen: adrianxy, auto's: NNXST, scailman, VertexVendingMac, tonielpro520, speeltoestel: JanStano, wapens: TastyTony, bumstrum (Sketchfab, CC BY 4.0) · Geluid: opnames van ezwa, thore, Dsw4 (publiek domein) en Sonothèque ADVL (CC0) via Wikimedia Commons · Karatebewegingen: ACCAD/The Ohio State University (CC BY 3.0), Kyokushin-dataset Szczęsna e.a. (CC0), tutusho (Sketchfab Standard)</p>
       <p class="klein" id="versie"></p>
     </div>
   </div>
 </div>
+
+<div id="kast" hidden><div id="kastLijst"></div></div>
 
 <div id="opties" hidden>
   <div id="optieLijst"></div>
@@ -264,9 +274,9 @@ body.gepakt #wissel{opacity:1}body.gepakt #wissel svg{opacity:.9}
 </div>
 
 <!-- versie -->
-<script>window.VERSIE = "a4ef6d3aea"; window.VERSIE_DATUM = "25-11, 15:12";</script>
-<script type="importmap">{"imports":{"three":"./lib/three.module.js?v=a4ef6d3aea","./lib/three.module.js":"./lib/three.module.js?v=a4ef6d3aea","./lib/meshopt_decoder.mjs":"./lib/meshopt_decoder.mjs?v=a4ef6d3aea","./lib/three-addons.js":"./lib/three-addons.js?v=a4ef6d3aea","./src/autos.js":"./src/autos.js?v=a4ef6d3aea","./src/config.js":"./src/config.js?v=a4ef6d3aea","./src/effecten.js":"./src/effecten.js?v=a4ef6d3aea","./src/figuren.js":"./src/figuren.js?v=a4ef6d3aea","./src/geluid.js":"./src/geluid.js?v=a4ef6d3aea","./src/karate.js":"./src/karate.js?v=a4ef6d3aea","./src/kooi.js":"./src/kooi.js?v=a4ef6d3aea","./src/main.js":"./src/main.js?v=a4ef6d3aea","./src/mensen.js":"./src/mensen.js?v=a4ef6d3aea","./src/muziek.js":"./src/muziek.js?v=a4ef6d3aea","./src/straat.js":"./src/straat.js?v=a4ef6d3aea","./src/verkeer.js":"./src/verkeer.js?v=a4ef6d3aea","./src/wereld.js":"./src/wereld.js?v=a4ef6d3aea"}}</script>
-<script type="module" src="./src/main.js?v=a4ef6d3aea"></script>
+<script>window.VERSIE = "de41e53b68"; window.VERSIE_DATUM = "25-11, 17:29";</script>
+<script type="importmap">{"imports":{"three":"./lib/three.module.js?v=de41e53b68","./lib/three.module.js":"./lib/three.module.js?v=de41e53b68","./lib/meshopt_decoder.mjs":"./lib/meshopt_decoder.mjs?v=de41e53b68","./lib/three-addons.js":"./lib/three-addons.js?v=de41e53b68","./src/autos.js":"./src/autos.js?v=de41e53b68","./src/config.js":"./src/config.js?v=de41e53b68","./src/effecten.js":"./src/effecten.js?v=de41e53b68","./src/figuren.js":"./src/figuren.js?v=de41e53b68","./src/geluid.js":"./src/geluid.js?v=de41e53b68","./src/karate.js":"./src/karate.js?v=de41e53b68","./src/kooi.js":"./src/kooi.js?v=de41e53b68","./src/main.js":"./src/main.js?v=de41e53b68","./src/mensen.js":"./src/mensen.js?v=de41e53b68","./src/muziek.js":"./src/muziek.js?v=de41e53b68","./src/straat.js":"./src/straat.js?v=de41e53b68","./src/verkeer.js":"./src/verkeer.js?v=de41e53b68","./src/wapens.js":"./src/wapens.js?v=de41e53b68","./src/wereld.js":"./src/wereld.js?v=de41e53b68"}}</script>
+<script type="module" src="./src/main.js?v=de41e53b68"></script>
 <!-- /versie -->
 </body>
 </html>

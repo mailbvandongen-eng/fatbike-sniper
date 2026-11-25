@@ -206,6 +206,22 @@ export class Geluid {
     s.connect(f); f.connect(g); g.connect(this.uit); s.start(t); s.stop(t + duur + 0.05);
     for (let i = 0; i < 3 + v * 6; i++) setTimeout(() => this.schreeuw(0.5 + Math.random() * 0.6), Math.random() * duur * 600);
   }
+  /** Eén schot van het machinegeweer: kort, droog en hard. */
+  mg() { this.ruisStoot({ duur: 0.06, freq: 3200, freq2: 500, gain: 1.1 }); this.toon({ freq: 170, freq2: 80, duur: 0.05, gain: 0.5 }); }
+  /** Een raket die vertrekt: een plof en het sissen van de motor. */
+  raket() { this.ruisStoot({ duur: 0.12, freq: 900, freq2: 200, gain: 1.2 }); this.ruisStoot({ duur: 1.1, filter: "bandpass", freq: 2600, freq2: 700, q: 1, gain: 0.5, start: 0.05 }); }
+  /** De vlammenwerper: een brullende ruis zolang hij aan staat. */
+  vlam(aan) {
+    if (!aan && !this.lussen?.vlam) return;
+    const v = this.lus("vlam", (ctx) => {
+      const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain(); s.buffer = this.ruis; s.loop = true;
+      f.type = "bandpass"; f.frequency.value = 520; f.Q.value = 0.5; g.gain.value = 0; s.connect(f); f.connect(g); g.connect(this.uit); s.start();
+      return { g, f };
+    });
+    if (!v) return;
+    v.g.gain.setTargetAtTime(aan ? 0.55 : 0, this.t, aan ? 0.04 : 0.1);
+    if (aan) v.f.frequency.setTargetAtTime(420 + Math.random() * 260, this.t, 0.05);
+  }
   /** Kiai: de korte kreet bij een zware techniek. */
   kiai() {
     if (!this.ctx) return;
