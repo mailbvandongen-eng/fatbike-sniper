@@ -140,7 +140,7 @@ Het beginscherm heeft twee knoppen, Speler en Level, die elk een eigen keuzesche
 Op het beginscherm kies je wie je speelt (`SPELERS` en `kiesSpeler` in `src/main.js`, bewaard als `fbs-speler`), op elk level:
 - **De Kale:** geweer, wapenkast, pistool, vuisten, mes, knuppel.
 - **Karateman:** stoten en trappen, knuppel, vuurwerk (en de kast bij het raam).
-- **Tovenares** (model `tovenares`, paarse cape met zwarte kraag en zoom: `cape` in `src/mensen.js`): geen vuurwapens maar een toverstaf ("Low Poly Wizard Staff 2.0" van roguecache, CC BY 4.0). Ze staat in een toverhouding en richt de staf met gestrekte arm (`heksPose`). De wapenknop wisselt tussen drie spreuken (`tover`):
+- **Tovenares** (model `tovenares`, paarse cape met zwarte kraag en zoom: `cape` in `src/mensen.js`): geen vuurwapens maar een toverstokje ("Magic Wand" van bojidarkn, CC BY 4.0). Ze staat in een toverhouding en richt de staf met gestrekte arm (`heksPose`). De wapenknop wisselt tussen drie spreuken (`tover`):
   - **Vuurbal:** vliegt naar het kruisje en ontploft klein (2,6 m): fatbikes gaan eraan, mensen vliegen een paar meter.
   - **Bevriezen** (`src/magie.js`): wie bij het kruisje staat wordt een standbeeld van ijs. Loop ertegenaan en het valt stijf om, breekt in stukken (hoofd, armen, benen), ontdooit, klikt weer in elkaar, staat op en rent weg. Laat je het staan, dan ontdooit het na 9 s. Een fatbike glijdt onderuit.
   - **Zweven:** alles binnen 4,5 m van het kruisje stijgt op, hangt drie tellen hulpeloos in de lucht en valt. Fatbikes vallen kapot.

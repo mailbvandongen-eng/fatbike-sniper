@@ -195,8 +195,11 @@ function kuif(m) {
 const _cq = new THREE.Quaternion(), _ce = new THREE.Euler();
 export function waaiCape(m, yaw, vaart, tijd) {
   const c = m.cape; if (!c) return;
-  _ce.set(Math.min(0.9, 0.06 + vaart * 0.13) + Math.sin(tijd * 2.3) * 0.03 * (1 + vaart), yaw, Math.sin(tijd * 1.7) * 0.03, "YXZ");
-  c.parent.getWorldQuaternion(_cq); c.quaternion.copy(_cq.invert()).multiply(new THREE.Quaternion().setFromEuler(_ce));
+  const wind = Math.min(1, vaart / 5.5), deining = Math.sin(tijd * 2.3) * (0.02 + wind * 0.05);
+  _ce.set(0.03 + wind * 0.28 + deining, yaw, Math.sin(tijd * 1.7) * 0.02, "YXZ");
+  c[0].parent.getWorldQuaternion(_cq); c[0].quaternion.copy(_cq.invert()).multiply(new THREE.Quaternion().setFromEuler(_ce));
+  // de onderste stukken buigen verder door: zo krult de cape in de wind in plaats van als één plaat te scharnieren
+  for (let i = 1; i < c.length; i++) c[i].rotation.x = wind * 0.3 + Math.sin(tijd * 2.3 - i * 0.9) * (0.03 + wind * 0.06);
 }
 /** De cape van de tovenares: paars, met een zwarte opstaande kraag, een zwarte zoom en een zwarte sluiting. Hangt aan de schouders. */
 function cape(m) {
@@ -206,18 +209,25 @@ function cape(m) {
   const s = m.schaal, top = new THREE.Box3().setFromObject(m.hoog).max.y, rp = romp.getWorldPosition(new THREE.Vector3());
   const paars = new THREE.MeshStandardMaterial({ color: "#5b2a86", roughness: 0.85, side: THREE.DoubleSide }), zwart = new THREE.MeshStandardMaterial({ color: "#0f0d12", roughness: 0.9, side: THREE.DoubleSide });
   const zet = (mesh, p) => { mesh.position.copy(p); mesh.castShadow = true; o.add(mesh); mesh.updateMatrixWorld(true); romp.attach(mesh); };
-  // het doek: een halve koker om de rug die naar onderen wijder wordt, met plooien; het hangt aan een scharnier op de
-  // schouders (m.cape), zodat het recht omlaag blijft hangen en naar achteren waait als ze loopt (zie waaiCape)
-  const yBoven = top - 0.27 * s, lengte = 1.0 * s, N = 22, R = 7, pos = [], idx = [];
-  for (let r = 0; r <= R; r++) for (let i = 0; i <= N; i++) {
-    const h = Math.PI * (0.06 + 0.88 * (i / N)), t = r / R, straal = (0.21 + 0.2 * t) * s, plooi = Math.sin(i * 1.9) * 0.035 * t * s;
-    pos.push(Math.cos(h) * straal, -t * lengte, -Math.sin(h) * straal * 0.7 - plooi - 0.02 * s);
+  // het doek: een lap die van de schouders over de rug hangt, smal boven en breder onder, met plooien. Hij bestaat uit drie
+  // stukken die aan elkaar scharnieren (m.cape), zodat hij recht omlaag hangt en bij het lopen in een boog naar achteren waait.
+  const yBoven = top - 0.275 * s, lengte = 0.98 * s, N = 16, R = 9, DEEL = 3, rij = lengte / R;
+  const punt = (r, i, y0) => {
+    const t = r / R, u = (i / N) * 2 - 1, breed = (0.36 + 0.3 * t) * s;
+    return [u * breed / 2, -(r * rij) - y0, -(0.105 + 0.03 * t) * s - (1 - u * u) * 0.035 * s - Math.sin(i * 2.1) * 0.022 * t * s];
+  };
+  const stukken = []; let ouder = null;
+  for (let d = 0; d < R / DEEL; d++) {
+    const pos = [], idx = [], r0 = d * DEEL, y0 = -(r0 * rij); // het scharnier ligt op de bovenrand van dit stuk
+    for (let r = r0; r <= r0 + DEEL; r++) for (let i = 0; i <= N; i++) { const q = punt(r, i, 0); pos.push(q[0], q[1] - y0, q[2]); }
+    for (let r = 0; r < DEEL; r++) for (let i = 0; i < N; i++) { const a = r * (N + 1) + i, b2 = a + N + 1; idx.push(a, b2, a + 1, a + 1, b2, b2 + 1); }
+    const maak = (van, tot, mat) => { const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx.slice(van * N * 6, tot * N * 6)); g.computeVertexNormals(); const me = new THREE.Mesh(g, mat); me.castShadow = true; return me; };
+    const stuk = new THREE.Group(), laatste = d === R / DEEL - 1;
+    stuk.add(maak(0, laatste ? DEEL - 1 : DEEL, paars)); if (laatste) stuk.add(maak(DEEL - 1, DEEL, zwart)); // de onderste baan is de zwarte zoom
+    if (ouder) { stuk.position.y = -(DEEL * rij); ouder.add(stuk); }
+    stukken.push(stuk); ouder = stuk;
   }
-  for (let r = 0; r < R; r++) for (let i = 0; i < N; i++) { const a = r * (N + 1) + i, b = a + N + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
-  const maak = (rijVan, rijTot, mat) => { const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx.slice(rijVan * N * 6, rijTot * N * 6)); g.computeVertexNormals(); const me = new THREE.Mesh(g, mat); me.castShadow = true; return me; };
-  const hier = new THREE.Vector3(rp.x, yBoven, rp.z);
-  const doek = new THREE.Group(); doek.add(maak(0, R - 1, paars), maak(R - 1, R, zwart)); // de onderste baan is de zwarte zoom
-  zet(doek, hier); m.cape = doek;
+  zet(stukken[0], new THREE.Vector3(rp.x, yBoven, rp.z)); m.cape = stukken;
   // opstaande kraag en de sluiting op de borst
   const kraag = new THREE.Mesh(new THREE.CylinderGeometry(0.125 * s, 0.16 * s, 0.075 * s, 14, 1, true, Math.PI * 0.62, Math.PI * 1.76), zwart);
   zet(kraag, new THREE.Vector3(rp.x, yBoven - 0.03 * s, rp.z - 0.02 * s)); // onder de kin, open aan de voorkant
