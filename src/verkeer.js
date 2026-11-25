@@ -256,9 +256,17 @@ function stapRuzie(wie, dt) {
 export function werp(wie, van, kracht = 1) {
   if (wie.worp || wie.groep?.visible === false) return false;
   const dx = wie.pos.x - van.x, dz = wie.pos.z - van.z, d = Math.hypot(dx, dz) || 1;
-  wie.worp = { fase: "lucht", vx: (dx / d) * 6.5 * kracht, vz: (dz / d) * 6.5 * kracht, vy: 5.5 * kracht, y: 0.05, t: 0, tol: (Math.random() < 0.5 ? -1 : 1) * tussen(6, 11) };
+  // een paar meter, niet meer; en iedereen valt anders: achterover, voorover, opzij rollend, of alleen omver zonder te vliegen
+  const soort = kies(["achterover", "achterover", "salto", "opzij", "opzij", "omver"]), k = Math.min(1.5, kracht);
+  const vy = soort === "omver" ? 1.6 : tussen(3.2, 4.4) * (0.8 + 0.2 * k), v = (soort === "omver" ? tussen(1.2, 1.8) : tussen(2.2, 3.6)) * (0.75 + 0.25 * k);
+  const duur = (2 * vy) / 12; // zo lang is hij in de lucht
+  // hoeveel hij in die tijd draait: één keer vloeiend, precies tot hij ligt (geen extra slag onderweg)
+  const draai = soort === "salto" ? Math.PI * 2 : soort === "achterover" ? -1.2 : soort === "omver" ? -0.9 : 0;
+  wie.worp = { fase: "lucht", vx: (dx / d) * v, vz: (dz / d) * v, vy, y: 0.05, t: 0, tol: draai / duur, rol: soort === "opzij" ? ((Math.random() < 0.5 ? -1 : 1) * Math.PI * 2) / duur : 0,
+    ligT: tussen(0.9, 2.6), hink: Math.random() < 0.7 };
   wie.ruzieT = 0; wie.ruzieNeer = 0; wie.schrik = 0; wie.dreigt = false; wie.zit = false;
-  wie.m.zet("vliegen", 1, 0);
+  wie.richting = Math.atan2(-dx, -dz) + tussen(-0.5, 0.5); // met het gezicht naar de klap, een beetje gedraaid
+  wie.m.zet(soort === "omver" ? "klap" : "vliegen", 1, 0);
   return true;
 }
 /**
@@ -289,12 +297,12 @@ function stapWorp(wie, dt) {
   if (w.fase === "lucht") {
     w.vy -= 12 * dt; w.y += w.vy * dt;
     const nx = wie.pos.x + w.vx * dt, nz = wie.pos.z + w.vz * dt;
-    if (vrij(nx, nz)) wie.pos.set(nx, 0, nz); else { w.vx *= -0.3; w.vz *= -0.3; } // tegen een muur: terugstuiten
-    wie.groep.rotation.x += w.tol * dt;
+    if (vrij(nx, nz)) wie.pos.set(nx, 0, nz); else w.vx = w.vz = 0; // tegen een muur: daar valt hij neer
+    wie.groep.rotation.x += w.tol * dt; wie.groep.rotation.z += (w.rol ?? 0) * dt;
     if (w.y <= 0 && w.hop) { renWeg(wie, w); return true; }
-    if (w.y <= 0) { w.y = 0; w.fase = "ligt"; w.t = 0; wie.groep.rotation.x = 0; wie.m.zet("liggen", 1, "eind"); wie.plof?.(); }
-  } else if (w.fase === "ligt") { if (w.t > (w.ren ? 0.7 : 1.3)) { w.fase = "op"; w.t = 0; wie.m.zet("opstaan", w.ren ? 1.4 : 1, 0); } }
-  else if (w.fase === "op") { if (w.ren && w.t > 1.1) { renWeg(wie, w); return true; } if (w.t > 1.5) { w.fase = "hinkt"; w.t = 0; wie.richting = Math.atan2(w.vx, w.vz) + tussen(-0.5, 0.5); } }
+    if (w.y <= 0) { w.y = 0; w.fase = "ligt"; w.t = 0; wie.groep.rotation.x = 0; wie.groep.rotation.z = 0; wie.m.zet("liggen", 1, "eind"); wie.plof?.(); }
+  } else if (w.fase === "ligt") { if (w.t > (w.ren ? 0.7 : w.ligT ?? 1.3)) { w.fase = "op"; w.t = 0; wie.m.zet("opstaan", w.ren ? 1.4 : 1, 0); } }
+  else if (w.fase === "op") { if ((w.ren || w.hink === false) && w.t > 1.1) { if (w.hink === false) { w.wx = w.vx || Math.sin(wie.richting + Math.PI); w.wz = w.vz || Math.cos(wie.richting + Math.PI); } renWeg(wie, w); return true; } if (w.t > 1.5) { w.fase = "hinkt"; w.t = 0; wie.richting = Math.atan2(w.vx, w.vz) + tussen(-0.5, 0.5); } }
   else {
     // hinkend weg: langzaam, met een knik bij elke stap
     const nx = wie.pos.x + Math.sin(wie.richting) * 0.85 * dt, nz = wie.pos.z + Math.cos(wie.richting) * 0.85 * dt;

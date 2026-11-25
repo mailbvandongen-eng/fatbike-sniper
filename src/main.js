@@ -23,14 +23,15 @@ const OPTIES = [
   ["handhaving", "Handhaving", ["uit", "aan"]],
   ["tijd", "Tijdslimiet", ["uit", "aan"]],
   ["fatbikes", "Fatbikes", ["normaal", "veel", "heel veel"]],
-  ["kogels", "Onbeperkt kogels", ["uit", "aan"]],
+  ["kogels", "Onbeperkt munitie", ["uit", "aan"]],
+  ["fouten", "Af na 3 fouten", ["uit", "aan"]],
   ["mikhulp", "Mikhulp op straat", ["uit", "aan"]],
   ["geluid", "Geluid", ["uit", "aan"]],
   ["muziek", "Muziek", ["uit", "zacht", "gewoon", "hard"]],
   ["sfeer", "Achtergrond", ["uit", "zacht", "gewoon", "hard"]],
   ["markeer", "Fatbikes markeren", ["uit", "aan"]],
 ];
-const opties = { handhaving: 1, tijd: null, fatbikes: 0, kogels: 0, mikhulp: 1, geluid: 1, markeer: 0, muziek: 2, sfeer: 2 };
+const opties = { handhaving: 1, tijd: null, fatbikes: 0, kogels: 0, mikhulp: 1, geluid: 1, markeer: 0, muziek: 2, sfeer: 2, fouten: 1 };
 const GELUIDKEUZES = new Set(["geluid", "muziek", "sfeer"]); // wat je ook tijdens het spelen kunt bijstellen (het nootje in beeld)
 let muziek = null, alleenGeluid = false;
 /** Zet het volume zoals in de opties gekozen. */
@@ -375,10 +376,44 @@ function zoekDoel() {
 const wapens = () => [...(karateka && loop.aan ? ["vuist", "knuppel", "vuurwerk"] : WAPENS), ...(ZWAAR.has(kast.keuze) || GOOI.has(kast.keuze) ? [kast.keuze] : [])];
 // Klein vuurwerk (categorie 1: knetteren en vonken, geen schade): je gooit het voor de voeten van de hangjeugd.
 const vuurwerk = [];
+/**
+ * Een granaat of cobra gooien: pin eruit (of lont aan), gooien, en dan bukken met je handen voor je oren tot na de knal.
+ * Geeft terug hoe lang het duurt (zo lang kun je niets anders).
+ */
+let worp = null;
+function beginWorp(soort, naar) {
+  const eind = 1.0 + 0.55 + WAPENKAST[soort].lont + 0.7;
+  worp = { soort, naar, t: 0, eind, los: false, clip: false };
+  geluid.tik(1);
+  return eind;
+}
+/** Welke beweging bij de worp hoort (vóór het bijwerken van de beweging). */
+function worpClip() {
+  const w = worp;
+  if (w.t < 0.45) schutter.zet("staan");
+  else if (w.t < 1.0) { if (!w.clip) { w.clip = true; schutter.zet("gooien", 1.5, 0); } }
+  else schutter.zet("hurken");
+}
+/** De handen bij de worp (ná het bijwerken van de beweging): pin trekken bij je borst, en daarna de handen voor de oren. */
+function worpHanden(yaw) {
+  const w = worp, m = schutter, fx = Math.sin(yaw), fz = Math.cos(yaw), links = new THREE.Vector3(fz, 0, -fx), voor = new THREE.Vector3(fx, 0, fz), omlaag = new THREE.Vector3(0, -1, 0);
+  const ding = kast.mesh[w.soort];
+  if (w.t < 0.45) {
+    const borst = m.plek("DEF-neck").clone().addScaledVector(voor, 0.27).add(new THREE.Vector3(0, -0.16, 0));
+    m.arm("R", borst.clone().addScaledVector(links, -0.05), omlaag.clone().addScaledVector(links, -0.7));
+    m.arm("L", borst.clone().addScaledVector(links, 0.05 + Math.max(0, w.t - 0.26) * 1.8), omlaag.clone().addScaledVector(links, 0.7)); // de linkerhand trekt de pin eruit
+  } else if (w.t >= 1.0) {
+    const hoofd = m.plek("DEF-head").clone().add(new THREE.Vector3(0, 0.07, 0));
+    m.arm("R", hoofd.clone().addScaledVector(links, -0.1), links.clone().multiplyScalar(-1).add(new THREE.Vector3(0, -0.3, 0)));
+    m.arm("L", hoofd.clone().addScaledVector(links, 0.1), links.clone().add(new THREE.Vector3(0, -0.3, 0)));
+  }
+  if (ding) { ding.visible = !w.los && m.object.visible; if (ding.visible) ding.position.copy(m.plek("DEF-handR")).add(new THREE.Vector3(0, -0.04, 0)); }
+  if (!w.los && w.t >= 0.72) { w.los = true; geluid.sis(); lanceer(m.plek("DEF-handR").clone(), w.naar, w.soort); }
+}
 function gooi(soort = "vuurwerk") {
   const L = loop, knal = GOOI.has(soort);
   if (!L.aan || L.slag > 0 || L.neer > 0 || L.wankel > 0 || L.boeien > 0) return;
-  if (knal) { if (!(kast.munitie[soort] > 0)) return; kast.munitie[soort]--; tekenHud(); }
+  if (knal) { if (worp || !(kast.munitie[soort] > 0)) return; if (!opties.kogels) kast.munitie[soort]--; tekenHud(); }
   // naar het groepje waar je naar kijkt (anders een meter of acht voor je uit)
   const kx = Math.sin(kijk.yaw), kz = Math.cos(kijk.yaw);
   let doel = null, best = 0.75;
@@ -395,6 +430,7 @@ function gooi(soort = "vuurwerk") {
     naar = new THREE.Vector3(L.pos.x + (dx / d) * r, 0, L.pos.z + (dz / d) * r);
   }
   L.richting = Math.atan2(naar.x - L.pos.x, naar.z - L.pos.z);
+  if (knal) { Object.assign(L, { slag: beginWorp(soort, naar), slagRaakOp: -1, slagRaak: true, slagSoort: "vuurwerk", slagStraks: null, comboT: 0 }); return; }
   Object.assign(L, { slag: 0.95, slagRaakOp: -1, slagRaak: true, slagSoort: "vuurwerk", slagStraks: null, comboT: 0 });
   schutter.zet("gooien", 1.4, 0);
   geluid.sis();
@@ -412,7 +448,12 @@ function lanceer(van, naar, soort = "vuurwerk") {
 /** Uit het raam: naar de plek waar het kruisje op staat (hoogstens 45 m ver). */
 function gooiRaam(soort = "vuurwerk") {
   if (!spel.bezig || herlaad > 0 || filmCam || wisselt()) return;
-  if (GOOI.has(soort)) { if (!(kast.munitie[soort] > 0)) return; kast.munitie[soort]--; tekenHud(); }
+  if (GOOI.has(soort)) {
+    if (worp || !(kast.munitie[soort] > 0)) return; if (!opties.kogels) kast.munitie[soort]--; tekenHud();
+    const q = richtPunt(), qx = q.x - oog.x, qz = q.z - oog.z, qd = Math.hypot(qx, qz) || 1, qr = Math.min(qd, 45);
+    herlaad = beginWorp(soort, new THREE.Vector3(oog.x + (qx / qd) * qr, 0, oog.z + (qz / qd) * qr));
+    return;
+  }
   herlaad = 0.9;
   const p = richtPunt(), dx = p.x - oog.x, dz = p.z - oog.z, d = Math.hypot(dx, dz) || 1, r = Math.min(d, 45);
   const fx = Math.sin(kijk.yaw), fz = Math.cos(kijk.yaw);
@@ -1222,9 +1263,10 @@ function tekenHud() {
   const over = spel.ri.fatbikes - spel.geraakt;
   $("#doelen").innerHTML = `<i class="fb"></i><span>${over}</span>`;
   const hw = huidigWapen();
-  $("#kogels").innerHTML = `<i class="kogel"></i>${ZWAAR.has(hw) || GOOI.has(hw) ? Math.ceil(kast.munitie[hw] ?? 0) : isFinite(spel.kogels) ? spel.kogels : "∞"}`;
+  $("#kogels").innerHTML = `<i class="kogel"></i>${opties.kogels ? "∞" : ZWAAR.has(hw) || GOOI.has(hw) ? Math.ceil(kast.munitie[hw] ?? 0) : isFinite(spel.kogels) ? spel.kogels : "∞"}`;
   const tk = Math.max(0, Math.ceil(spel.tijd ?? 0));
   $("#klok").hidden = !spel.ri.tijd; $("#klok").textContent = `${Math.floor(tk / 60)}:${String(tk % 60).padStart(2, "0")}`; $("#klok").classList.toggle("krap", tk <= 15);
+  $("#fouten").hidden = !opties.fouten;
   $("#fouten").innerHTML = Array.from({ length: spel.ri.fouten + 1 }, (_, i) => `<i class="${i < spel.fouten ? "x aan" : "x"}">✕</i>`).join("");
   $("#score").textContent = spel.score + spel.rondeScore;
 }
@@ -1309,7 +1351,7 @@ function magVuren() { return spel.bezig && !filmCam && !wisselt() && !(loop.aan 
 function vuurMg() {
   const W = WAPENKAST.mg;
   if (!magVuren() || herlaad > 0 || !(kast.munitie.mg > 0)) return;
-  kast.munitie.mg--; spel.schoten++;
+  if (!opties.kogels) kast.munitie.mg--; spel.schoten++;
   const { van, d } = loopVan();
   d.x += (Math.random() - 0.5) * 2 * W.spreiding; d.y += (Math.random() - 0.5) * 2 * W.spreiding; d.z += (Math.random() - 0.5) * 2 * W.spreiding; d.normalize();
   kogels.push({ p: van.clone().addScaledVector(d, 0.3), v: d.multiplyScalar(KOGEL_V), leeftijd: 0 });
@@ -1322,7 +1364,7 @@ function vuurMg() {
 function vuurRaket() {
   const W = WAPENKAST.bazooka;
   if (!magVuren() || herlaad > 0 || !(kast.munitie.bazooka > 0)) return;
-  kast.munitie.bazooka--; spel.schoten++;
+  if (!opties.kogels) kast.munitie.bazooka--; spel.schoten++;
   const { van, d } = loopVan();
   const m = maakRaket() ?? new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.5, 8).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: "#59613f" }));
   m.position.copy(van); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), d); scene.add(m);
@@ -1358,7 +1400,7 @@ function ontplof(p, R = WAPENKAST.bazooka.straal, cobra = false) {
 function vuurVlam(dt) {
   const W = WAPENKAST.vlam;
   if (!magVuren() || !(kast.munitie.vlam > 0)) return geluid.vlam(false);
-  kast.munitie.vlam = Math.max(0, kast.munitie.vlam - dt);
+  if (!opties.kogels) kast.munitie.vlam = Math.max(0, kast.munitie.vlam - dt);
   const { van, d } = loopVan();
   geluid.vlam(true);
   if (loop.aan) { loop.richt = 0.6; loop.richting = kijk.yaw; }
@@ -1481,6 +1523,7 @@ function treffer(r, p) {
   if (wie instanceof Fietser) { wie.wacht = 4; wie.vBasis *= 0.5; wie.v = wie.vBasis; }
 }
 function fout(tekst, sub) {
+  if (!opties.fouten) return; // uitgezet in de opties: iets anders raken telt niet
   spel.fouten++;
   if (spel.modus === "bonus") spel.tijd -= 10;
   geluid.fout();
@@ -1963,6 +2006,7 @@ function lus() {
   if (loop.aan) { wereld.bij(loop.pos.x, loop.pos.z); graaf.c[0] = loop.pos.x; graaf.c[1] = loop.pos.z; }
   else if (graaf.c[0] || graaf.c[1]) { graaf.c[0] = graaf.c[1] = 0; wereld.bij(0, 0, true); }
   zetDetail();
+  if (worp && (worp.t += echt) > worp.eind) { worp = null; schutter.huidig = null; }
   if (vuurVast && huidigWapen() === "mg") vuurMg();
   if (vuurVast && huidigWapen() === "vlam") vuurVlam(echt); else geluid.vlam(false);
   stapKogels(dt);
@@ -2036,6 +2080,7 @@ function lus() {
       else if ((karateka && loop.aan) && v <= 0.25 && reizigers.some((r) => r.ruzieT > 0 && !(r.ruzieNeer > 0) && r.pos.distanceToSquared(L.pos) < 36)) schutter.zet("k_idle"); // kamae: klaar voor de volgende
       else if (v > 4.6) schutter.zet("sprinten", v / 5.6); else if (v > 2.3) schutter.zet("rennen", v / 3.3); else if (v > 0.25) schutter.zet("lopen", THREE.MathUtils.clamp(v / 1.4, 0.7, 1.5)); else schutter.zet("staan");
     }
+    if (worp) worpClip();
     schutter.mixer.update(echt);
     schutter.object.updateMatrixWorld(true);
     schutter.object.visible = true;
@@ -2090,6 +2135,7 @@ function lus() {
         ding.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), langs);
       }
     }
+    if (worp) worpHanden(L.richting);
     // camera achter je, iets over de rechterschouder. Ze veert mee (loopt een fractie achter), komt dichterbij als je
     // richt, gaat wat verder weg als je sprint, en schuift naar voren als er een muur achter je staat.
     // De getallen staan in src/config.js (CAMERA en CAMERA_BOTSING).
@@ -2138,7 +2184,7 @@ function lus() {
     const terug = raam ? 0.8 : grond ? 0.3 : 0.15;
     schutter.object.position.set(oog.x - fx * terug, grond ? 0 : oog.y - (raam ? 1.45 : 1.6), oog.z - fz * terug);
     schutter.object.rotation.set(raam ? 0.16 : grond ? 0.14 : 0.05, kijk.yaw, 0, "YXZ");
-    schutter.zet("staan");
+    if (worp) worpClip(); else schutter.zet("staan");
     schutter.mixer.update(echt);
     schutter.object.updateMatrixWorld(true);
     schutter.los("DEF-spine001"); schutter.los("DEF-neck");
@@ -2154,9 +2200,13 @@ function lus() {
     const dir = new THREE.Vector3(Math.sin(kijk.yaw) * Math.cos(kijk.pitch), Math.sin(kijk.pitch), Math.cos(kijk.yaw) * Math.cos(kijk.pitch));
     schutter.object.visible = !scoop;
     const rw = ZWAAR.has(kast.keuze) && !loop.raamVuurwerk ? kast.mesh[kast.keuze] : null;
-    legAan(schutter, rw ?? geweer, rw ? kast.keuze : "geweer", kijk.yaw, kijk.pitch);
-    geweer.visible = !scoop && !rw;
-    for (const m of Object.values(kast.mesh)) m.visible = !scoop && m === rw;
+    // met een granaat of cobra (of vuurwerk) in de hand leg je geen geweer aan
+    const hand = GOOI.has(kast.keuze) && !loop.raamVuurwerk ? kast.mesh[kast.keuze] : null, los = hand || loop.raamVuurwerk || worp;
+    if (!los) legAan(schutter, rw ?? geweer, rw ? kast.keuze : "geweer", kijk.yaw, kijk.pitch);
+    geweer.visible = !scoop && !rw && !los;
+    for (const m of Object.values(kast.mesh)) m.visible = !scoop && (m === rw || m === hand);
+    if (hand && !worp) hand.position.copy(schutter.plek("DEF-handR")).add(new THREE.Vector3(0, -0.04, 0));
+    if (worp) worpHanden(kijk.yaw);
     pistool.visible = mes.visible = knuppel.visible = false;
     $("#slot").hidden = true;
     if (scoop) camera.position.copy(oog);
@@ -2200,4 +2250,4 @@ function lus() {
 }
 zetZoom(1);
 laad().then(() => requestAnimationFrame(lus)).catch((e) => { $("#laden").textContent = "Laden mislukt: " + e.message; console.error(e); });
-window.__spel = { uitAuto, get muziek() { return muziek; }, geluid, opties, kast, openKast, ontplof, vuurMg, vuurRaket, vuurVlam, kogels, get schutter() { return schutter; }, vuurwerk, stapVuurwerk, karate: () => Object.keys(TECHNIEK), spel, reizigers, stil, uitAuto, verlaten, get herlaad() { return herlaad; }, kijk, camera, oog, loop, rij, stapIn, stapUit, stapLopen, get straat() { return straat; }, get graaf() { return graaf; }, zetLopen, sla, actie, zetWapen, klapKrijgen, vallers, schiet, begin, zetZoom, draai, scene, renderer, stand: () => standen[standNr]?.naam };
+window.__spel = { worp: () => worp, uitAuto, get muziek() { return muziek; }, geluid, opties, kast, openKast, ontplof, vuurMg, vuurRaket, vuurVlam, kogels, get schutter() { return schutter; }, vuurwerk, stapVuurwerk, karate: () => Object.keys(TECHNIEK), spel, reizigers, stil, uitAuto, verlaten, get herlaad() { return herlaad; }, kijk, camera, oog, loop, rij, stapIn, stapUit, stapLopen, get straat() { return straat; }, get graaf() { return graaf; }, zetLopen, sla, actie, zetWapen, klapKrijgen, vallers, schiet, begin, zetZoom, draai, scene, renderer, stand: () => standen[standNr]?.naam };

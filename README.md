@@ -120,6 +120,12 @@ Geweer (Savage Axis II), pistool (HK UCP), machinegeweer en bazooka zijn van Tas
 
 Rijdende auto's sturen om geparkeerde auto's heen (`uitwijk` in `Auto.stap`, via `graaf.autosBij`), worden er nooit meer in getekend (neus, midden en achterkant worden uit elke geparkeerde auto geduwd in `Reiziger.glad`), geven voorrang aan kruisend verkeer van rechts (met geduld: na 4 s rijden ze toch) en schuiven uit elkaar als ze toch in elkaar staan. Gemeten over twee minuten op het Julianaplein: 6% van de tijd in een geparkeerde auto → 0%.
 
+## Gooien, vliegen en twee opties
+
+- **Granaat of cobra gooien** (`beginWorp`, `worpClip`, `worpHanden` in `src/main.js`): pin eruit bij je borst (0,45 s), bovenhands gooien, en dan bukken met je handen voor je oren tot na de knal. Zo lang kun je niets anders. Met een granaat in je hand leg je geen geweer aan.
+- **Door de lucht** (`werp` in `src/verkeer.js`): hoogstens een paar meter (gemeten: tot 3,1 m ver, onder 1 m hoog), en ieder valt anders: achterover, een salto, opzij rollend of alleen omver. De draai is één vloeiende beweging die klaar is bij het landen. Liggen duurt 1 tot 2,5 s; zeven op de tien hinken daarna weg, de rest rent.
+- **Opties:** "Af na 3 fouten" (uit = iets anders raken telt niet) en "Onbeperkt munitie" (geldt voor kogels, raketten, brandstof, granaten en cobra's).
+
 ## Grond en bomen
 
 - **Grond:** foto's van echte grond van Poly Haven (CC0) geven de structuur: gras, klinkers, stoeptegels en asfalt (`assets/grond/*.jpg`, 512 px). De getekende kaart bepaalt nog steeds de kleur en de soort; de shader in `steenPatroon` (`src/wereld.js`) vermenigvuldigt die met de foto. Zonder de texturen valt het spel terug op het getekende patroon.
