@@ -133,12 +133,12 @@ const plassen = [], boxen = [];
 let kind = null, mobiel = null, vizier = null; // het jongetje met zijn telefoon, en het vizier dat plat op de grond ligt
 const APPS = ["gat", "bel", "sproei"];
 const gaten = [], fonteinen = [];
-let sluiper = null, karateka = null, heks = null; // wie je speelt: karateka of heks is gezet als je die gekozen hebt (anders De Kale)
+let sluiper = null, karateka = null, heks = null; // wie je speelt: karateka of heks is gezet als je die gekozen hebt (anders Bonk)
 // De spelers waaruit je op het beginscherm kiest. Een nieuwe speler = hier een regel, een model en zijn eigen wapens.
 const SPELERS = {
-  kale: { naam: "De Kale", model: "schutter", wat: "geweer en wapenkast" }, karate: { naam: "Karateman", model: "karateka", wat: "stoten en trappen" },
-  heks: { naam: "Tovenares", model: "heks", wat: "vuurbal, bevriezen, zweven" }, jongen: { naam: "Jongetje", model: "kind", wat: "telefoon: gat, bellen, sproeier" },
-  meisje: { naam: "Meisje", model: "tiener", wat: "kauwgom, dansmuziek, slijm" },
+  kale: { naam: "Bonk", model: "schutter", wat: "kale schutter: geweer en wapenkast" }, karate: { naam: "Blitz", model: "karateka", wat: "karateka: stoten en trappen" },
+  heks: { naam: "Vesper", model: "heks", wat: "tovenares: vuurbal, bevriezen, zweven" }, jongen: { naam: "Pixel", model: "kind", wat: "jongen met telefoon: gat, bellen, sproeier" },
+  meisje: { naam: "Roxy", model: "tiener", wat: "meisje: kauwgom, dansmuziek, slijm" },
 };
 const SPREUKEN = ["vuurbal", "bevries", "zweef"];
 const spelers = {};

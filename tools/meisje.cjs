@@ -11,7 +11,7 @@ const T = { ".jpg": "image/jpeg", ".html": "text/html", ".js": "text/javascript"
   await p.route("http://spel.test/**", (r) => { let f = new URL(r.request().url()).pathname; if (f.endsWith("/")) f += "index.html"; f = path.join(ROOT, f); r.fulfill(fs.existsSync(f) ? { body: fs.readFileSync(f), contentType: T[path.extname(f)] ?? "application/octet-stream" } : { status: 404 }); });
   const fout = []; p.on("pageerror", (e) => { fout.push(e.message); console.log("FOUT", e.message); });
   await p.goto("http://spel.test/?licht=0&level=buskenhuet"); await p.waitForSelector("#start:not([hidden])", { timeout: 180000 });
-  await p.evaluate(() => [...document.querySelectorAll("#spelers button")].find((k) => k.textContent.startsWith("Meisje")).click());
+  await p.evaluate(() => document.querySelector("#spelers button[data-speler=meisje]").click());
   await p.tap("#begin"); await p.waitForTimeout(3500); await p.screenshot({ path: `${UIT}/1-raam.png` });
   for (let i = 0; i < 10 && !(await p.evaluate(() => window.__spel.loop.aan)); i++) { await p.tap("#loopKnop"); await p.waitForTimeout(5000); }
   await p.evaluate(() => { const s = window.__spel, l = s.loop; s.kijk.pitch = -0.15; l.keek = performance.now() + 1e7; for (const r of s.reizigers) if (r.pos.distanceTo(l.pos) < 12) { r.pos.set(300, 0, 300); r.pad?.copy?.(r.pos); } });

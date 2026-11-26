@@ -11,7 +11,7 @@ const T = { ".jpg": "image/jpeg", ".html": "text/html", ".js": "text/javascript"
   await p.route("http://spel.test/**", (r) => { let f = new URL(r.request().url()).pathname; if (f.endsWith("/")) f += "index.html"; f = path.join(ROOT, f); r.fulfill(fs.existsSync(f) ? { body: fs.readFileSync(f), contentType: T[path.extname(f)] ?? "application/octet-stream" } : { status: 404 }); });
   const fout = []; p.on("pageerror", (e) => { fout.push(e.message); console.log("FOUT", e.message); });
   await p.goto("http://spel.test/?licht=0&level=hoekerkade"); await p.waitForSelector("#start:not([hidden])", { timeout: 180000 });
-  await p.evaluate(() => [...document.querySelectorAll("#spelers button")].find((k) => k.textContent.startsWith("Jongetje")).click());
+  await p.evaluate(() => document.querySelector("#spelers button[data-speler=jongen]").click());
   await p.waitForTimeout(400); await p.tap("#begin"); await p.waitForTimeout(3500); await p.screenshot({ path: `${UIT}/1-raam.png` });
   console.log(await p.evaluate(() => { const s = window.__spel; return JSON.stringify({ hangjeugd: s.reizigers.filter((r) => r.hang).length, fatbikes: s.reizigers.filter((r) => r.fat).length, rav4: s.stil.filter((x) => x.object.userData.soort === "rav4duo").map((x) => x.object.position.toArray().map((v) => +v.toFixed(1))) }); }));
   for (const [n, c] of [["2-straat", { pos: [14, 5, -4], doel: [-3, 1.5, 14] }], ["3-rav4", { pos: [3, 2, 7], doel: [-3.7, 0.8, 12.3] }], ["4-boven", { pos: [0, 60, 12], doel: [0, 0, 8] }]]) { await p.evaluate((c) => { window.__spel.vrijeCamera = c; }, c); await p.waitForTimeout(3500); await p.screenshot({ path: `${UIT}/${n}.png` }); }

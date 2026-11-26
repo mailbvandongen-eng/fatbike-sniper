@@ -13,14 +13,14 @@ import { Muziek } from "./muziek.js";
  * stoot/trap = hoe hard hij raakt; trapTempo = hoe snel hij trapt; stamina = hoeveel adem; herstel = adem per seconde.
  */
 export const VECHTERS = [
-  { id: "bokser", naam: "De Kale", stijl: "Bokser", model: "schutter", stoot: 1.3, trap: 0.5, trapTempo: 0.8, snel: 1.25, leven: 110, stamina: 150, herstel: 14,
+  { id: "bokser", naam: "Bonk", stijl: "Bokser", model: "schutter", stoot: 1.3, trap: 0.5, trapTempo: 0.8, snel: 1.25, leven: 110, stamina: 150, herstel: 14,
     stoten: ["jab", "jab", "gyaku", "shita", "jodan_tsuki"], trappen: ["gedan", "mae"], balken: [0.8, 0.3, 1, 0.6] },
-  { id: "karateka", naam: "Karateman", stijl: "Kyokushin", model: "karateka", stoot: 0.95, trap: 1.2, trapTempo: 1.0, stamina: 105, herstel: 11,
+  { id: "karateka", naam: "Blitz", stijl: "Kyokushin", model: "karateka", stoot: 0.95, trap: 1.2, trapTempo: 1.0, stamina: 105, herstel: 11,
     stoten: ["jab", "gyaku", "shita", "hiji", "jodan_tsuki"], trappen: ["gedan", "mae", "chudan_mawashi", "jodan_mawashi", "ushiro_mawashi"], balken: [0.6, 0.85, 0.65, 0.65] },
   // de dieren: een eigen lijf (assets/dieren/lijf_*.glb) met een dierenkop erop (kop_*.glb)
-  { id: "beer", naam: "Beer", stijl: "Krachtpatser", model: "beer", dier: true, schaal: 1.12, kop: [0, 0.03, 0.03, 1.15], kopTint: "#c79a66", stoot: 1.62, trap: 1.1, trapTempo: 0.85, tempo: 0.8, snel: 0.8, leven: 135, stug: true, stamina: 76, herstel: 7.5,
+  { id: "beer", naam: "Grom", stijl: "Krachtpatser", model: "beer", dier: true, schaal: 1.12, kop: [0, 0.03, 0.03, 1.15], kopTint: "#c79a66", stoot: 1.62, trap: 1.1, trapTempo: 0.85, tempo: 0.8, snel: 0.8, leven: 135, stug: true, stamina: 76, herstel: 7.5,
     stoten: ["gyaku", "shita", "hiji", "jodan_tsuki"], trappen: ["gedan", "mae", "hiza"], balken: [1, 0.55, 0.4, 0.35] },
-  { id: "wolf", naam: "Wolf", stijl: "Snel en fel", model: "wolf", dier: true, schaal: 0.97, kop: [0, 0.0, 0.05, 1], staart: true, stoot: 0.78, trap: 0.85, trapTempo: 1.15, tempo: 1.25, snel: 1.35, leven: 82, stamina: 125, herstel: 15,
+  { id: "wolf", naam: "Storm", stijl: "Snel en fel", model: "wolf", dier: true, schaal: 0.97, kop: [0, 0.0, 0.05, 1], staart: true, stoot: 0.78, trap: 0.85, trapTempo: 1.15, tempo: 1.25, snel: 1.35, leven: 82, stamina: 125, herstel: 15,
     stoten: ["jab", "jab", "gyaku", "jab", "shita"], trappen: ["gedan", "mae", "chudan_mawashi", "ushiro_geri"], balken: [0.45, 0.5, 0.85, 1] },
 ];
 /** Afstellen van het gevecht. */
