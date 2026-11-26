@@ -672,6 +672,11 @@ export class Fietser extends Reiziger {
     const scheef = THREE.MathUtils.clamp(-this.draaiing * this.snelheid * 0.09, -0.3, 0.3);
     this.fiets.rotation.z = scheef;
     for (const m of this.berijders) m.object.rotation.set(m.leun, 0, scheef);
+    if (this.glij > 0) {
+      // uitgegleden: de fiets ligt even plat op straat, dan krabbelt hij op en rijdt verder
+      this.glij -= dt; this.wacht = Math.max(this.wacht ?? 0, 0.3);
+      this.groep.rotation.z = this.glijKant * 1.35 * Math.min(1, (2.8 - this.glij) * 4, this.glij * 2);
+    }
     // de bestuurder houdt het stuur vast (wie achterop zit niet)
     const m = this.berijders[0];
     if (m && !m.bijgesteld) {
@@ -817,6 +822,7 @@ export class Auto extends Reiziger {
     }
     this.auto.position.copy(this.pos);
     this.auto.rotation.y = this.richting;
+    if (this.slip > 0) { this.slip -= dt; this.auto.rotation.y += Math.sin((1.8 - this.slip) * 4.2) * 1.1 * (this.slip / 1.8) * this.slipKant; } // slippen op iets glads
     for (const w of this.auto.userData.wielen) w.rotation.x += (this.snelheid * dt) / this.auto.userData.straal;
     if (this.m.hoog.visible) this.m.mixer.update(dt);
   }

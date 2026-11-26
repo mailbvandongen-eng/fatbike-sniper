@@ -18,7 +18,7 @@ const T = { ".jpg": "image/jpeg", ".html": "text/html", ".js": "text/javascript"
   await p.evaluate(() => { const s = window.__spel, l = s.loop, y = s.kijk.yaw, fx = Math.sin(y), fz = Math.cos(y); s.vrijeCamera = { pos: [l.pos.x + fx * 2.2 + fz * 1.2, 1.4, l.pos.z + fz * 2.2 - fx * 1.2], doel: [l.pos.x, 1.0, l.pos.z] }; });
   await p.waitForTimeout(3000); await p.screenshot({ path: `${UIT}/2-meisje.png` }); await p.evaluate(() => { window.__spel.vrijeCamera = null; });
   const klaar = () => p.waitForFunction(() => window.__spel.herlaad <= 0 && !document.body.classList.contains("film"), null, { timeout: 120000 });
-  const rij = []; for (let i = 0; i < 4; i++) { rij.push(await p.evaluate(() => window.__spel.loop.wapen)); await p.tap("#wapen"); }
+  const rij = []; for (let i = 0; i < 5; i++) { rij.push(await p.evaluate(() => window.__spel.loop.wapen)); await p.tap("#wapen"); }
   console.log("trucs:", rij.join(" → "));
   const cam = (pos, doel) => p.evaluate(([pos, doel]) => { window.__spel.vrijeCamera = pos ? { pos, doel } : null; }, [pos, doel]);
   // verf: op de grond, op een geparkeerde auto, op iemand en op een fatbiker
@@ -37,6 +37,19 @@ const T = { ".jpg": "image/jpeg", ".html": "text/html", ".js": "text/javascript"
     return JSON.stringify(uit); }));
   await p.evaluate(() => { const s = window.__spel, a = window.__auto.object.position, l = s.loop; s.vrijeCamera = { pos: [l.pos.x + 1.5, 2.6, l.pos.z + 2], doel: [a.x, 0.7, a.z] }; });
   await p.waitForTimeout(3000); await p.screenshot({ path: `${UIT}/3-verf.png` });
+  // groene verf is glad: fatbike, fietser, auto en voetganger; kauwgom: de fatbike slaat over de kop
+  console.log("glad:", await p.evaluate(() => { const s = window.__spel, l = s.loop, T = window.__T; let n = 0; while (s.plekken.filter((q) => q.soort === "glad").length === 0 && n++ < 8) window.__schiet(new T(l.pos.x + 3, 0, l.pos.z - 3));
+    const pl = s.plekken.find((q) => q.soort === "glad"); if (!pl) return "GEEN gladde plek"; const zet = (r) => { r.pos.set(pl.x, 0, pl.z); r.pad?.copy?.(r.pos); r.snelheid = 3; r.wacht = 0; };
+    const g = s.spel.geraakt, f = s.reizigers.find((r) => r.fat && r.toestand === "rijden"), fi = s.reizigers.find((r) => r.fiets && !r.fat), au = s.reizigers.find((r) => r.wordBoos), v = s.reizigers.find((r) => r.ruzie && r.g && r.groep.visible && !r.worp);
+    for (const r of [f, fi, au, v]) if (r) zet(r); s.stapTrucs(0.05);
+    return JSON.stringify({ schotenTotGroen: n, fatbikeOnderuit: s.spel.geraakt - g, fietserGlijdt: fi ? fi.glij > 0 : "geen fietser", autoSlipt: au ? au.slip > 0 : "geen auto", voetgangerValt: v ? !!v.worp : "geen" }); }));
+  console.log("kauwgom:", await p.evaluate(() => { const s = window.__spel, l = s.loop, T = window.__T; s.zetWapen("kauwgom"); window.__schiet(new T(l.pos.x - 3, 0, l.pos.z - 4)); s.zetWapen("verf");
+    const pl = s.plekken.find((q) => q.soort === "gom"); if (!pl) return "GEEN kauwgom"; const g = s.spel.geraakt, n0 = s.vallers.length, f = s.reizigers.find((r) => r.fat && r.toestand === "rijden");
+    f.pos.set(pl.x, 0, pl.z); f.pad.copy(f.pos); f.groep.position.copy(f.pos); f.snelheid = 5; f.wacht = 0; s.stapTrucs(0.05); const nieuw = s.vallers.slice(n0), fiets = nieuw.find((x) => x.soort === "fiets"), mens = nieuw.find((x) => x.soort === "mens");
+    window.__gom = [pl.x, pl.z]; let top = 0, rot = 0; for (let t = 0; t < 0.6; t += 0.02) { s.stapVallers(0.02); top = Math.max(top, fiets.obj.position.y); }
+    return JSON.stringify({ fatbikeOm: s.spel.geraakt - g, fietsHoog: +top.toFixed(1), fietsTolt: +(Math.abs(fiets.obj.rotation.x) + Math.abs(fiets.obj.rotation.z)).toFixed(1), berijderVooruit: mens ? +Math.hypot(mens.v.x, mens.v.z).toFixed(1) : null }); }));
+  await p.evaluate(() => { const s = window.__spel, [x, z] = window.__gom; s.vrijeCamera = { pos: [x + 5, 2, z + 4], doel: [x, 1, z] }; });
+  await p.waitForTimeout(1500); await p.screenshot({ path: `${UIT}/3b-gom.png` });
   // spinnen: mensen springen op en rennen weg, een fatbiker gaat onderuit
   console.log("spin:", await p.evaluate(() => { const s = window.__spel, l = s.loop, T = window.__T; s.zetWapen("spin");
     const m = s.reizigers.filter((r) => r.hang && !r.zit && !r.worp).slice(0, 3); m.forEach((r, i) => { r.pos.set(l.pos.x - 6 + i, 0, l.pos.z + 4 + i); r.groep.position.copy(r.pos); }); window.__m = m;

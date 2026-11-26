@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { CAMERA, CAMERA_BOTSING, CAMERA_STAND, KIJKEN, SCHOT } from "./config.js";
 import { laadKarate, TECHNIEK, STOTEN, TRAPPEN } from "./karate.js";
 import { bouwWereld, zetFietsenInRekken, bevries, laadSpeeltoestel, laadNatuur } from "./wereld.js";
-import { Graaf, Voetganger, Fietser, Auto, Boodschapper, Staander, werp, schrikVan, laatZweven, laatVallen, laatOpstijgen, maakBallon } from "./verkeer.js";
+import { Graaf, Voetganger, Fietser, Auto, Boodschapper, Staander, werp, schrikVan, laatZweven, laatVallen, laatOpstijgen, maakBallon, plakVast } from "./verkeer.js";
 import { maakMagie } from "./magie.js";
 import { WAPENKAST, HOUVAST, laadWapens, maakWapen, laadWerp, maakWerp, maakRaket } from "./wapens.js";
 import { Muziek } from "./muziek.js";
@@ -128,8 +128,9 @@ let standen = [], standNr = 0, standDecor = null, wisselTot = 0;
 let schutter = null, geweer = null; // jij, van achteren te zien
 let kruk = null;
 let meisje = null, jong = null; // het meisje van twaalf; jong = je speelt een kind (jongetje of meisje): niemand slaat je, geen handhaving, geen auto
-const TRUCS = ["verf", "spin", "ballon"];
-const spatten = [], spinnen = [], branders = [];
+const TRUCS = ["verf", "kauwgom", "spin", "ballon"];
+const spatten = [], spinnen = [], branders = [], plekken = []; // plekken: gladde verf en plakkerige kauwgom op straat
+const GROEN = "#7be04a"; // de groene verf is spekglad
 const VERF = ["#ff3b6b", "#ffd23d", "#35c8ff", "#7be04a", "#b267ff", "#ff8a2a"];
 let kind = null, mobiel = null, vizier = null; // het jongetje met zijn telefoon, en het vizier dat plat op de grond ligt
 const APPS = ["gat", "bel", "sproei"];
@@ -139,7 +140,7 @@ let sluiper = null, karateka = null, heks = null; // wie je speelt: karateka of 
 const SPELERS = {
   kale: { naam: "Bonk", model: "schutter", wat: "kale schutter: geweer en wapenkast" }, karate: { naam: "Blitz", model: "karateka", wat: "karateka: stoten en trappen" },
   heks: { naam: "Vesper", model: "heks", wat: "tovenares: vuurbal, bevriezen, zweven" }, jongen: { naam: "Pixel", model: "kind", wat: "jongen met telefoon: gat, bellen, sproeier" },
-  meisje: { naam: "Roxy", model: "tiener", wat: "meisje met katapult: verf, spinnen, heliumballonnen" },
+  meisje: { naam: "Roxy", model: "tiener", wat: "meisje met katapult: verf, kauwgom, spinnen, heliumballonnen" },
 };
 const SPREUKEN = ["vuurbal", "bevries", "zweef"];
 const spelers = {};
@@ -497,7 +498,8 @@ function gooiRaam(soort = "vuurwerk") {
   lanceer(new THREE.Vector3(oog.x + fx * 0.5, oog.y - 0.1, oog.z + fz * 0.5), new THREE.Vector3(oog.x + (dx / d) * r, 0, oog.z + (dz / d) * r), soort);
 }
 /** Bij het raam (in het level met vuurwerk): wisselen tussen het geweer en vuurwerk. */
-function toonWapen(w) { for (const el of document.querySelectorAll("#wapen svg")) el.style.display = el.dataset.w === w ? "" : "none"; }
+function toonWapen(w) { for (const el of document.querySelectorAll("#wapen svg")) { el.style.display = el.dataset.w === w ? "" : "none"; if (el.dataset.w === "verf") el.style.color = VERF[verfNr % VERF.length]; } } // de katapult heeft de kleur van de volgende verfbal
+let verfNr = 0;
 function stapVuurwerk(dt) {
   for (const w of [...vuurwerk]) {
     if (w.knetter < 0) {
@@ -1206,6 +1208,7 @@ function toonStart() {
 }
 function begin() {
   geluid.start();
+  for (const pl of plekken) pl.m.removeFromParent(); plekken.length = 0;
   for (const g of gaten) scene.remove(g.m); gaten.length = 0; // een nieuwe ronde: de straat is weer heel
   $("#opties").hidden = true;
   stapUitGedwongen();
@@ -1548,7 +1551,8 @@ function truc() {
   }
   // de katapult: een verfbal (elke keer een andere kleur) of een spin, recht naar het kruisje
   herlaad = t === "spin" ? 0.9 : 0.45;
-  const kleur = t === "spin" ? "#17120f" : kies(VERF);
+  const kleur = t === "spin" ? "#17120f" : t === "kauwgom" ? "#ff6fb5" : VERF[verfNr++ % VERF.length];
+  if (t === "verf") toonWapen("verf");
   const d = richtPunt().sub(mij).normalize(), m = new THREE.Mesh(new THREE.SphereGeometry(t === "spin" ? 0.09 : 0.07, 10, 8), new THREE.MeshStandardMaterial({ color: kleur, roughness: 0.3 }));
   m.position.copy(mij); scene.add(m);
   kogels.push({ p: mij.clone().addScaledVector(d, 0.5), v: d.multiplyScalar(38), leeftijd: 0, raket: m, bal: t, kleur });
@@ -1604,7 +1608,12 @@ function verfRaak(raak, p, k) {
   const kleur = k.kleur, terug = k.v.clone().normalize().negate(), wie = raak.wie;
   for (let i = 0; i < 10; i++) fx.brok(p, kleur, 0.035, new THREE.Vector3((Math.random() - 0.5) * 4, 0.5 + Math.random() * 2.5, (Math.random() - 0.5) * 4).addScaledVector(terug, 1.5));
   geluid.stomp(afstandVol(p) * 1.3);
-  if (raak.deel === "grond") return spat(p.clone().setY(0.02), new THREE.Vector3(0, 1, 0), kleur, 0.55);
+  if (raak.deel === "grond") {
+    // groene verf is glad: een grote plas waar iedereen op onderuit gaat
+    const glad = kleur === GROEN, m = spat(p.clone().setY(0.02), new THREE.Vector3(0, 1, 0), kleur, glad ? 1.7 : 0.55);
+    if (glad) { m.material.roughness = 0.05; plekken.push({ soort: "glad", x: p.x, z: p.z, r: 1.5, t: 0, duur: 45, m }); }
+    return m;
+  }
   if (raak.deel === "muur") return spat(p, raak.n ?? terug, kleur, 0.5);
   if (!wie) return;
   if (wie.fat && wie.toestand === "rijden") { spat(p, terug, kleur, 0.28, wie.groep); return fatbikeGeraakt(wie, "klap", p); } // verf in zijn gezicht: hij gaat onderuit
@@ -1615,6 +1624,24 @@ function verfRaak(raak, p, k) {
   }
   spat(p, terug, kleur, wie.m ? 0.2 : 0.3, wie.groep ?? wie.object);
   if (wie.m && wie.groep && wie.soort !== "agent") schrikVan(wie, loop.aan ? loop.pos : oog);
+}
+/** Kauwgom: een roze klodder die op straat blijft plakken. Een fatbike die eroverheen rijdt blokkeert met zijn voorwiel en slaat over de kop. */
+function gomRaak(raak, p) {
+  for (let i = 0; i < 8; i++) fx.brok(p, "#ff6fb5", 0.05, new THREE.Vector3((Math.random() - 0.5) * 3, 1 + Math.random() * 2, (Math.random() - 0.5) * 3));
+  geluid.stomp(afstandVol(p) * 1.5);
+  if (raak.wie?.fat && raak.wie.toestand === "rijden") slaOver(raak.wie);
+  const m = new THREE.Mesh(new THREE.SphereGeometry(0.6, 16, 10), new THREE.MeshStandardMaterial({ color: "#ff6fb5", roughness: 0.3, transparent: true })); m.scale.set(1, 0.1, 1); m.position.set(p.x, 0.04, p.z); scene.add(m);
+  plekken.push({ soort: "gom", x: p.x, z: p.z, r: 0.95, t: 0, duur: 60, m });
+  const gom = plekken.filter((q) => q.soort === "gom"); if (gom.length > 8) gom[0].t = gom[0].duur;
+}
+/** Het voorwiel blokkeert: de fatbike slaat voorover over de kop en de berijders vliegen over het stuur. */
+function slaOver(f) {
+  const n0 = vallers.length, vx = Math.sin(f.richting), vz = Math.cos(f.richting), v0 = Math.max(4, f.snelheid ?? 0);
+  fatbikeGeraakt(f, "klap", f.pos.clone().setY(0.4));
+  for (const x of vallers.slice(n0)) {
+    if (x.soort === "fiets") { x.r = 0.25; x.kantel = 0; x.v.set(vx * 2, 5, vz * 2); x.w.set(vz * 7, 0, -vx * 7); }
+    else if (x.soort === "mens") { x.v.set(vx * v0 * 1.1, 4.8, vz * v0 * 1.1); x.w.set(vz * 6, 0, -vx * 6); }
+  }
 }
 /** Een spin: acht poten die bewegen (groot genoeg om te zien, en om van te schrikken). */
 function maakSpin() {
@@ -1685,7 +1712,27 @@ function rijderBrand(r) {
   autoBrand(st);
 }
 const ROET = new THREE.Color("#141210");
+let trucKlok = 0;
 function stapTrucs(dt) {
+  trucKlok += dt;
+  for (const pl of [...plekken]) {
+    pl.t += dt;
+    if (pl.t > pl.duur) { if (pl.soort === "gom") { pl.m.material.opacity -= dt; if (pl.m.material.opacity > 0) continue; scene.remove(pl.m); } plekken.splice(plekken.indexOf(pl), 1); continue; }
+    for (const r of [...reizigers]) {
+      if (Math.hypot(r.pos.x - pl.x, r.pos.z - pl.z) > pl.r) continue;
+      const mens = r.m && r.groep && !r.fiets && !r.wordBoos && r.soort !== "agent" && !r.worp;
+      if (pl.soort === "gom") {
+        if (r.fat && r.toestand === "rijden") { if (r.snelheid > 0.6) slaOver(r); } // het voorwiel plakt vast
+        else if (mens && r.snelheid !== 0) plakVast(r, 5);
+      } else if (r.fat && r.toestand === "rijden") { if (r.snelheid > 0.6) fatbikeGeraakt(r, "klap", r.pos.clone().setY(0.5)); } // glijdt onderuit
+      else if (r.fiets) { if (!(r.glij > 0) && r.snelheid > 0.5 && !(r.gleedT > trucKlok)) { r.glij = 2.8; r.glijKant = Math.random() < 0.5 ? 1 : -1; r.gleedT = trucKlok + 8; geluid.klap(afstandVol(r.pos)); } }
+      else if (r.wordBoos) { if (!(r.slip > 0) && r.snelheid > 1 && !(r.gleedT > trucKlok)) { r.slip = 1.8; r.slipKant = Math.random() < 0.5 ? 1 : -1; r.gleedT = trucKlok + 5; geluid.schuur(afstandVol(r.pos) * 1.5); } }
+      else if (mens && r.snelheid !== 0 && !(r.gleedT > trucKlok)) { r.gleedT = trucKlok + 6; if (werp(r, { x: r.pos.x - Math.sin(r.richting), z: r.pos.z - Math.cos(r.richting) }, 0.45)) r.plof = () => geluid.stomp(afstandVol(r.pos) * 1.5); }
+    }
+    // jouw eigen auto slipt er ook op
+    if (pl.soort === "glad" && rij.aan && Math.abs(rij.v) > 3 && !(rij.slipT > 0) && Math.hypot(rij.auto.position.x - pl.x, rij.auto.position.z - pl.z) < pl.r + 0.8) { rij.slipT = 1.2; rij.slipK = Math.random() < 0.5 ? 1 : -1; geluid.schuur(1); }
+  }
+  if (rij.slipT > 0) { rij.slipT -= dt; if (rij.aan) rij.richting += rij.slipK * 2.6 * dt * (rij.slipT / 1.2); }
   for (const b of [...branders]) {
     b.t += dt;
     if (b.t > 2) b.auto.traverse((o) => { if (o.isMesh) for (const m of Array.isArray(o.material) ? o.material : [o.material]) m.color?.lerp(ROET, Math.min(1, dt * 0.22)); });
@@ -1921,7 +1968,7 @@ function stapKogels(dt) {
     if (b.y < 0 && (!raak || a.y / (a.y - b.y) < raak.t)) raak = { t: a.y / (a.y - b.y), deel: "grond" };
     if (raak) {
       const p = a.clone().lerp(b, raak.t);
-      if (k.bal) { scene.remove(k.raket); (k.bal === "spin" ? spinRaak : verfRaak)(raak, p, k); } else if (k.raket) { scene.remove(k.raket); ontplof(p, k.straal); } else treffer(raak, p);
+      if (k.bal) { scene.remove(k.raket); (k.bal === "spin" ? spinRaak : k.bal === "kauwgom" ? gomRaak : verfRaak)(raak, p, k); } else if (k.raket) { scene.remove(k.raket); ontplof(p, k.straal); } else treffer(raak, p);
       kogels.splice(kogels.indexOf(k), 1);
     } else if (k.leeftijd > (k.raket ? 5 : 1.2)) { if (k.bal) scene.remove(k.raket); else if (k.raket) { scene.remove(k.raket); ontplof(k.p.clone(), k.straal); } kogels.splice(kogels.indexOf(k), 1); }
   }
@@ -2730,4 +2777,4 @@ function lus() {
 }
 zetZoom(1);
 laad().then(() => requestAnimationFrame(lus)).catch((e) => { $("#laden").textContent = "Laden mislukt: " + e.message; console.error(e); });
-window.__spel = { truc, bolOpen, stapVallers, vallers, vuurVlam, herlaadNul: () => { herlaad = 0; }, stapKogels, spatten, spinnen, branders, ballonnen, autoBrand, rijderBrand, stapTrucs, wapens, get meisje() { return meisje; }, vizierPunt, gaten, maakGat, gatBij, stapTelefoon, get kind() { return kind; }, kiesSpeler, tover, get magie() { return magie; }, get heks() { return heks; }, staf: () => staf, worp: () => worp, uitAuto, get muziek() { return muziek; }, geluid, opties, kast, openKast, ontplof, vuurMg, vuurRaket, vuurVlam, kogels, get schutter() { return schutter; }, vuurwerk, stapVuurwerk, karate: () => Object.keys(TECHNIEK), spel, reizigers, stil, uitAuto, verlaten, get herlaad() { return herlaad; }, kijk, camera, oog, loop, rij, stapIn, stapUit, stapLopen, get straat() { return straat; }, get graaf() { return graaf; }, zetLopen, sla, actie, zetWapen, klapKrijgen, vallers, schiet, begin, zetZoom, draai, scene, renderer, stand: () => standen[standNr]?.naam };
+window.__spel = { plekken, slaOver, truc, bolOpen, stapVallers, vallers, vuurVlam, herlaadNul: () => { herlaad = 0; }, stapKogels, spatten, spinnen, branders, ballonnen, autoBrand, rijderBrand, stapTrucs, wapens, get meisje() { return meisje; }, vizierPunt, gaten, maakGat, gatBij, stapTelefoon, get kind() { return kind; }, kiesSpeler, tover, get magie() { return magie; }, get heks() { return heks; }, staf: () => staf, worp: () => worp, uitAuto, get muziek() { return muziek; }, geluid, opties, kast, openKast, ontplof, vuurMg, vuurRaket, vuurVlam, kogels, get schutter() { return schutter; }, vuurwerk, stapVuurwerk, karate: () => Object.keys(TECHNIEK), spel, reizigers, stil, uitAuto, verlaten, get herlaad() { return herlaad; }, kijk, camera, oog, loop, rij, stapIn, stapUit, stapLopen, get straat() { return straat; }, get graaf() { return graaf; }, zetLopen, sla, actie, zetWapen, klapKrijgen, vallers, schiet, begin, zetZoom, draai, scene, renderer, stand: () => standen[standNr]?.naam };
