@@ -20,6 +20,15 @@ const lokaal = (lat, lon) => { const [x, y] = naarRD(lat, lon); return [x - OX, 
 const knoop = new Map();
 for (const e of osm) if (e.type === "node") knoop.set(e.id, e);
 const wegen = osm.filter((e) => e.type === "way" && e.tags);
+// Waar de kaart een straat verkeerd legt (bijv. over de stoep), schuiven we de punten naar de echte rijbaan:
+// L.verleg = [[[x, z] nu, [x, z] goed], ...] in meters vanaf het midden.
+for (const [van, naar] of L.verleg ?? []) {
+  const wegKnopen = new Set(wegen.filter((w) => w.tags.highway).flatMap((w) => w.nodes));
+  let best = null, bd = 2;
+  for (const nid of wegKnopen) { const n = knoop.get(nid); if (!n) continue; const q = lokaal(n.lat, n.lon), d = Math.hypot(q[0] - van[0], q[1] - van[1]); if (d < bd) { bd = d; best = n; } }
+  if (!best) { console.warn("verleg: geen punt bij", van); continue; }
+  for (let i = 0; i < 4; i++) { const q = lokaal(best.lat, best.lon); best.lon += (naar[0] - q[0]) / 68400; best.lat -= (naar[1] - q[1]) / 111300; }
+}
 const punten = (w) => w.nodes.map((n) => knoop.get(n)).filter(Boolean).map((n) => lokaal(n.lat, n.lon));
 const binnen = (p, ring) => {
   let in_ = false;

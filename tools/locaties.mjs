@@ -89,6 +89,8 @@ export const LOCATIES = {
     bgt: true,
     huisStijl: "huis85", pannen: "#8a4636", // donkerrode dakpannen
     hangjeugd: true, hangRond: [[93716, 454247], [93700, 454250], [93735, 454238], [93690, 454240]], // groepjes op het hofje en langs de straat
+    // de kaart legt de straat hier over de stoep voor de huizen; de echte rijbaan ligt een paar meter noordelijker
+    verleg: [[[-40.68, -3.5], [-40.6, -7.1]], [[-34.45, -4.52], [-34.3, -6.3]], [[14.66, 16.12], [0.45, 5.9]], [[17.83, 17.39], [13.2, 10.9]], [[19.34, 13.91], [19.7, 9.8]]],
     fatDruk: 1.5,
     druk: 0.4,
   },
