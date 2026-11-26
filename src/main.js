@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { CAMERA, CAMERA_BOTSING, CAMERA_STAND, KIJKEN, SCHOT } from "./config.js";
 import { laadKarate, TECHNIEK, STOTEN, TRAPPEN } from "./karate.js";
 import { bouwWereld, zetFietsenInRekken, bevries, laadSpeeltoestel, laadNatuur } from "./wereld.js";
-import { Graaf, Voetganger, Fietser, Auto, Boodschapper, Staander, werp, schrikVan, laatZweven, laatVallen, plakVast, laatDansen } from "./verkeer.js";
+import { Graaf, Voetganger, Fietser, Auto, Boodschapper, Staander, werp, schrikVan, laatZweven, laatVallen, laatOpstijgen, maakBallon } from "./verkeer.js";
 import { maakMagie } from "./magie.js";
 import { WAPENKAST, HOUVAST, laadWapens, maakWapen, laadWerp, maakWerp, maakRaket } from "./wapens.js";
 import { Muziek } from "./muziek.js";
@@ -128,8 +128,9 @@ let standen = [], standNr = 0, standDecor = null, wisselTot = 0;
 let schutter = null, geweer = null; // jij, van achteren te zien
 let kruk = null;
 let meisje = null, jong = null; // het meisje van twaalf; jong = je speelt een kind (jongetje of meisje): niemand slaat je, geen handhaving, geen auto
-const TRUCS = ["kauwgom", "dans", "slijm"];
-const plassen = [], boxen = [];
+const TRUCS = ["verf", "spin", "ballon"];
+const spatten = [], spinnen = [], branders = [];
+const VERF = ["#ff3b6b", "#ffd23d", "#35c8ff", "#7be04a", "#b267ff", "#ff8a2a"];
 let kind = null, mobiel = null, vizier = null; // het jongetje met zijn telefoon, en het vizier dat plat op de grond ligt
 const APPS = ["gat", "bel", "sproei"];
 const gaten = [], fonteinen = [];
@@ -138,7 +139,7 @@ let sluiper = null, karateka = null, heks = null; // wie je speelt: karateka of 
 const SPELERS = {
   kale: { naam: "Bonk", model: "schutter", wat: "kale schutter: geweer en wapenkast" }, karate: { naam: "Blitz", model: "karateka", wat: "karateka: stoten en trappen" },
   heks: { naam: "Vesper", model: "heks", wat: "tovenares: vuurbal, bevriezen, zweven" }, jongen: { naam: "Pixel", model: "kind", wat: "jongen met telefoon: gat, bellen, sproeier" },
-  meisje: { naam: "Roxy", model: "tiener", wat: "meisje: kauwgom, dansmuziek, slijm" },
+  meisje: { naam: "Roxy", model: "tiener", wat: "meisje met katapult: verf, spinnen, heliumballonnen" },
 };
 const SPREUKEN = ["vuurbal", "bevries", "zweef"];
 const spelers = {};
@@ -152,7 +153,7 @@ async function kiesSpeler(id) {
   localStorage.setItem("fbs-speler", id); spel.speler_id = id;
   document.body.classList.toggle("karate", id === "karate"); document.body.classList.toggle("heks", id === "heks" || id === "jongen" || id === "meisje");
   loop.raamVuurwerk = false;
-  zetWapen(heks ? "vuurbal" : kind ? "gat" : meisje ? "kauwgom" : "pistool");
+  zetWapen(heks ? "vuurbal" : kind ? "gat" : meisje ? "verf" : "pistool");
   for (const b of document.querySelectorAll("#spelers button")) b.classList.toggle("aan", b.dataset.speler === id);
   $("#kiesSpeler b").textContent = SPELERS[id].naam;
 }
@@ -374,7 +375,7 @@ function zichtVrij(a, b) {
   zichtRay.set(van, naar.normalize()); zichtRay.far = d - 0.3;
   return !zichtRay.intersectObjects(wereld.botsers, false).length;
 }
-function zetWapen(w) { if (heks && !SPREUKEN.includes(w)) w = "vuurbal"; if (kind && !APPS.includes(w)) w = "gat"; if (meisje && !TRUCS.includes(w)) w = "kauwgom"; loop.wapen = w; if (w !== "pistool") zetMikken(false); toonWapen(w); tekenHud(); }
+function zetWapen(w) { if (heks && !SPREUKEN.includes(w)) w = "vuurbal"; if (kind && !APPS.includes(w)) w = "gat"; if (meisje && !TRUCS.includes(w)) w = "verf"; loop.wapen = w; if (w !== "pistool") zetMikken(false); toonWapen(w); tekenHud(); }
 function zetMikken(aan) { loop.mikken = aan && loop.wapen === "pistool"; document.body.classList.toggle("mikt", loop.mikken); }
 /** Mikhulp: de band van de fatbike die het dichtst bij het kruisje staat (ruimer als je richt). */
 function zoekDoel() {
@@ -405,7 +406,10 @@ function zoekDoel() {
   return null;
 }
 /** Wat je bij je hebt: gewoon pistool, vuisten en mes; in karatepak je vuisten en voeten, of een honkbalknuppel. */
-const wapens = () => heks ? SPREUKEN : kind ? APPS : meisje ? TRUCS : [...(karateka && loop.aan ? ["vuist", "knuppel", "vuurwerk"] : WAPENS), ...(ZWAAR.has(kast.keuze) || GOOI.has(kast.keuze) ? [kast.keuze] : [])];
+/** Bonk (de kale schutter) heeft overal zijn hele arsenaal bij zich. */
+const kale = () => !karateka && !heks && !jong;
+const wapens = () => heks ? SPREUKEN : kind ? APPS : meisje ? TRUCS : kale() ? [...WAPENS, "mg", "bazooka", "vlam", "granaat", "cobra"]
+  : [...(karateka && loop.aan ? ["vuist", "knuppel", "vuurwerk"] : WAPENS), ...(ZWAAR.has(kast.keuze) || GOOI.has(kast.keuze) ? [kast.keuze] : [])];
 // Klein vuurwerk (categorie 1: knetteren en vonken, geen schade): je gooit het voor de voeten van de hangjeugd.
 const vuurwerk = [];
 /**
@@ -472,7 +476,7 @@ function gooi(soort = "vuurwerk") {
 function lanceer(van, naar, soort = "vuurwerk") {
   const T = 0.55 + van.distanceTo(naar) * 0.035;
   // een echte granaat of cobra; het kleine vuurwerk is een rood kokertje
-  const m = soort === "slijm" ? new THREE.Mesh(new THREE.SphereGeometry(0.11, 12, 10), new THREE.MeshStandardMaterial({ color: "#8be04a", roughness: 0.25 })) : maakWerp(soort) ?? new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.1, 8), new THREE.MeshStandardMaterial({ color: "#c0261d", emissive: "#ff7a1a", emissiveIntensity: 0.5 }));
+  const m = soort === "ballon" ? new THREE.Mesh(new THREE.SphereGeometry(0.13, 14, 10), new THREE.MeshStandardMaterial({ color: "#f4f1ea", roughness: 0.3 })) : maakWerp(soort) ?? new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.1, 8), new THREE.MeshStandardMaterial({ color: "#c0261d", emissive: "#ff7a1a", emissiveIntensity: 0.5 }));
   m.position.copy(van); scene.add(m);
   vuurwerk.push({ m, soort, v: new THREE.Vector3((naar.x - van.x) / T, (0.04 - van.y) / T + 4.9 * T, (naar.z - van.z) / T), knetter: -1, tik: 0 });
   geluid.zwiep(0.5);
@@ -499,13 +503,13 @@ function stapVuurwerk(dt) {
     if (w.knetter < 0) {
       // door de lucht, met een vonkenspoor
       w.v.y -= 9.8 * dt; w.m.position.addScaledVector(w.v, dt); w.m.rotation.x += dt * 9; w.m.rotation.z += dt * 6;
-      if (Math.random() < dt * 25) fx.vonken(w.m.position);
+      if (w.soort !== "ballon" && Math.random() < dt * 25) fx.vonken(w.m.position);
       if (w.m.position.y <= 0.05 && GOOI.has(w.soort)) {
         // een cobra of handgranaat: blijft liggen, de lont sist, en dan de knal
         w.m.position.y = 0.05; w.knetter = WAPENKAST[w.soort].lont; w.lont = true; geluid.sis();
         for (const r of reizigers) if (Math.hypot(r.pos.x - w.m.position.x, r.pos.z - w.m.position.z) < 6) r.schrikken?.(); // wie het ziet liggen, rent
-      } else if (w.m.position.y <= 0.05 && w.soort === "slijm") {
-        maakPlas(w.m.position.x, w.m.position.z); scene.remove(w.m); vuurwerk.splice(vuurwerk.indexOf(w), 1); continue;
+      } else if (w.m.position.y <= 0.05 && w.soort === "ballon") {
+        bolOpen(w.m.position.clone()); scene.remove(w.m); vuurwerk.splice(vuurwerk.indexOf(w), 1); continue;
       } else if (w.m.position.y <= 0.05) {
         w.m.position.y = 0.05; w.knetter = 2.2; w.m.rotation.set(Math.PI / 2, 0, 0);
         // iedereen in de buurt schrikt en maakt dat hij wegkomt; wie met je vocht houdt ermee op
@@ -694,7 +698,7 @@ const rij = { aan: false, auto: null, v: 0, stuur: 0, richting: 0, kans: null, i
 function autoBij() {
   let best = null;
   for (const st of stil) {
-    if (st.soort !== "auto") continue;
+    if (st.soort !== "auto" || st.object.userData.brandt) continue; // in een uitgebrande auto stap je niet
     const d = Math.hypot(st.object.position.x - loop.pos.x, st.object.position.z - loop.pos.z);
     if (d < 3.4 && (!best || d < best.d)) best = { st, d };
   }
@@ -716,16 +720,22 @@ function stapIn() {
   rij.instapT = eigen || u.open ? 0.35 : 1.1;
   rij.straks = st;
 }
+/** Een geparkeerde auto is een getekende kopie: die verdwijnt, en er komt een echte auto (met wielen) voor in de plaats. */
+function echteAuto(st) {
+  const oud = st.object;
+  if (oud.userData.wielen) return oud;
+  const auto = maakAuto({ soort: oud.userData.soort, kleur: oud.userData.kleur });
+  auto.position.copy(oud.position); auto.rotation.y = oud.rotation.y;
+  oud.userData.weg = true; wereld.autosOpnieuw();
+  wereld.geparkeerd.splice(wereld.geparkeerd.indexOf(oud), 1);
+  scene.add(auto); auto.updateMatrixWorld();
+  for (const sp of oud.userData.spatten ?? []) auto.attach(sp); // de verfvlekken blijven erop zitten
+  st.object = auto; st.raak = auto.userData.raak;
+  return auto;
+}
 function echtInstappen(st) {
   // een geparkeerde auto is een getekende kopie: die verdwijnt, en er komt een echte, rijdende auto voor in de plaats
-  let auto = st.object;
-  if (!auto.userData.wielen) {
-    auto = maakAuto({ soort: st.object.userData.soort, kleur: st.object.userData.kleur });
-    auto.position.copy(st.object.position); auto.rotation.y = st.object.rotation.y;
-    st.object.userData.weg = true; wereld.autosOpnieuw();
-    wereld.geparkeerd.splice(wereld.geparkeerd.indexOf(st.object), 1);
-    scene.add(auto);
-  }
+  const auto = echteAuto(st);
   auto.userData.open = true;
   stil.splice(stil.indexOf(st), 1); autoRooster = null;
   if (verlaten.includes(auto)) verlaten.splice(verlaten.indexOf(auto), 1);
@@ -1353,7 +1363,7 @@ function schiet() {
 // ---------- de wapenkast ----------
 function openKast() {
   const el = $("#kast"), lijst = $("#kastLijst"); lijst.textContent = "";
-  const keuzes = [...Object.keys(WAPENKAST).filter((id) => !WAPENKAST[id].alleen || WAPENKAST[id].alleen === (data.karate ? "karate" : "gewoon")), ...(karateka ? ["vuurwerk"] : [])];
+  const keuzes = [...Object.keys(WAPENKAST).filter((id) => kale() || !WAPENKAST[id].alleen || WAPENKAST[id].alleen === (data.karate ? "karate" : "gewoon")), ...(karateka ? ["vuurwerk"] : [])];
   for (const id of keuzes) {
     const k = document.createElement("button"), nu = loop.raamVuurwerk ? "vuurwerk" : kast.keuze;
     k.className = id === nu ? "aan" : ""; k.textContent = WAPENKAST[id]?.naam ?? "Vuurwerk";
@@ -1398,11 +1408,11 @@ function tekenVizier() {
     vizier = new THREE.Mesh(new THREE.PlaneGeometry(5, 5).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, opacity: 0.85, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 }));
     vizier.renderOrder = 5; scene.add(vizier);
   }
-  vizier.visible = (!!kind || (!!meisje && loop.wapen !== "kauwgom")) && spel.bezig && !filmCam;
+  vizier.visible = (!!kind || (!!meisje && loop.wapen === "ballon")) && spel.bezig && !filmCam;
   if (!vizier.visible) return;
   vizier.position.copy(vizierPunt()).setY(0.06); vizier.rotation.y = kijk.yaw + Math.PI; // draait mee met je telefoon
-  vizier.material.color.set({ gat: "#ffd23d", bel: "#7be07b", sproei: "#6ec8ff", dans: "#ff7ad9", slijm: "#9be35a" }[loop.wapen] ?? "#ffffff");
-  vizier.scale.setScalar(loop.wapen === "bel" || loop.wapen === "dans" ? 3.2 : loop.wapen === "sproei" ? 1.8 : 1);
+  vizier.material.color.set({ gat: "#ffd23d", bel: "#7be07b", sproei: "#6ec8ff", ballon: "#ff7ad9" }[loop.wapen] ?? "#ffffff");
+  vizier.scale.setScalar(loop.wapen === "bel" ? 3.2 : loop.wapen === "ballon" ? 1.3 : loop.wapen === "sproei" ? 1.8 : 1);
 }
 /** Tik op de telefoon: de app die je gekozen hebt doet zijn werk op de plek van het vizier. */
 function tikTelefoon() {
@@ -1521,69 +1531,179 @@ function kindPose(yaw) {
   m.arm("L", hier.clone().addScaledVector(links, 0.035), omlaag.clone().addScaledVector(links, 0.7));
   mobiel.position.copy(hier).add(new THREE.Vector3(0, 0.03, 0)); mobiel.rotation.set(-0.5, yaw, 0, "YXZ");
 }
-// ---------- het meisje: kauwgom, dansmuziek en slijm ----------
+// ---------- Roxy: een katapult met verfballen en spinnen, en bollen waar heliumballonnen uit komen ----------
+let katapult = null;
+const ballonnen = [];
 function truc() {
   if (!spel.bezig || herlaad > 0 || filmCam || wisselt()) return;
-  const t = loop.wapen, mij = loop.aan ? new THREE.Vector3(loop.pos.x, 1.2, loop.pos.z) : oog.clone(); spel.schoten++;
-  if (loop.aan) { loop.richting = kijk.yaw; Object.assign(loop, { slag: 0.5, slagRaak: true, slagRaakOp: -1, slagSoort: "truc" }); }
-  schutter.zet("gooien", 1.6, 0.2);
-  if (t === "kauwgom") {
-    // een roze kauwgombal die recht naar het kruisje vliegt: wie of wat hij raakt, plakt vast
-    herlaad = 0.6;
-    const d = richtPunt().sub(mij).normalize(), m = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 10), new THREE.MeshStandardMaterial({ color: "#ff6fb5", roughness: 0.35 }));
-    m.position.copy(mij); scene.add(m);
-    kogels.push({ p: mij.clone().addScaledVector(d, 0.5), v: d.multiplyScalar(26), leeftijd: 0, raket: m, gom: true });
-    geluid.zwiep(0.7);
-  } else if (t === "dans") {
-    // een boxje met muziek: iedereen in de buurt gaat dansen, fatbikes blijven staan kijken
-    herlaad = 3;
-    const p = vizierPunt(), box = new THREE.Group();
-    const kast_ = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.5, 0.26), new THREE.MeshStandardMaterial({ color: "#ff4fa3", roughness: 0.5 })); kast_.position.y = 0.25; kast_.castShadow = true; box.add(kast_);
-    for (const y of [0.15, 0.36]) { const sp = new THREE.Mesh(new THREE.CircleGeometry(y < 0.2 ? 0.1 : 0.06, 16), new THREE.MeshStandardMaterial({ color: "#1b1b1f" })); sp.position.set(0, y, 0.131); box.add(sp); }
-    box.position.set(p.x, 0, p.z); box.rotation.y = kijk.yaw + Math.PI; scene.add(box); boxen.push({ box, t: 0, p });
-    for (const r of reizigers) {
-      if (Math.hypot(r.pos.x - p.x, r.pos.z - p.z) > 9) continue;
-      if (r.fat || r.fiets) { r.wacht = 8; r.vlucht = 0; }
-      else if (r.m && r.groep && !r.wordBoos) laatDansen(r, 8);
-    }
-    dansMuziek ??= geluid.ctx ? new Muziek(geluid.ctx, geluid.uit, "kooi") : null; dansMuziek?.start(opties.geluid ? 0.3 : 0);
-  } else {
-    // een ballon vol slijm: waar hij valt ligt een glibberige plas
-    herlaad = 1.2;
-    lanceer(mij.clone().add(new THREE.Vector3(0, 0.3, 0)), vizierPunt(), "slijm"); 
+  const t = loop.wapen, mij = loop.aan ? new THREE.Vector3(loop.pos.x, 1.25, loop.pos.z) : oog.clone(); spel.schoten++;
+  if (loop.aan) { loop.richting = kijk.yaw; loop.richt = 1.4; }
+  if (t === "ballon") {
+    // een witte bol met een boog naar het vizier: waar hij neerkomt klapt hij open
+    herlaad = 1.3;
+    if (loop.aan) Object.assign(loop, { slag: 0.5, slagRaak: true, slagRaakOp: -1, slagSoort: "truc", richt: 0 });
+    schutter.zet("gooien", 1.6, 0.2);
+    lanceer(mij.clone().add(new THREE.Vector3(0, 0.3, 0)), vizierPunt(), "ballon");
+    return;
   }
+  // de katapult: een verfbal (elke keer een andere kleur) of een spin, recht naar het kruisje
+  herlaad = t === "spin" ? 0.9 : 0.45;
+  const kleur = t === "spin" ? "#17120f" : kies(VERF);
+  const d = richtPunt().sub(mij).normalize(), m = new THREE.Mesh(new THREE.SphereGeometry(t === "spin" ? 0.09 : 0.07, 10, 8), new THREE.MeshStandardMaterial({ color: kleur, roughness: 0.3 }));
+  m.position.copy(mij); scene.add(m);
+  kogels.push({ p: mij.clone().addScaledVector(d, 0.5), v: d.multiplyScalar(38), leeftijd: 0, raket: m, bal: t, kleur });
+  geluid.zwiep(0.8);
 }
-let dansMuziek = null;
-/** De kauwgombal komt aan: een fatbike plakt vast en valt om, mensen plakken met hun schoenen aan de straat. */
-function gomRaak(p) {
-  for (let i = 0; i < 8; i++) fx.brok(p, "#ff6fb5", 0.05, new THREE.Vector3((Math.random() - 0.5) * 3, 1 + Math.random() * 2, (Math.random() - 0.5) * 3));
-  geluid.stomp(afstandVol(p) * 1.5);
-  const klodder = new THREE.Mesh(new THREE.SphereGeometry(0.5, 12, 8), new THREE.MeshStandardMaterial({ color: "#ff6fb5", roughness: 0.35 })); klodder.scale.y = 0.12; klodder.position.set(p.x, 0.05, p.z); scene.add(klodder); opruimen(klodder, 7);
+/** Roxy houdt haar katapult vast; als ze richt strekt ze haar linkerarm en trekt ze het elastiek naar haar wang. */
+function roxyPose(yaw, richt) {
+  const m = schutter, fx_ = Math.sin(yaw), fz = Math.cos(yaw), links = new THREE.Vector3(fz, 0, -fx_), voor = new THREE.Vector3(fx_, 0, fz);
+  if (!katapult) {
+    katapult = new THREE.Group();
+    const hout = new THREE.MeshStandardMaterial({ color: "#8a5a2e", roughness: 0.7 }), elastiek = new THREE.MeshStandardMaterial({ color: "#d8362c", roughness: 0.5 });
+    const steel = new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.015, 0.12, 8), hout); steel.position.y = -0.02; katapult.add(steel);
+    for (const k of [-1, 1]) {
+      const tand = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.012, 0.11, 8), hout); tand.position.set(k * 0.032, 0.085, 0); tand.rotation.z = -k * 0.55; katapult.add(tand);
+      const band = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.2, 5).rotateX(Math.PI / 2), elastiek); band.position.set(k * 0.045, 0.13, -0.1); band.rotation.y = k * 0.22; band.name = "band"; katapult.add(band);
+    }
+    const zakje = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.03, 0.01), new THREE.MeshStandardMaterial({ color: "#3a2a1c" })); zakje.position.set(0, 0.13, -0.2); zakje.name = "band"; katapult.add(zakje);
+    scene.add(katapult);
+  }
+  katapult.visible = m.object.visible && loop.wapen !== "ballon" && spel.bezig && !(loop.aan && (loop.neer > 0 || loop.slag > 0 || rij.aan));
+  if (!katapult.visible) return;
+  for (const k of katapult.children) if (k.name === "band") k.visible = richt;
+  if (richt) {
+    const borst = m.plek("DEF-spine003"), l = borst.clone().addScaledVector(voor, 0.46).addScaledVector(links, 0.06).add(new THREE.Vector3(0, 0.12, 0));
+    m.arm("L", l, new THREE.Vector3(0, -1, 0).addScaledVector(links, 0.6));
+    m.arm("R", borst.clone().addScaledVector(voor, 0.24).addScaledVector(links, -0.08).add(new THREE.Vector3(0, 0.25, 0)), new THREE.Vector3(0, -0.3, 0).addScaledVector(links, -1));
+    katapult.position.copy(l).add(new THREE.Vector3(0, 0.02, 0)); katapult.rotation.set(0, yaw, 0);
+  } else { katapult.position.copy(m.plek("DEF-handR")).add(new THREE.Vector3(0, -0.03, 0)); katapult.rotation.set(0.5, yaw, 0, "YXZ"); }
+}
+/** Een verfvlek: een grillige klodder met spetters, plat tegen wat er geraakt is (n = de kant waar hij naartoe wijst). */
+function spat(p, n, kleur, r, ouder = null) {
+  const c = new THREE.Shape(), k0 = Math.random() * 9;
+  for (let i = 0; i < 28; i++) { const h = (i / 28) * 6.2832, rr = r * (0.6 + 0.2 * Math.sin(i * 1.346 + k0) + 0.2 * Math.abs(Math.sin(i * 0.673 * 3 + k0 * 2))); c[i ? "lineTo" : "moveTo"](Math.cos(h) * rr, Math.sin(h) * rr); }
+  const mat = new THREE.MeshStandardMaterial({ color: kleur, roughness: 0.22, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+  const m = new THREE.Mesh(new THREE.ShapeGeometry(c), mat);
+  for (let i = 0; i < 6; i++) { const h = Math.random() * 6.28, a = r * tussen(0.95, 1.5), s = new THREE.Mesh(new THREE.CircleGeometry(r * tussen(0.07, 0.17), 8), mat); s.position.set(Math.cos(h) * a, Math.sin(h) * a, 0); m.add(s); }
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), n.clone().normalize()); m.position.copy(p).addScaledVector(n, 0.025);
+  scene.add(m); if (ouder) ouder.attach(m);
+  spatten.push(m); if (spatten.length > 80) spatten.shift().removeFromParent();
+  return m;
+}
+/** De kant van een auto waar een punt op zit (naar buiten gericht, in de wereld): het dichtstbijzijnde vlak van zijn raakblokken. */
+function autoKant(o, p) {
+  o.updateMatrixWorld(); const l = o.worldToLocal(p.clone()), n = new THREE.Vector3(0, 1, 0); let bd = Infinity;
+  for (const b of o.userData.raak ?? []) {
+    if (l.x < b.min.x - 0.15 || l.x > b.max.x + 0.15 || l.y < b.min.y - 0.15 || l.y > b.max.y + 0.15 || l.z < b.min.z - 0.15 || l.z > b.max.z + 0.15) continue;
+    for (const [as, kant] of [["x", -1], ["x", 1], ["y", 1], ["z", -1], ["z", 1]]) { const d = Math.abs(l[as] - (kant < 0 ? b.min : b.max)[as]); if (d < bd) { bd = d; n.set(0, 0, 0)[as] = kant; } }
+  }
+  return n.transformDirection(o.matrixWorld);
+}
+/** Een verfbal spat uiteen: op straat, op een muur, op een auto (de vlek rijdt mee) of op iemands jas. */
+function verfRaak(raak, p, k) {
+  const kleur = k.kleur, terug = k.v.clone().normalize().negate(), wie = raak.wie;
+  for (let i = 0; i < 10; i++) fx.brok(p, kleur, 0.035, new THREE.Vector3((Math.random() - 0.5) * 4, 0.5 + Math.random() * 2.5, (Math.random() - 0.5) * 4).addScaledVector(terug, 1.5));
+  geluid.stomp(afstandVol(p) * 1.3);
+  if (raak.deel === "grond") return spat(p.clone().setY(0.02), new THREE.Vector3(0, 1, 0), kleur, 0.55);
+  if (raak.deel === "muur") return spat(p, raak.n ?? terug, kleur, 0.5);
+  if (!wie) return;
+  if (wie.fat && wie.toestand === "rijden") { spat(p, terug, kleur, 0.28, wie.groep); return fatbikeGeraakt(wie, "klap", p); } // verf in zijn gezicht: hij gaat onderuit
+  if (wie.soort === "auto" || raak.soort === "auto") {
+    const o = wie.object, m = spat(p, autoKant(o, p), kleur, 0.34, o.userData.wielen ? o : null);
+    if (!o.userData.wielen) (o.userData.spatten ??= []).push(m); // een getekende, geparkeerde auto: de vlek gaat mee als iemand ermee wegrijdt
+    return;
+  }
+  spat(p, terug, kleur, wie.m ? 0.2 : 0.3, wie.groep ?? wie.object);
+  if (wie.m && wie.groep && wie.soort !== "agent") schrikVan(wie, loop.aan ? loop.pos : oog);
+}
+/** Een spin: acht poten die bewegen (groot genoeg om te zien, en om van te schrikken). */
+function maakSpin() {
+  const g = new THREE.Group(), zwart = new THREE.MeshStandardMaterial({ color: "#15110f", roughness: 0.55 });
+  const lijf = new THREE.Mesh(new THREE.SphereGeometry(0.085, 12, 10), zwart); lijf.scale.set(1, 0.8, 1.25); lijf.position.set(0, 0.09, -0.07); g.add(lijf);
+  const kop = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), zwart); kop.position.set(0, 0.08, 0.05); g.add(kop);
+  const rood = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), new THREE.MeshStandardMaterial({ color: "#c81e1e", roughness: 0.4 })); rood.scale.y = 0.4; rood.position.set(0, 0.155, -0.08); g.add(rood);
+  g.userData.poten = [];
+  for (const k of [-1, 1]) for (let i = 0; i < 4; i++) {
+    const poot = new THREE.Group(); poot.position.set(k * 0.03, 0.09, 0.05 - i * 0.035); poot.rotation.y = k * (-0.7 + i * 0.45);
+    const boven = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.13, 5), zwart); boven.rotation.z = -k * 0.95; boven.position.set(k * 0.05, 0.035, 0); poot.add(boven);
+    const onder = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.008, 0.15, 5), zwart); onder.rotation.z = k * 0.5; onder.position.set(k * 0.135, 0, 0); poot.add(onder);
+    poot.userData = { k, i, y0: poot.rotation.y }; g.add(poot); g.userData.poten.push(poot);
+  }
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  return g;
+}
+/** De spin komt aan: er krioelen er ineens een stel over straat. Wie ze ziet springt op en rent gillend weg. */
+function spinRaak(raak, p) {
+  const g = new THREE.Vector3(p.x, 0, p.z);
+  for (let i = 0; i < 6; i++) { const m = maakSpin(); m.position.set(g.x + tussen(-0.4, 0.4), 0, g.z + tussen(-0.4, 0.4)); scene.add(m); spinnen.push({ m, t: 0, h: Math.random() * 6.28, v: tussen(1.2, 2.6), f: Math.random() * 6 }); }
+  if (raak.wie?.fat && raak.wie.toestand === "rijden") fatbikeGeraakt(raak.wie, "klap", p);
+  spinSchrik(g, 6.5, 2.6);
+}
+function spinSchrik(g, R, Rfat) {
+  let gil = false;
   for (const r of [...reizigers]) {
-    const d = Math.hypot(r.pos.x - p.x, r.pos.z - p.z);
-    if (r.fat && r.toestand === "rijden") { if (d < 1.8) fatbikeGeraakt(r, "band", r.pos.clone().setY(0.3)); }
-    else if (d < 1.5 && r.m && r.groep && !r.fiets && !r.wordBoos) plakVast(r, 6);
+    const d = Math.hypot(r.pos.x - g.x, r.pos.z - g.z);
+    if (r.fat && r.toestand === "rijden") { if (d < Rfat) { fatbikeGeraakt(r, "klap", r.pos.clone().setY(0.6)); gil = true; } else if (d < R + 2) r.schrikken?.(); }
+    else if (d < R && r.m && r.groep && !r.wordBoos && !r.fiets && r.soort !== "agent") { if (schrikVan(r, g, false)) gil = true; }
+    else if (d < R) r.schrikken?.();
   }
+  if (gil) { geluid.schreeuw(Math.min(1, afstandVol(g) * 2.5)); setTimeout(() => geluid.schreeuw(Math.min(1, afstandVol(g) * 2)), 350); }
 }
-function maakPlas(x, z) {
-  const c = new THREE.Shape(); for (let i = 0; i <= 24; i++) { const h = (i / 24) * 6.2832, r = 2.3 + Math.sin(i * 1.9) * 0.35 + Math.sin(i * 3.1) * 0.2; c[i ? "lineTo" : "moveTo"](Math.cos(h) * r, Math.sin(h) * r); }
-  const m = new THREE.Mesh(new THREE.ShapeGeometry(c).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: "#7fd63c", roughness: 0.12, metalness: 0.1, transparent: true, opacity: 0.88, polygonOffset: true, polygonOffsetFactor: -3 }));
-  m.position.set(x, 0.045, z); scene.add(m); plassen.push({ m, t: 0, x, z, r: 2.3 });
-  for (let i = 0; i < 10; i++) fx.brok(new THREE.Vector3(x, 0.2, z), "#8be04a", 0.06, new THREE.Vector3((Math.random() - 0.5) * 5, 1.5 + Math.random() * 2.5, (Math.random() - 0.5) * 5));
-  geluid.stomp(afstandVol(m.position) * 1.5);
+/** De bol klapt open: iedereen die erbij staat krijgt een heliumballon en gaat de lucht in. Fatbikers worden van hun fiets getrokken. */
+function bolOpen(p) {
+  const g = new THREE.Vector3(p.x, 0, p.z), wind = Math.random() * 6.28;
+  for (let i = 0; i < 10; i++) fx.brok(g.clone().setY(0.2), "#f4f1ea", 0.06, new THREE.Vector3((Math.random() - 0.5) * 5, 1.5 + Math.random() * 3, (Math.random() - 0.5) * 5));
+  geluid.klap(afstandVol(g) * 1.2); geluid.sis();
+  let n = 0;
+  for (const r of [...reizigers]) {
+    const d = Math.hypot(r.pos.x - g.x, r.pos.z - g.z); if (d > 3.4) continue;
+    if (r.fat && r.toestand === "rijden") {
+      const n0 = vallers.length; fatbikeGeraakt(r, "klap", r.pos.clone().setY(0.7));
+      for (const x of vallers.slice(n0)) if (x.soort === "mens") { const b = maakBallon(kies(VERF)); b.position.y = 1.75 - x.h; x.obj.add(b); Object.assign(x, { toestand: "ballon", t: 0, geenGat: true, wind }); x.v.set(0, 0, 0); x.m.zet("vliegen", 1.3, 0.2); n++; }
+    } else if (r.m && r.groep && !r.wordBoos && !r.fiets && r.soort !== "agent" && laatOpstijgen(r, kies(VERF), wind)) n++;
+  }
+  // niemand geraakt: er stijgt een losse ballon op
+  if (!n) { const b = maakBallon(kies(VERF)); b.position.copy(g); scene.add(b); ballonnen.push({ m: b, wind }); }
 }
+/** Een auto vliegt in brand en brandt uit: de vlammen slaan eruit, de lak wordt zwart, en er valt niet meer mee te rijden. */
+function autoBrand(st) {
+  if (st.object.userData.brandt) return false;
+  const auto = echteAuto(st), u = auto.userData; u.brandt = true; autoRooster = null;
+  auto.traverse((o) => { if (o.isMesh) o.material = Array.isArray(o.material) ? o.material.map((m) => m.clone()) : o.material.clone(); });
+  for (const [y, z] of [[u.H * 0.6, u.L * 0.3], [u.H * 0.9, 0], [u.H * 0.6, -u.L * 0.3]]) { const h = new THREE.Object3D(); h.position.set(0, y, z); auto.add(h); fx.brand(h, 24); }
+  branders.push({ auto, t: 0 });
+  for (const r of reizigers) if (Math.hypot(r.pos.x - auto.position.x, r.pos.z - auto.position.z) < 10) r.schrikken?.();
+  return true;
+}
+/** Een rijdende auto in brand: hij staat stil, de bestuurder springt eruit en rent weg. */
+function rijderBrand(r) {
+  const i = reizigers.indexOf(r); if (i < 0) return; reizigers.splice(i, 1);
+  const a = r.auto; a.remove(r.m.object);
+  const st = { object: a, raak: a.userData.raak, soort: "auto" }; stil.push(st); verlaten.push(a);
+  const c = Math.cos(a.rotation.y), s = Math.sin(a.rotation.y), b = new Staander(scene, a.position.x + c * (a.userData.B / 2 + 0.7), a.position.z - s * (a.userData.B / 2 + 0.7), a.rotation.y);
+  reizigers.push(b); schrikVan(b, a.position, false);
+  autoBrand(st);
+}
+const ROET = new THREE.Color("#141210");
 function stapTrucs(dt) {
-  for (const pl of [...plassen]) {
-    pl.t += dt; if (pl.t > 20) { pl.m.material.opacity -= dt * 0.6; if (pl.m.material.opacity <= 0) { scene.remove(pl.m); plassen.splice(plassen.indexOf(pl), 1); } continue; }
-    for (const r of [...reizigers]) {
-      if (Math.hypot(r.pos.x - pl.x, r.pos.z - pl.z) > pl.r) continue;
-      if (r.fat && r.toestand === "rijden") { if (r.snelheid > 0.6) fatbikeGeraakt(r, "klap", r.pos.clone().setY(0.5)); } // glijdt onderuit
-      else if (r.m && r.groep && !r.fiets && !r.wordBoos && !r.worp && r.snelheid !== 0 && !(r.gleedT > pl.t)) { r.gleedT = pl.t + 6; if (werp(r, { x: r.pos.x - Math.sin(r.richting), z: r.pos.z - Math.cos(r.richting) }, 0.45)) r.plof = () => geluid.stomp(afstandVol(r.pos) * 1.5); }
-    }
+  for (const b of [...branders]) {
+    b.t += dt;
+    if (b.t > 2) b.auto.traverse((o) => { if (o.isMesh) for (const m of Array.isArray(o.material) ? o.material : [o.material]) m.color?.lerp(ROET, Math.min(1, dt * 0.22)); });
+    if (b.t > 24) branders.splice(branders.indexOf(b), 1);
   }
-  for (const b of [...boxen]) {
-    b.t += dt; b.box.scale.y = 1 + Math.abs(Math.sin(b.t * 7.4)) * 0.08;
-    if (b.t > 8) { scene.remove(b.box); boxen.splice(boxen.indexOf(b), 1); if (!boxen.length) dansMuziek?.stop(); }
+  for (const sp of [...spinnen]) {
+    sp.t += dt; sp.h += Math.sin(sp.t * 3 + sp.f) * 2.2 * dt;
+    const nx = sp.m.position.x + Math.sin(sp.h) * sp.v * dt, nz = sp.m.position.z + Math.cos(sp.h) * sp.v * dt;
+    if (inGebouw(nx, nz, 0.1)) sp.h += Math.PI * 0.7; else sp.m.position.set(nx, 0, nz);
+    sp.m.rotation.y = sp.h;
+    for (const poot of sp.m.userData.poten) poot.rotation.y = poot.userData.y0 + Math.sin(sp.t * 26 + poot.userData.i * 1.6 + (poot.userData.k > 0 ? 0 : Math.PI)) * 0.35;
+    // wie er later nog langs komt schrikt net zo hard
+    if ((sp.tik = (sp.tik ?? 0) + dt) > 0.4) { sp.tik = 0; spinSchrik(sp.m.position, 2.4, 1.6); }
+    if (sp.t > 9) { sp.m.scale.multiplyScalar(1 - dt * 3); if (sp.m.scale.x < 0.08) { scene.remove(sp.m); spinnen.splice(spinnen.indexOf(sp), 1); } }
+  }
+  for (const b of [...ballonnen]) {
+    b.m.position.y += 3 * dt; b.m.position.x += Math.sin(b.wind) * 1.5 * dt; b.m.position.z += Math.cos(b.wind) * 1.5 * dt;
+    if (b.m.position.y > 40) { scene.remove(b.m); ballonnen.splice(ballonnen.indexOf(b), 1); }
   }
 }
 // ---------- de tovenares: vuurbal, bevriezen en laten zweven ----------
@@ -1689,7 +1809,7 @@ function vuurRaket() {
   if (loop.aan) { loop.richt = 1.6; loop.richting = kijk.yaw; }
   tekenHud();
 }
-/** Een ontploffing: fatbikes binnen bereik gaan eraan, auto's slaan alarm, mensen vliegen door de lucht en hinken daarna weg. */
+/** Een ontploffing: fatbikes binnen bereik gaan eraan, auto's branden uit (bij een cobra knipperen ze alleen), mensen vliegen door de lucht en hinken daarna weg. */
 function ontplof(p, R = WAPENKAST.bazooka.straal, cobra = false) {
   // een cobra is vooral een enorme knal met een flits; een granaat of raket geeft ook een vuurbal
   if (cobra) { geluid.knal(Math.min(1.6, afstandVol(p) * 3)); fx.klap(p); } else fx.ontploffing(p);
@@ -1700,18 +1820,18 @@ function ontplof(p, R = WAPENKAST.bazooka.straal, cobra = false) {
   for (const r of [...reizigers]) {
     const d = Math.hypot(r.pos.x - p.x, r.pos.z - p.z);
     if (r.fat && r.toestand === "rijden") { if (d < R) fatbikeGeraakt(r, "accu", r.pos.clone().setY(0.7)); else if (d < R * 2.5) r.schrikken?.(); }
-    else if (r.wordBoos) { if (d < R) { r.wacht = Math.max(r.wacht ?? 0, 4); geluid.toeter(afstandVol(p)); } }
+    else if (r.wordBoos) { if (d < R) { if (cobra) { r.wacht = Math.max(r.wacht ?? 0, 4); geluid.toeter(afstandVol(p)); } else rijderBrand(r); } }
     else if (r.m && r.groep && !r.fiets) { if (d < R + 1) { if (werp(r, p, 1.2 + (1 - d / (R + 1)) * 0.5)) r.plof = () => geluid.stomp(afstandVol(r.pos) * 2); } else if (d < R * 3) r.schrikken?.(); }
     else if (d < R * 2.5) r.schrikken?.();
   }
   for (const st of [...stil]) {
-    if (st.soort === "auto" && st.object.position.distanceTo(p) < R) { knipper(st.object); geluid.alarm(afstandVol(p) * 2); }
+    if (st.soort === "auto" && st.object.position.distanceTo(p) < R) { if (cobra) knipper(st.object); else autoBrand(st); } // een raket of granaat: de auto brandt uit
     else if (st.soort === "wrak" && st.groep.position.distanceTo(p) < R) wrakOntploft(st, st.groep.position.clone().setY(0.4));
   }
   if (loop.aan && !rij.aan && Math.hypot(loop.pos.x - p.x, loop.pos.z - p.z) < R * 0.7) klapKrijgen(); // te dichtbij: je ligt zelf ook
   straat?.strafbaar(1.5);
 }
-/** Vlammenwerper: zolang je de knop vasthoudt. Fatbikes in de vlam vliegen in brand; mensen maken dat ze wegkomen (niemand brandt). */
+/** Vlammenwerper: zolang je de knop vasthoudt. Fatbikes en auto's in de vlam vliegen in brand; mensen maken dat ze wegkomen (niemand brandt). */
 function vuurVlam(dt) {
   const W = WAPENKAST.vlam;
   if (!magVuren() || !(kast.munitie.vlam > 0)) return geluid.vlam(false);
@@ -1723,12 +1843,18 @@ function vuurVlam(dt) {
     const v = d.clone().multiplyScalar(11 + Math.random() * 5).add(new THREE.Vector3((Math.random() - 0.5) * 2.2, (Math.random() - 0.2) * 1.6, (Math.random() - 0.5) * 2.2));
     fx.deeltje(van.clone().addScaledVector(d, 0.2 + Math.random() * 0.5), { leven: 0.5 + Math.random() * 0.35, kleur: ["#ffd24a", "#ff9a2e", "#ff5a1e", "#fff0a0"][(Math.random() * 4) | 0], r0: 0.12, r1: 1.1, v, licht: true });
   }
-  for (const r of reizigers) {
+  for (const r of [...reizigers]) {
     const dx = r.pos.x - van.x, dz = r.pos.z - van.z, a = Math.hypot(dx, dz) || 1;
     if (a > W.bereik + 4) continue;
     const inVlam = a < W.bereik && (dx * d.x + dz * d.z) / a > Math.cos(W.hoek);
     if (r.fat && r.toestand === "rijden") { if (inVlam && (r.heet = (r.heet ?? 0) + dt) > 0.35) fatbikeGeraakt(r, "accu", r.pos.clone().setY(0.7)); }
+    else if (r.wordBoos) { if (inVlam && (r.heet = (r.heet ?? 0) + dt) > 0.6) rijderBrand(r); } // een auto in de vlam vat vlam
     else if (inVlam || a < 6) { if (r.ruzieT > 0) r.ruzieT = 0; r.schrikken?.(); }
+  }
+  for (const st of [...stil]) {
+    if (st.soort !== "auto" || st.object.userData.brandt) continue;
+    const dx = st.object.position.x - van.x, dz = st.object.position.z - van.z, a = Math.hypot(dx, dz) || 1;
+    if (a < W.bereik + 1.5 && (dx * d.x + dz * d.z) / a > Math.cos(W.hoek + 0.15) && (st.heet = (st.heet ?? 0) + dt) > 0.6) autoBrand(st);
   }
   if (loop.aan && Math.random() < dt * 0.5) straat.strafbaar(0.4);
   if ((spel.vlamTik = (spel.vlamTik ?? 0) + dt) > 0.25) { spel.vlamTik = 0; tekenHud(); }
@@ -1774,7 +1900,8 @@ function raakObject(obj, raak, a, b) {
 function stapKogels(dt) {
   for (const k of [...kogels]) {
     const a = k.p.clone();
-    if (k.raket) { k.raket.position.copy(k.p); fx.vonken(k.p); if (Math.random() < 0.6) fx.deeltje(k.p.clone(), { leven: 0.7, kleur: "#c9c5bd", r0: 0.1, r1: 0.8, v: new THREE.Vector3(0, 0.6, 0) }); }
+    if (k.bal) { k.raket.position.copy(k.p); k.v.y -= 4 * dt; }
+    else if (k.raket) { k.raket.position.copy(k.p); fx.vonken(k.p); if (Math.random() < 0.6) fx.deeltje(k.p.clone(), { leven: 0.7, kleur: "#c9c5bd", r0: 0.1, r1: 0.8, v: new THREE.Vector3(0, 0.6, 0) }); }
     else k.v.y -= ZWAARTE * dt;
     k.p.addScaledVector(k.v, dt);
     k.leeftijd += dt;
@@ -1790,13 +1917,13 @@ function stapKogels(dt) {
     const lengte = a.distanceTo(b);
     ray.set(a, b.clone().sub(a).normalize()); ray.far = lengte;
     const muur = ray.intersectObjects(wereld.botsers, false)[0];
-    if (muur && (!raak || muur.distance / lengte < raak.t)) raak = { t: muur.distance / lengte, deel: "muur" };
+    if (muur && (!raak || muur.distance / lengte < raak.t)) raak = { t: muur.distance / lengte, deel: "muur", n: muur.face ? muur.face.normal.clone().transformDirection(muur.object.matrixWorld) : null };
     if (b.y < 0 && (!raak || a.y / (a.y - b.y) < raak.t)) raak = { t: a.y / (a.y - b.y), deel: "grond" };
     if (raak) {
       const p = a.clone().lerp(b, raak.t);
-      if (k.gom) { scene.remove(k.raket); gomRaak(p); } else if (k.raket) { scene.remove(k.raket); ontplof(p, k.straal); } else treffer(raak, p);
+      if (k.bal) { scene.remove(k.raket); (k.bal === "spin" ? spinRaak : verfRaak)(raak, p, k); } else if (k.raket) { scene.remove(k.raket); ontplof(p, k.straal); } else treffer(raak, p);
       kogels.splice(kogels.indexOf(k), 1);
-    } else if (k.leeftijd > (k.raket ? 5 : 1.2)) { if (k.gom) scene.remove(k.raket); else if (k.raket) { scene.remove(k.raket); ontplof(k.p.clone(), k.straal); } kogels.splice(kogels.indexOf(k), 1); }
+    } else if (k.leeftijd > (k.raket ? 5 : 1.2)) { if (k.bal) scene.remove(k.raket); else if (k.raket) { scene.remove(k.raket); ontplof(k.p.clone(), k.straal); } kogels.splice(kogels.indexOf(k), 1); }
   }
 }
 function afstandVol(p) { return 1 / (1 + p.distanceTo(camera.position) / 60); }
@@ -1953,6 +2080,14 @@ function stapVallers(dt) {
       x.t += dt;
       const m = x.m;
       m.mixer.update(dt);
+      if (x.toestand === "ballon") {
+        // van de fatbike getrokken door een heliumballon: omhoog, met de wind mee, tot hij achter de huizen verdwenen is
+        x.v.y = Math.min(4.2, x.v.y + 2.2 * dt); o.position.y += x.v.y * dt;
+        const drijf = Math.min(3, o.position.y * 0.25); o.position.x += Math.sin(x.wind) * drijf * dt; o.position.z += Math.cos(x.wind) * drijf * dt;
+        o.rotation.x *= 1 - Math.min(1, dt * 3); o.rotation.z = Math.sin(x.t * 2.3) * 0.16; o.rotation.y += 0.5 * dt;
+        if (o.position.y > 34) { scene.remove(o); vallers.splice(vallers.indexOf(x), 1); }
+        continue;
+      }
       if (x.toestand === "vliegt") {
         x.v.y -= ZWAARTE * dt;
         o.position.addScaledVector(x.v, dt);
@@ -2337,7 +2472,7 @@ function lus() {
   stapKogels(dt);
   stapVuurwerk(dt);
   magie.stap(dt, loop.aan && !rij.aan ? loop.pos : null);
-  stapTelefoon(dt); stapTrucs(dt); tekenVizier(); if (kruk && (loop.aan || !kind)) kruk.visible = false; if (mobiel && !kind) mobiel.visible = false;
+  stapTelefoon(dt); stapTrucs(dt); tekenVizier(); if (kruk && (loop.aan || !kind)) kruk.visible = false; if (mobiel && !kind) mobiel.visible = false; if (katapult && !meisje) katapult.visible = false;
   if (loop.toverT > 0) loop.toverT -= echt;
   for (const r of [...reizigers]) if (r.zweef?.t > 3 && r.toestand === "rijden") { r.zweef = null; fatbikeGeraakt(r, "klap", r.groep.position.clone()); } // de zweefspreuk is uitgewerkt: hij valt
   stapVallers(dt);
@@ -2468,6 +2603,7 @@ function lus() {
     if (worp) worpHanden(L.richting);
     if (heks) { if (L.neer > 0 || L.boeien > 0) staf.visible = false; else heksPose(kijkt, kijk.pitch, L.richt > 0); } else staf.visible = false;
     if (kind) kindPose(kijkt);
+    if (meisje) roxyPose(kijkt, L.richt > 0 && L.neer <= 0);
     // camera achter je, iets over de rechterschouder. Ze veert mee (loopt een fractie achter), komt dichterbij als je
     // richt, gaat wat verder weg als je sprint, en schuift naar voren als er een muur achter je staat.
     // De getallen staan in src/config.js (CAMERA en CAMERA_BOTSING).
@@ -2548,6 +2684,7 @@ function lus() {
     for (const m of Object.values(kast.mesh)) m.visible = !scoop && !heks && !jong && (m === rw || m === hand);
     if (heks) heksPose(kijk.yaw, kijk.pitch, true); else staf.visible = false;
     if (kind) kindPose(kijk.yaw);
+    if (meisje) roxyPose(kijk.yaw, true);
     if (hand && !worp) hand.position.copy(schutter.plek("DEF-handR")).add(new THREE.Vector3(0, -0.04, 0));
     if (worp) worpHanden(kijk.yaw);
     pistool.visible = mes.visible = knuppel.visible = false;
@@ -2593,4 +2730,4 @@ function lus() {
 }
 zetZoom(1);
 laad().then(() => requestAnimationFrame(lus)).catch((e) => { $("#laden").textContent = "Laden mislukt: " + e.message; console.error(e); });
-window.__spel = { stapKogels, plassen, boxen, stapTrucs, get meisje() { return meisje; }, vizierPunt, gaten, maakGat, gatBij, stapTelefoon, get kind() { return kind; }, kiesSpeler, tover, get magie() { return magie; }, get heks() { return heks; }, staf: () => staf, worp: () => worp, uitAuto, get muziek() { return muziek; }, geluid, opties, kast, openKast, ontplof, vuurMg, vuurRaket, vuurVlam, kogels, get schutter() { return schutter; }, vuurwerk, stapVuurwerk, karate: () => Object.keys(TECHNIEK), spel, reizigers, stil, uitAuto, verlaten, get herlaad() { return herlaad; }, kijk, camera, oog, loop, rij, stapIn, stapUit, stapLopen, get straat() { return straat; }, get graaf() { return graaf; }, zetLopen, sla, actie, zetWapen, klapKrijgen, vallers, schiet, begin, zetZoom, draai, scene, renderer, stand: () => standen[standNr]?.naam };
+window.__spel = { truc, bolOpen, stapVallers, vallers, vuurVlam, herlaadNul: () => { herlaad = 0; }, stapKogels, spatten, spinnen, branders, ballonnen, autoBrand, rijderBrand, stapTrucs, wapens, get meisje() { return meisje; }, vizierPunt, gaten, maakGat, gatBij, stapTelefoon, get kind() { return kind; }, kiesSpeler, tover, get magie() { return magie; }, get heks() { return heks; }, staf: () => staf, worp: () => worp, uitAuto, get muziek() { return muziek; }, geluid, opties, kast, openKast, ontplof, vuurMg, vuurRaket, vuurVlam, kogels, get schutter() { return schutter; }, vuurwerk, stapVuurwerk, karate: () => Object.keys(TECHNIEK), spel, reizigers, stil, uitAuto, verlaten, get herlaad() { return herlaad; }, kijk, camera, oog, loop, rij, stapIn, stapUit, stapLopen, get straat() { return straat; }, get graaf() { return graaf; }, zetLopen, sla, actie, zetWapen, klapKrijgen, vallers, schiet, begin, zetZoom, draai, scene, renderer, stand: () => standen[standNr]?.naam };

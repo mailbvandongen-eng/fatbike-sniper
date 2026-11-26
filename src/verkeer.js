@@ -312,6 +312,23 @@ export function laatDansen(wie, duur = 8) {
   wie.ruzieT = 0; wie.schrik = 0; wie.dreigt = false; wie.zit = false;
   return true;
 }
+/** Een ballon met een touwtje (voor wie aan een heliumballon de lucht in gaat). */
+export function maakBallon(kleur = "#ff3b6b") {
+  const g = new THREE.Group();
+  const b = new THREE.Mesh(new THREE.SphereGeometry(0.42, 18, 14), new THREE.MeshStandardMaterial({ color: kleur, roughness: 0.18, metalness: 0.05 })); b.scale.set(1, 1.2, 1); b.position.y = 1.15; g.add(b);
+  const tuit = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.1, 8), b.material); tuit.position.y = 0.62; g.add(tuit);
+  const touw = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.62, 5), new THREE.MeshBasicMaterial({ color: "#f2f2f2" })); touw.position.y = 0.31; g.add(touw);
+  return g;
+}
+/** Een heliumballon: hij wordt opgetild, drijft met de wind mee omhoog en verdwijnt achter de huizen. */
+export function laatOpstijgen(wie, kleur, wind = Math.random() * 6.28) {
+  if (wie.worp || wie.groep?.visible === false) return false;
+  const ballon = maakBallon(kleur); ballon.position.y = 1.75; ballon.scale.setScalar(0.1); wie.groep.add(ballon);
+  wie.worp = { fase: "ballon", t: 0, y: 0, vy: 0, ballon, wx: Math.sin(wind), wz: Math.cos(wind), f: Math.random() * 6 };
+  wie.ruzieT = 0; wie.ruzieNeer = 0; wie.schrik = 0; wie.dreigt = false; wie.zit = false;
+  wie.m.zet("vliegen", 1, 0.2);
+  return true;
+}
 /** De zweefspreuk: iemand stijgt op, hangt een paar tellen in de lucht en valt dan. */
 export function laatZweven(wie, duur = 3.2) {
   if (wie.worp || wie.groep?.visible === false) return false;
@@ -344,6 +361,21 @@ function stapWorp(wie, dt) {
     else { if (!w.klim) { w.klim = true; w.verplaats?.(wie); wie.m.zet("opstaan", 1.6, 0.5); wie.groep.rotation.x = 0; } w.y += 3.2 * dt; if (w.y >= 0) { renWeg(wie, w); return true; } }
     wie.m.mixer.update(dt);
     wie.groep.position.set(wie.pos.x, w.y, wie.pos.z); wie.groep.rotation.y = wie.richting;
+    return true;
+  }
+  if (w.fase === "ballon") {
+    // de ballon blaast zich op, trekt hem van de grond en neemt hem mee: steeds sneller omhoog, met de wind mee
+    w.ballon.scale.setScalar(Math.min(1, 0.1 + w.t * 1.8));
+    if (w.t > 0.5) { w.vy = Math.min(4.2, w.vy + 2.2 * dt); w.y += w.vy * dt; const d = Math.min(3, w.y * 0.25); wie.pos.x += w.wx * d * dt; wie.pos.z += w.wz * d * dt; }
+    wie.groep.rotation.z = Math.sin(w.t * 2.3 + w.f) * 0.16; wie.groep.rotation.x = Math.sin(w.t * 1.7 + w.f) * 0.12; wie.richting += 0.5 * dt;
+    wie.m.zet("vliegen", 1.3); wie.m.mixer.update(dt);
+    wie.groep.position.set(wie.pos.x, w.y, wie.pos.z); wie.groep.rotation.y = wie.richting;
+    if (w.y > 34) {
+      // uit het zicht: hij komt ergens ver weg weer op straat terecht
+      wie.groep.remove(w.ballon); wie.worp = null; wie.groep.rotation.x = wie.groep.rotation.z = 0;
+      if (wie.g && wie.plaats && !wie.lijn) { wie.van = wie.g.startKnoop(wie.bit, 400, 70); const v = wie.g.volgende(-1, wie.van, wie.bit, 1, wie.straal); if (v) { wie.naar = v.n; wie.breed = v.breed; wie.t = 0; wie.plaats(true); } wie.wacht = 0; }
+      else wie.groep.visible = false;
+    }
     return true;
   }
   if (w.fase === "zweef") {

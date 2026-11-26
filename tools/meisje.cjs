@@ -20,25 +20,49 @@ const T = { ".jpg": "image/jpeg", ".html": "text/html", ".js": "text/javascript"
   const klaar = () => p.waitForFunction(() => window.__spel.herlaad <= 0 && !document.body.classList.contains("film"), null, { timeout: 120000 });
   const rij = []; for (let i = 0; i < 4; i++) { rij.push(await p.evaluate(() => window.__spel.loop.wapen)); await p.tap("#wapen"); }
   console.log("trucs:", rij.join(" → "));
-  // kauwgom op iemand vlak voor je
+  const cam = (pos, doel) => p.evaluate(([pos, doel]) => { window.__spel.vrijeCamera = pos ? { pos, doel } : null; }, [pos, doel]);
+  // verf: op de grond, op een geparkeerde auto, op iemand en op een fatbiker
   await klaar();
-  console.log("kauwgom:", await p.evaluate(() => { const s = window.__spel, l = s.loop, fx = Math.sin(s.kijk.yaw), fz = Math.cos(s.kijk.yaw); s.zetWapen("kauwgom");
-    const m = s.reizigers.filter((r) => r.hang && !r.zit && !r.worp).slice(0, 2); m.forEach((r, i) => { r.pos.set(l.pos.x + fx * 5 + i * 0.8, 0, l.pos.z + fz * 5); r.thuis = r.pos.clone(); r.groep.position.copy(r.pos); r.groep.updateMatrixWorld(true); }); window.__m = m;
-    s.kijk.pitch = 0; s.actie(); let n = 0; while (s.kogels.length && n++ < 100) { s.stapKogels(0.02); } return JSON.stringify({ plakken: m.filter((r) => r.worp?.fase === "plak").length }); }));
-  await p.waitForTimeout(3000); await p.screenshot({ path: `${UIT}/3-plak.png` });
-  console.log("  daarna:", await p.evaluate(() => { const s = window.__spel, m = window.__m, p0 = m.map((r) => r.pos.clone()); for (let t = 0; t < 4; t += 0.05) for (const r of m) r.stap(0.05, s.spel); const vast = m.map((r, i) => +r.pos.distanceTo(p0[i]).toFixed(1)); for (let t = 0; t < 6; t += 0.05) for (const r of m) r.stap(0.05, s.spel); return JSON.stringify({ bewogenTijdensPlakken: vast, daarnaWeg: m.map((r, i) => Math.round(r.pos.distanceTo(p0[i]))) }); }));
-  // dansen
-  await klaar();
-  console.log("dans:", await p.evaluate(() => { const s = window.__spel; s.zetWapen("dans"); const q = s.vizierPunt(); const m = s.reizigers.filter((r) => r.hang && !r.zit && !r.worp).slice(0, 4); m.forEach((r, i) => { r.pos.set(q.x + i - 1.5, 0, q.z + 1.5); r.thuis = r.pos.clone(); }); window.__d = m;
-    const f = s.reizigers.find((r) => r.fat && r.toestand === "rijden"); f.wacht = 0; f.pos.set(q.x + 3, 0, q.z); f.pad.copy(f.pos); s.actie(); return JSON.stringify({ dansen: m.filter((r) => r.worp?.fase === "dans").length, fatbikeWacht: Math.round(f.wacht), box: s.boxen.length }); }));
-  await p.waitForTimeout(3500); await p.screenshot({ path: `${UIT}/4-dans.png` });
-  // slijm
-  await klaar();
-  console.log("slijm:", await p.evaluate(() => { const s = window.__spel; s.zetWapen("slijm"); const q = s.vizierPunt(), g = s.spel.geraakt; s.maakPlas?.(q.x, q.z); s.actie(); return "gegooid " + g; }));
-  await p.waitForFunction(() => window.__spel.plassen.length > 0, null, { timeout: 60000 }).then(() => console.log("  plas ligt er")).catch(() => console.log("  GEEN plas"));
-  console.log("  ", await p.evaluate(() => { const s = window.__spel, pl = s.plassen[0], g = s.spel.geraakt; const f = s.reizigers.find((r) => r.fat && r.toestand === "rijden"); f.wacht = 0; f.snelheid = 3; f.pos.set(pl.x, 0, pl.z); f.pad.copy(f.pos);
-    const v = s.reizigers.find((r) => r.ruzie && r.g && r.groep.visible && !r.worp); v.pos.set(pl.x + 1, 0, pl.z); v.pad.copy(v.pos); v.snelheid = 1; s.stapTrucs(0.05); return JSON.stringify({ fatbikeOnderuit: s.spel.geraakt - g, voetgangerGlijdtUit: !!v.worp }); }));
-  await p.waitForTimeout(3000); await p.screenshot({ path: `${UIT}/5-slijm.png` });
+  console.log("verf:", await p.evaluate(() => { const s = window.__spel, l = s.loop, T = window.__T = s.camera.position.constructor; s.zetWapen("verf");
+    const schiet = (doel) => { s.herlaadNul?.(); const d = new T(doel.x - l.pos.x, doel.y - 1.25, doel.z - l.pos.z).normalize(); s.kijk.yaw = Math.atan2(d.x, d.z); s.kijk.pitch = Math.asin(d.y); s.camera.position.set(l.pos.x, 1.25, l.pos.z); s.camera.lookAt(doel.x, doel.y, doel.z); s.camera.updateMatrixWorld(); s.truc(); let n = 0; while (s.kogels.length && n++ < 200) s.stapKogels(0.01); };
+    window.__schiet = schiet; const uit = {};
+    let n0 = s.spatten.length; schiet(new T(l.pos.x + 4, 0, l.pos.z + 1)); uit.grond = s.spatten.length - n0;
+    const auto = s.stil.filter((x) => x.soort === "auto").sort((a, b) => a.object.position.distanceTo(l.pos) - b.object.position.distanceTo(l.pos))[0]; window.__auto = auto;
+    { const ry = auto.object.rotation.y; l.pos.set(auto.object.position.x + Math.cos(ry) * 5.5, 0, auto.object.position.z - Math.sin(ry) * 5.5); }
+    n0 = s.spatten.length; for (let i = 0; i < 5; i++) { const ry = auto.object.rotation.y, k = (i - 2) * 0.8; schiet(new T(auto.object.position.x + Math.sin(ry) * k, 0.5 + (i % 3) * 0.35, auto.object.position.z + Math.cos(ry) * k)); } uit.auto = s.spatten.length - n0;
+    const m = s.reizigers.filter((r) => r.hang && !r.zit && !r.worp)[0]; m.pos.set(l.pos.x + 4, 0, l.pos.z); m.groep.position.copy(m.pos); m.groep.updateMatrixWorld(true);
+    schiet(new T(m.pos.x, 1.1, m.pos.z)); uit.mensSchrikt = !!m.worp;
+    const f = s.reizigers.find((r) => r.fat && r.toestand === "rijden"), g = s.spel.geraakt; f.pos.set(l.pos.x, 0, l.pos.z + 5); f.pad.copy(f.pos); f.groep.position.copy(f.pos); f.groep.updateMatrixWorld(true);
+    schiet(new T(f.pos.x, 1.0, f.pos.z)); uit.fatbikeOm = s.spel.geraakt - g; uit.kleuren = new Set(s.spatten.map((x) => x.material.color.getHexString())).size;
+    return JSON.stringify(uit); }));
+  await p.evaluate(() => { const s = window.__spel, a = window.__auto.object.position, l = s.loop; s.vrijeCamera = { pos: [l.pos.x + 1.5, 2.6, l.pos.z + 2], doel: [a.x, 0.7, a.z] }; });
+  await p.waitForTimeout(3000); await p.screenshot({ path: `${UIT}/3-verf.png` });
+  // spinnen: mensen springen op en rennen weg, een fatbiker gaat onderuit
+  console.log("spin:", await p.evaluate(() => { const s = window.__spel, l = s.loop, T = window.__T; s.zetWapen("spin");
+    const m = s.reizigers.filter((r) => r.hang && !r.zit && !r.worp).slice(0, 3); m.forEach((r, i) => { r.pos.set(l.pos.x - 6 + i, 0, l.pos.z + 4 + i); r.groep.position.copy(r.pos); }); window.__m = m;
+    window.__schiet(new T(l.pos.x - 5, 0, l.pos.z + 3));
+    const uit = { spinnen: s.spinnen.length, springen: m.filter((r) => r.worp?.hop).length }; const p0 = m.map((r) => r.pos.clone());
+    window.__sp = [l.pos.x - 5, l.pos.z + 3]; return JSON.stringify(uit); }));
+  await p.evaluate(() => { const s = window.__spel, [x, z] = window.__sp; s.vrijeCamera = { pos: [x + 2.2, 1.2, z - 2.2], doel: [x, 0.3, z] }; });
+  await p.waitForTimeout(2500); await p.screenshot({ path: `${UIT}/4-spin.png` });
+  console.log("  daarna:", await p.evaluate(() => { const s = window.__spel, m = window.__m, p0 = m.map((r) => r.pos.clone()); for (let t = 0; t < 7; t += 0.05) { for (const r of m) r.stap(0.05, s.spel); s.stapTrucs(0.05); } const uit = { weggerend: m.map((r, i) => Math.round(r.pos.distanceTo(p0[i]))) }; for (let t = 0; t < 6; t += 0.05) s.stapTrucs(0.05); uit.spinnenOver = s.spinnen.length; return JSON.stringify(uit); }));
+  // heliumballonnen: mensen en fatbikers gaan de lucht in en verdwijnen
+  console.log("ballon:", await p.evaluate(() => { const s = window.__spel, l = s.loop; s.zetWapen("ballon"); s.kijk.pitch = -0.2;
+    const q = { x: l.pos.x + 7, z: l.pos.z - 2 }; window.__q = q;
+    const m = s.reizigers.filter((r) => r.hang && !r.zit && !r.worp && r.groep.visible).slice(0, 3); m.forEach((r, i) => { r.pos.set(q.x + i - 1, 0, q.z + 1); r.groep.position.copy(r.pos); }); window.__m = m;
+    const f = s.reizigers.find((r) => r.fat && r.toestand === "rijden"), g = s.spel.geraakt, n0 = s.vallers.length; f.pos.set(q.x, 0, q.z - 1.5); f.pad.copy(f.pos); f.groep.position.copy(f.pos);
+    s.bolOpen(new (window.__T)(q.x, 0, q.z));
+    return JSON.stringify({ omhoog: m.filter((r) => r.worp?.fase === "ballon").length, fatbikeOm: s.spel.geraakt - g, berijdersAanBallon: s.vallers.slice(n0).filter((x) => x.toestand === "ballon").length }); }));
+  await p.evaluate(() => { const s = window.__spel, m = window.__m; for (let t = 0; t < 3.2; t += 0.05) { for (const r of m) r.stap(0.05, s.spel); s.stapVallers(0.05); } const g = m[1].groep.position, l = s.loop; s.vrijeCamera = { pos: [g.x - 9, 3, g.z - 6], doel: [g.x, g.y + 0.5, g.z] }; });
+  await p.waitForTimeout(2500); await p.screenshot({ path: `${UIT}/5-ballon.png` });
+  console.log("  daarna:", await p.evaluate(() => { const s = window.__spel, m = window.__m; let hoog = 0; for (let t = 0; t < 14; t += 0.05) { for (const r of m) { r.stap(0.05, s.spel); hoog = Math.max(hoog, r.groep.position.y); } s.stapVallers(0.05); } return JSON.stringify({ hoogste: Math.round(hoog), terugOpStraat: m.map((r) => !r.worp && r.groep.visible !== false && Math.round(r.pos.distanceTo(s.loop.pos))), ballonVallersOver: s.vallers.filter((x) => x.toestand === "ballon").length }); }));
+  // de gooi zelf (met de boog) en de houding bij het raam
+  await cam(); await klaar();
+  await p.evaluate(() => { const s = window.__spel; s.zetWapen("ballon"); s.kijk.pitch = -0.25; s.actie(); });
+  await p.waitForTimeout(6000);
+  console.log("gooi: losse ballonnen", await p.evaluate(() => window.__spel.ballonnen.length), "(niemand in de buurt: er stijgt er één op)");
+  await p.evaluate(() => { const s = window.__spel, l = s.loop, y = s.kijk.yaw, fx = Math.sin(y), fz = Math.cos(y); s.zetWapen("verf"); l.richt = 99; s.vrijeCamera = { pos: [l.pos.x + fx * 1.2 + fz * 1.9, 1.4, l.pos.z + fz * 1.2 - fx * 1.9], doel: [l.pos.x + fx * 0.2, 1.15, l.pos.z + fz * 0.2] }; });
+  await p.waitForTimeout(3000); await p.screenshot({ path: `${UIT}/6-katapult.png` });
   console.log(fout.join("\n") || "geen fouten");
   await b.close();
 })();
