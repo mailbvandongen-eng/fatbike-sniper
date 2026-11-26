@@ -29,7 +29,11 @@ const T = { ".jpg": "image/jpeg", ".html": "text/html", ".js": "text/javascript"
   const g0 = await p.evaluate(`(() => { ${zetNeer} const g = s.spel.geraakt; s.actie(); return g; })()`);
   console.log(await p.evaluate((g0) => { const s = window.__spel; return JSON.stringify({ gat: s.gaten.length, vallenErin: window.__m.filter((r) => r.worp?.fase === "gat").length, fatbikeGeraakt: s.spel.geraakt - g0, fouten: s.spel.fouten, sterren: s.straat.sterren() }); }, g0));
   await p.waitForTimeout(2500); await p.screenshot({ path: `${UIT}/6-gat.png` });
-  console.log("daarna:", await p.evaluate(() => { const s = window.__spel, m = window.__m; let diep = 0; for (let t = 0; t < 7; t += 0.05) for (const r of m) { r.stap(0.05, s.spel); diep = Math.min(diep, r.groep.position.y); } return JSON.stringify({ diepst: +diep.toFixed(1), nu: m.map((r) => r.worp ? r.worp.fase : r.schrik > 0 ? "rent weg" : "terug") }); }));
+  console.log("daarna:", await p.evaluate(() => { const s = window.__spel, m = window.__m, g = s.gaten[0], p0 = m.map((r) => r.pos.clone()); let diep = 0;
+    for (let t = 0; t < 9; t += 0.05) { s.stapTelefoon(0.05); for (const r of m) { r.stap(0.05, s.spel); diep = Math.min(diep, r.groep.position.y); } }
+    return JSON.stringify({ diepst: +diep.toFixed(1), kwamBovenOp: m.map((r, i) => Math.round(r.pos.distanceTo(p0[i])) + " m verder"), nu: m.map((r) => r.worp ? r.worp.fase : "loopt"), gatNogOpen: s.gaten.includes(g) && g.sluit == null, gaten: s.gaten.length, jijErdoor: !s.gatBij(g.x, g.z) ? "ja" : "nee" }); }));
+  await p.evaluate(() => { const s = window.__spel, g = s.gaten[0], l = s.loop; s.vrijeCamera = { pos: [g.x + 5, 3.2, g.z + 5], doel: [g.x, 0, g.z] }; });
+  await p.waitForTimeout(3000); await p.screenshot({ path: `${UIT}/6b-gat-dichtbij.png` }); await p.evaluate(() => { window.__spel.vrijeCamera = null; });
   await p.waitForFunction(() => !document.body.classList.contains("film"), null, { timeout: 60000 });
   await p.tap("#wapen"); await klaar();
   console.log("bellen:", await p.evaluate(() => { const s = window.__spel, q = s.vizierPunt(), f = s.reizigers.find((r) => r.fat && r.toestand === "rijden"); f.wacht = 0; f.pos.set(q.x + 2, 0, q.z); f.pad.copy(f.pos); s.actie(); return `${s.loop.wapen}: fatbike wacht ${Math.round(f.wacht)} s`; }));

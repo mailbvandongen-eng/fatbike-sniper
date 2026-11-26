@@ -290,10 +290,10 @@ function renWeg(wie, w) {
   else { wie.schrik = 4.3; wie.wacht = 0; }
 }
 /** Er gaat een gat open onder iemand: hij valt erin, en klimt er na een paar tellen weer uit en rent weg. */
-export function laatVallen(wie, gat, duur = 4) {
+export function laatVallen(wie, gat, duur = 4, verplaats = null) {
   if (wie.worp || wie.groep?.visible === false) return false;
   const dx = wie.pos.x - gat.x, dz = wie.pos.z - gat.z, d = Math.hypot(dx, dz) || 1;
-  wie.worp = { fase: "gat", t: 0, y: 0, duur, wx: dx / d, wz: dz / d, ren: true };
+  wie.worp = { fase: "gat", t: 0, y: 0, duur, wx: dx / d, wz: dz / d, ren: true, verplaats }; // verplaats(wie): waar hij weer boven komt
   wie.ruzieT = 0; wie.ruzieNeer = 0; wie.schrik = 0; wie.dreigt = false; wie.zit = false;
   wie.m.zet("vliegen", 1.4, 0);
   return true;
@@ -312,7 +312,7 @@ function stapWorp(wie, dt) {
   w.t += dt;
   if (w.fase === "gat") {
     if (w.t < w.duur) { w.y = Math.max(-2.8, w.y - 7 * dt); wie.groep.rotation.x = Math.sin(w.t * 9) * 0.25 * (w.y > -2.7 ? 1 : 0); }
-    else { if (!w.klim) { w.klim = true; wie.m.zet("opstaan", 1.6, 0.5); wie.groep.rotation.x = 0; } w.y += 4.5 * dt; if (w.y >= 0) { renWeg(wie, w); return true; } }
+    else { if (!w.klim) { w.klim = true; w.verplaats?.(wie); wie.m.zet("opstaan", 1.6, 0.5); wie.groep.rotation.x = 0; } w.y += 3.2 * dt; if (w.y >= 0) { renWeg(wie, w); return true; } }
     wie.m.mixer.update(dt);
     wie.groep.position.set(wie.pos.x, w.y, wie.pos.z); wie.groep.rotation.y = wie.richting;
     return true;

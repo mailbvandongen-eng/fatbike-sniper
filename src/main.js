@@ -126,6 +126,7 @@ let wereld, graaf, data;
 // standplaatsen: balkons en dak van Pleinzicht, en op de grond achter muurtjes
 let standen = [], standNr = 0, standDecor = null, wisselTot = 0;
 let schutter = null, geweer = null; // jij, van achteren te zien
+let kruk = null;
 let kind = null, mobiel = null, vizier = null; // het jongetje met zijn telefoon, en het vizier dat plat op de grond ligt
 const APPS = ["gat", "bel", "sproei"];
 const gaten = [], fonteinen = [];
@@ -656,6 +657,7 @@ function schuttingBij(x, z) {
 }
 function geblokkeerd(x, z) {
   if (inGebouw(x, z, 0.45)) return true; // je bent zelf ook breed: niet half de muur in
+  if (gatBij(x, z, -0.4)) return true; // om een gat loop je heen
   if (inHeg(x, z, 0.15)) return true; // door een heg loop je niet heen
   for (const [bx, bz] of wereld.bomen) if ((x - bx) ** 2 + (z - bz) ** 2 < 0.3) return true; // boomstammen
   for (const [rx, rz, rr] of wereld.rond) if ((x - rx) ** 2 + (z - rz) ** 2 < rr * rr) return true; // speeltoestel
@@ -844,6 +846,7 @@ function geblokkeerdDoorDing(x, z) {
     const t = Math.max(0, Math.min(1, ((x - p[0]) * dx + (z - p[1]) * dz) / L2));
     if (Math.hypot(x - p[0] - dx * t, z - p[1] - dz * t) < 0.25) return true;
   }
+  if (gatBij(x, z, -0.2)) return true; // en je rijdt er ook niet overheen
   if (uitAuto(x, z, -0.12, -0.25)) return true; // iets krap: uitparkeren moet te doen zijn
   // rijdend verkeer is net zo hard als een geparkeerde auto
   if (!rij.door) for (const r of reizigers) if (r.wordBoos && uitRechthoek(r.auto, x, z, 0, 0)) { rij.tegen = r; return true; }
@@ -1186,6 +1189,7 @@ function toonStart() {
 }
 function begin() {
   geluid.start();
+  for (const g of gaten) scene.remove(g.m); gaten.length = 0; // een nieuwe ronde: de straat is weer heel
   $("#opties").hidden = true;
   stapUitGedwongen();
   if (loop.aan) { loop.aan = false; document.body.classList.remove("loopt"); zetStand(standNr); } // elke ronde begint bij je raam
@@ -1400,19 +1404,15 @@ function tikTelefoon() {
   geluid.tik(1);
   if (app === "gat") {
     herlaad = 1;
-    // een fatbike in het vizier: de accu vliegt in brand, de berijders springen eraf en rennen weg
-    for (const r of [...reizigers]) if (r.fat && r.toestand === "rijden" && Math.hypot(r.pos.x - p.x, r.pos.z - p.z) < 2.6) {
-      const fiets = r.fiets, groep = r.groep;
+    // de grond gaat open en blijft open. Een fatbike in het vizier: de accu vliegt in brand, de berijders springen eraf en
+    // rennen weg, en de fiets verdwijnt brandend in het gat. Mensen in het vizier vallen erin.
+    const gat = maakGat(p.x, p.z);
+    for (const r of [...reizigers]) if (r.fat && r.toestand === "rijden" && Math.hypot(r.pos.x - p.x, r.pos.z - p.z) < gat.r) {
+      const fiets = r.fiets, n0 = vallers.length;
       fatbikeGeraakt(r, "klap", r.pos.clone().setY(0.7)); fx.brand(fiets, 12); geluid.raket();
-      const i = stil.findIndex((s) => s.groep === groep); if (i >= 0) stil.splice(i, 1); // de accu is al op
+      for (const x of vallers.slice(n0)) if (x.soort === "mens") { x.geenGat = true; x.v.set(Math.sin(r.richting + 1.6) * 4.5, 4.5, Math.cos(r.richting + 1.6) * 4.5); } // de berijders springen opzij, over de rand
     }
-    // mensen in het vizier: de grond gaat open en ze vallen erin; even later klimmen ze eruit en rennen weg
-    let n = 0;
-    for (const r of reizigers) if (r.m && r.groep && !r.fat && !r.fiets && !r.wordBoos && Math.hypot(r.pos.x - p.x, r.pos.z - p.z) < 2.5 && laatVallen(r, p, 4)) n++;
-    const m = new THREE.Mesh(new THREE.CircleGeometry(2.6, 28).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: "#050506", polygonOffset: true, polygonOffsetFactor: -3 }));
-    const rand = new THREE.Mesh(new THREE.RingGeometry(2.6, 2.85, 28).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: "#4a3b2c", polygonOffset: true, polygonOffsetFactor: -3 })); m.add(rand);
-    m.position.set(p.x, 0.04, p.z); m.scale.setScalar(0.05); scene.add(m); gaten.push({ m, t: 0 });
-    geluid.bonk(); if (n) geluid.oef(1);
+    geluid.bonk();
   } else if (app === "bel") {
     herlaad = 2;
     // iedereen in de buurt wordt gebeld: ze blijven staan en kijken op hun telefoon (fatbikes stoppen: makkelijk te raken)
@@ -1428,10 +1428,62 @@ function tikTelefoon() {
     fonteinen.push({ p, t: 0 }); geluid.sis();
   }
 }
+/** Een gat in de grond: een zwarte schacht met een rafelige rand van aarde en losse brokken eromheen. Het blijft open. */
+let gatTex = null;
+function maakGat(x, z, r = 2.5, uitgang = false) {
+  if (!gatTex) {
+    const c = document.createElement("canvas"); c.width = c.height = 256; const k = c.getContext("2d");
+    // de wand van de schacht: van aarde aan de rand naar zwart in de diepte, met een rafelige omtrek
+    k.beginPath(); for (let i = 0; i <= 64; i++) { const h = (i / 64) * 6.2832, rr = 118 + Math.sin(i * 2.7) * 5 + Math.sin(i * 5.3 + 1) * 4; k[i ? "lineTo" : "moveTo"](128 + Math.cos(h) * rr, 128 + Math.sin(h) * rr); } k.closePath(); k.clip();
+    const g = k.createRadialGradient(128, 128, 20, 128, 128, 124);
+    g.addColorStop(0, "#000"); g.addColorStop(0.62, "#020202"); g.addColorStop(0.8, "#1b130d"); g.addColorStop(0.93, "#4a3525"); g.addColorStop(1, "#6b5038");
+    k.fillStyle = g; k.fillRect(0, 0, 256, 256);
+    for (let i = 0; i < 70; i++) { const h = Math.random() * 6.2832, rr = 92 + Math.random() * 28; k.fillStyle = Math.random() < 0.5 ? "#2a1d14" : "#7a5c40"; k.fillRect(128 + Math.cos(h) * rr, 128 + Math.sin(h) * rr, 2 + Math.random() * 4, 2 + Math.random() * 3); }
+    gatTex = new THREE.CanvasTexture(c); gatTex.colorSpace = THREE.SRGBColorSpace;
+  }
+  const m = new THREE.Group();
+  const schacht = new THREE.Mesh(new THREE.PlaneGeometry(r * 2.1, r * 2.1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: gatTex, transparent: true, alphaTest: 0.5, polygonOffset: true, polygonOffsetFactor: -3 }));
+  m.add(schacht);
+  // opgeworpen aarde en brokken bestrating rond de rand
+  const aarde = new THREE.MeshStandardMaterial({ color: "#5a422e", roughness: 1 }), steen = new THREE.MeshStandardMaterial({ color: "#8c857a", roughness: 1 });
+  for (let i = 0; i < 26; i++) { const h = (i / 26) * 6.2832 + Math.random() * 0.2, rr = r * (1.0 + Math.random() * 0.12), s2 = 0.1 + Math.random() * 0.16;
+    const b = new THREE.Mesh(new THREE.DodecahedronGeometry(s2, 0), i % 3 ? aarde : steen); b.position.set(Math.cos(h) * rr, s2 * 0.4, Math.sin(h) * rr); b.rotation.set(Math.random() * 3, Math.random() * 3, 0); b.scale.y = 0.6; b.castShadow = true; m.add(b); }
+  m.position.set(x, 0.04, z); m.scale.setScalar(0.02); scene.add(m);
+  const g = { m, t: 0, x, z, r, uitgang };
+  gaten.push(g);
+  // niet eindeloos veel: het oudste gat valt dicht
+  const open = gaten.filter((q) => !q.uitgang && q.sluit == null); if (open.length > 6) open[0].sluit = open[0].t;
+  return g;
+}
+/** Is hier een open gat (waar je in kunt vallen)? */
+function gatBij(x, z, marge = 0) { return gaten.find((g) => !g.uitgang && g.sluit == null && g.t > 0.3 && Math.hypot(x - g.x, z - g.z) < g.r - marge) ?? null; }
+/** Wie in een gat viel, komt even later om de hoek weer boven, uit een tweede zwart gat dat daarna dichtvalt. */
+function uitGat(wie, gat) {
+  if (!gat.uit || gat.uit.sluit != null || !gaten.includes(gat.uit)) {
+    let plek = null;
+    for (let i = 0; i < 12 && !plek; i++) { const n = graaf.startKnoop(4, 55, 20), q = graaf.k[n]; if (!gatBij(q[0], q[1], -3) && !geblokkeerd(q[0], q[1])) plek = { n, x: q[0], z: q[1] }; }
+    plek ??= { n: -1, x: gat.x + 25, z: gat.z };
+    gat.uit = maakGat(plek.x, plek.z, 1.6, true); gat.uit.n = plek.n;
+  }
+  const u = gat.uit; u.sluit = Math.max(u.sluit ?? 0, u.t + 2.6); // open tot de laatste eruit is
+  if (wie.g && wie.plaats && !wie.lijn && u.n >= 0) { wie.van = u.n; const v = wie.g.volgende(-1, u.n, wie.bit, 1, wie.straal); if (v) { wie.naar = v.n; wie.breed = v.breed; wie.t = 0; wie.plaats(true); } }
+  wie.pos.set(u.x + (Math.random() - 0.5) * 1.2, 0, u.z + (Math.random() - 0.5) * 1.2); if (wie.pad?.copy && wie.pad !== wie.pos) wie.pad.copy(wie.pos);
+  if (wie.thuis) wie.thuis = wie.pos.clone();
+  if (wie.lijn && wie.maakLijn) { wie.lijn = wie.maakLijn([wie.pos.x, wie.pos.z], wie.lijn.at(-1)); wie.i = 0; }
+}
 function stapTelefoon(dt) {
   for (const g of [...gaten]) {
-    g.t += dt; g.m.scale.setScalar(g.t < 0.25 ? Math.max(0.05, g.t / 0.25) : g.t > 4.4 ? Math.max(0.01, 1 - (g.t - 4.4) / 0.5) : 1);
-    if (g.t > 4.9) { scene.remove(g.m); gaten.splice(gaten.indexOf(g), 1); }
+    g.t += dt;
+    const dicht = g.sluit != null ? Math.max(0, 1 - (g.t - g.sluit) / 0.6) : 1;
+    g.m.scale.setScalar(Math.max(0.02, Math.min(1, g.t / 0.3) * Math.min(1, dicht)));
+    if (g.sluit != null && g.t > g.sluit + 0.6) { scene.remove(g.m); gaten.splice(gaten.indexOf(g), 1); continue; }
+    if (g.uitgang || g.t < 0.3 || g.sluit != null) continue;
+    // wie of wat er boven een open gat komt, valt erin
+    for (const r of [...reizigers]) {
+      if (Math.hypot(r.pos.x - g.x, r.pos.z - g.z) > g.r - 0.25) continue;
+      if (r.fat && r.toestand === "rijden") fatbikeGeraakt(r, "klap", r.pos.clone().setY(0.7)); // fiets en berijders verdwijnen in het gat (zie stapVallers)
+      else if (r.m && r.groep && !r.fat && !r.fiets && !r.wordBoos && !r.worp && r.groep.visible !== false && laatVallen(r, g, 3.5, (wie) => uitGat(wie, g))) geluid.oef(afstandVol(r.pos) * 2);
+    }
   }
   for (const f of [...fonteinen]) {
     f.t += dt;
@@ -1798,6 +1850,12 @@ function fatbikeGeraakt(f, deel, p) {
 function stapVallers(dt) {
   for (const x of [...vallers]) {
     const o = x.obj;
+    // boven een open gat: fiets of berijder valt erin en is weg
+    if (x.inGat || (!x.geenGat && gatBij(o.position.x, o.position.z, 0.2))) {
+      x.inGat = true; o.position.y -= 7 * dt; o.rotation.x += 1.5 * dt; x.m?.mixer.update(dt);
+      if (o.position.y < -4.5) { scene.remove(o); vallers.splice(vallers.indexOf(x), 1); const i = stil.findIndex((s) => s.groep === o); if (i >= 0) stil.splice(i, 1); }
+      continue;
+    }
     if (x.soort === "fiets") {
       x.v.y -= (x.r ? ZWAARTE : 0) * dt;
       o.position.addScaledVector(x.v, dt);
@@ -2207,7 +2265,7 @@ function lus() {
   stapKogels(dt);
   stapVuurwerk(dt);
   magie.stap(dt, loop.aan && !rij.aan ? loop.pos : null);
-  stapTelefoon(dt); tekenVizier(); if (mobiel && !kind) mobiel.visible = false;
+  stapTelefoon(dt); tekenVizier(); if (kruk && (loop.aan || !kind)) kruk.visible = false; if (mobiel && !kind) mobiel.visible = false;
   if (loop.toverT > 0) loop.toverT -= echt;
   for (const r of [...reizigers]) if (r.zweef?.t > 3 && r.toestand === "rijden") { r.zweef = null; fatbikeGeraakt(r, "klap", r.groep.position.clone()); } // de zweefspreuk is uitgewerkt: hij valt
   stapVallers(dt);
@@ -2385,7 +2443,15 @@ function lus() {
     // uit het raam hangen: je voeten staan binnen, je bovenlijf leunt ver over de vensterbank
     const recht = heks || kind; // die leunen niet over de vensterbank: ze staan rechtop voor het raam
     const terug = raam ? (recht ? 1.0 : 0.8) : grond ? 0.3 : 0.15; // rechtop: achter de vensterbank en de radiator, in de kamer
-    schutter.object.position.set(oog.x - fx * terug, grond ? 0 : oog.y - (raam ? 1.45 : 1.6), oog.z - fz * terug);
+    const opKruk = kind && !grond ? 0.5 : 0; // het jongetje staat op een kruk, anders kijkt hij niet over de vensterbank of de balkonrand
+    schutter.object.position.set(oog.x - fx * terug, grond ? 0 : oog.y - (raam ? 1.45 : 1.6) + opKruk, oog.z - fz * terug);
+    if (opKruk) {
+      if (!kruk) { kruk = new THREE.Group(); const hout = new THREE.MeshStandardMaterial({ color: "#b98a52", roughness: 0.7 });
+        const zit = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.19, 0.045, 18), hout); zit.position.y = 0.478; zit.castShadow = true; kruk.add(zit);
+        for (let i = 0; i < 4; i++) { const h = i * Math.PI / 2 + 0.785, poot = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.022, 0.47, 8), hout); poot.position.set(Math.cos(h) * 0.15, 0.235, Math.sin(h) * 0.15); poot.rotation.set(Math.sin(h) * -0.12, 0, Math.cos(h) * 0.12); kruk.add(poot); }
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.01, 6, 18), hout); ring.rotation.x = Math.PI / 2; ring.position.y = 0.18; kruk.add(ring); scene.add(kruk); }
+      kruk.visible = !scoop; kruk.position.set(schutter.object.position.x, schutter.object.position.y - 0.5, schutter.object.position.z);
+    } else if (kruk) kruk.visible = false;
     schutter.object.rotation.set(recht ? 0 : raam ? 0.16 : grond ? 0.14 : 0.05, kijk.yaw, 0, "YXZ");
     if (worp) worpClip(); else schutter.zet("staan");
     schutter.mixer.update(echt);
@@ -2417,7 +2483,7 @@ function lus() {
     if (scoop) camera.position.copy(oog);
     else {
       // over de schouder: per plek een andere afstand en hoogte (op het dak hoger, anders zie je alleen grind)
-      const [ach, rechts, op] = kind && st.soort === "raam" ? [1.5, 0.15, 0.3] : heks && st.soort === "raam" ? [1.8, 0.42, 0.55] : CAMERA_STAND[st.soort]; // het jongetje is klein: de camera dichter op het raam
+      const [ach, rechts, op] = kind && st.soort === "raam" ? [1.6, 0.15, 0.55] : heks && st.soort === "raam" ? [1.8, 0.42, 0.55] : CAMERA_STAND[st.soort]; // het jongetje is klein: de camera dichter op het raam
       camera.position.set(oog.x - fx * ach - fz * rechts, oog.y + op, oog.z - fz * ach + fx * rechts);
     }
   }
@@ -2455,4 +2521,4 @@ function lus() {
 }
 zetZoom(1);
 laad().then(() => requestAnimationFrame(lus)).catch((e) => { $("#laden").textContent = "Laden mislukt: " + e.message; console.error(e); });
-window.__spel = { vizierPunt, gaten, get kind() { return kind; }, kiesSpeler, tover, get magie() { return magie; }, get heks() { return heks; }, staf: () => staf, worp: () => worp, uitAuto, get muziek() { return muziek; }, geluid, opties, kast, openKast, ontplof, vuurMg, vuurRaket, vuurVlam, kogels, get schutter() { return schutter; }, vuurwerk, stapVuurwerk, karate: () => Object.keys(TECHNIEK), spel, reizigers, stil, uitAuto, verlaten, get herlaad() { return herlaad; }, kijk, camera, oog, loop, rij, stapIn, stapUit, stapLopen, get straat() { return straat; }, get graaf() { return graaf; }, zetLopen, sla, actie, zetWapen, klapKrijgen, vallers, schiet, begin, zetZoom, draai, scene, renderer, stand: () => standen[standNr]?.naam };
+window.__spel = { vizierPunt, gaten, maakGat, gatBij, stapTelefoon, get kind() { return kind; }, kiesSpeler, tover, get magie() { return magie; }, get heks() { return heks; }, staf: () => staf, worp: () => worp, uitAuto, get muziek() { return muziek; }, geluid, opties, kast, openKast, ontplof, vuurMg, vuurRaket, vuurVlam, kogels, get schutter() { return schutter; }, vuurwerk, stapVuurwerk, karate: () => Object.keys(TECHNIEK), spel, reizigers, stil, uitAuto, verlaten, get herlaad() { return herlaad; }, kijk, camera, oog, loop, rij, stapIn, stapUit, stapLopen, get straat() { return straat; }, get graaf() { return graaf; }, zetLopen, sla, actie, zetWapen, klapKrijgen, vallers, schiet, begin, zetZoom, draai, scene, renderer, stand: () => standen[standNr]?.naam };
