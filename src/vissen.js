@@ -12,7 +12,7 @@ const zacht = (t) => { t = Math.min(1, Math.max(0, t)); return t * t * (3 - 2 * 
 async function laadModellen() {
   const [{ GLTFLoader }, { MeshoptDecoder }] = await Promise.all([import("../lib/three-addons.js"), import("../lib/meshopt_decoder.mjs")]);
   const L = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder), uit = {};
-  await Promise.all(["hengel", "karper", "stoel", "blik", "ambulance"].map(async (n) => { uit[n] = await L.loadAsync(`assets/vis/${n}.glb?v=${window.VERSIE ?? ""}`); }));
+  await Promise.all(["hengel", "karper", "stoel", "blik", "krat", "molen", "ambulance"].map(async (n) => { uit[n] = await L.loadAsync(`assets/vis/${n}.glb?v=${window.VERSIE ?? ""}`); }));
   for (const g of Object.values(uit)) g.scene.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
   return uit;
 }
@@ -59,8 +59,15 @@ export async function maakVissen({ scene, camera, data, geluid, fx, maakMens, bo
   doos(BREED, 0.85, 0.02, "#bfe0ea", 0, 0, 0.5, { transparent: true, opacity: 0.28, roughness: 0.05 });
   for (const k of [-1, 1]) { const z = doos(0.05, 1.05, DIEP, "#3b4046", DIEP / 2, (k * BREED) / 2, 0.52, { ...staal, transparent: true, opacity: 0.35 }); z.castShadow = false; }
   // de deur waar de rooie door naar buiten komt
-  if (terras) doos(4.2, 2.5, 0.25, "#d9d4c8", DIEP + 0.2, 0, 1.25);
-  doos(0.95, 2.1, 0.06, "#20262c", DIEP + (terras ? 0.05 : -0.04), 1.6, 1.05, { roughness: 0.2 });
+  if (terras) {
+    // de dakopbouw: een lichte gevel met een schuifpui, en een stalen pergola over het terras (zoals op de foto)
+    doos(BREED + 1.6, 2.7, 0.3, "#e3ddcf", DIEP + 0.25, 0, 1.35); doos(BREED + 2, 0.14, 1.2, "#5a5f66", DIEP + 0.3, 0, 2.77, staal);
+    doos(2.6, 2.1, 0.06, "#6f8fa3", DIEP + 0.08, -1.3, 1.07, { roughness: 0.08, metalness: 0.5 }); doos(0.05, 2.1, 0.08, "#d9dde0", DIEP + 0.06, -1.3, 1.07);
+    for (const [r, b] of [[0.06, -BREED / 2], [0.06, BREED / 2], [0.06, 0]]) doos(0.07, 2.7, 0.07, "#3b4046", r, b, 1.35, staal);
+    doos(BREED + 0.1, 0.08, 0.08, "#3b4046", 0.06, 0, 2.7, staal);
+    for (let i = 0; i <= 8; i++) doos(0.05, 0.07, DIEP + 0.2, "#3b4046", DIEP / 2 + 0.05, -BREED / 2 + (i * BREED) / 8, 2.7, staal);
+  }
+  doos(0.95, 2.1, 0.06, "#4a5560", DIEP + (terras ? 0.06 : -0.04), 1.6, 1.05, { roughness: 0.3 });
 
   // ---------- het water: waar de lijnen in liggen, met waterplanten ----------
   const waters = data.vlakken.filter((v) => v.s === "b_water").map((v) => v.r);
@@ -94,8 +101,21 @@ export async function maakVissen({ scene, camera, data, geluid, fx, maakMens, bo
   const STOEL = { r: 2.5, b: -1.7, zit: 0.44 };
   stoel.position.copy(W(STOEL.r, STOEL.b)); stoel.rotation.y = yaw + Math.PI / 2; decor.add(stoel);
   const blikVorm = recht(M.blik.scene, 0.066); { const b = new THREE.Box3().setFromObject(blikVorm); blikVorm.scale.setScalar(0.125 / (b.max.y - b.min.y)); }
+  // groen bier: het blikje krijgt een groene wikkel (de bovenkant blijft blank)
+  { const groen = new THREE.MeshStandardMaterial({ color: "#16803a", roughness: 0.3, metalness: 0.55 }), blank = new THREE.MeshStandardMaterial({ color: "#c9ccce", roughness: 0.25, metalness: 0.9 });
+    blikVorm.updateMatrixWorld(true); const hoog = new THREE.Box3().setFromObject(blikVorm);
+    blikVorm.traverse((o) => { if (!o.isMesh) return; const b = new THREE.Box3().setFromObject(o); o.material = (b.max.y - b.min.y) < (hoog.max.y - hoog.min.y) * 0.3 ? blank : groen; o.castShadow = false; }); }
   const blik = () => { const g = new THREE.Group(); g.add(blikVorm.clone()); return g; };
-  for (let i = 0; i < 7; i++) { const b = blik(); b.position.copy(W(STOEL.r + tussen(-0.5, 0.7), STOEL.b + tussen(-0.9, -0.3), 0.04)); if (i % 2) { b.rotation.z = Math.PI / 2; b.position.y += 0.03; } b.rotation.y = Math.random() * 6; decor.add(b); }
+  const leegBlik = (r, b, plat = Math.random() < 0.55) => { const k = blik(); k.position.copy(W(r, b, 0.04)); if (plat) { k.rotation.z = Math.PI / 2; k.position.y += 0.035; } k.rotation.y = Math.random() * 6; decor.add(k); };
+  for (let i = 0; i < 26; i++) leegBlik(STOEL.r + tussen(-0.9, 0.9), STOEL.b + tussen(-1.3, 0.9)); // rond zijn stoel
+  for (let i = 0; i < 22; i++) leegBlik(tussen(0.25, DIEP - 0.3), tussen(-BREED / 2 + 0.2, BREED / 2 - 0.2)); // en over het hele terras
+  for (let laag = 0; laag < 4; laag++) for (let i = 0; i < 4 - laag; i++) { const k = blik(); k.position.copy(W(DIEP - 0.35, 2.55 + (i - (3 - laag) / 2) * 0.075, 0.04 + laag * 0.125)); decor.add(k); } // een torentje van volle
+  // kratten (groen), gestapeld tegen de gevel en één naast de stoel als tafeltje
+  const kratVorm = recht(M.krat.scene, 0.4); { const mat = new THREE.MeshStandardMaterial({ color: "#1b7a37", roughness: 0.55 }); kratVorm.traverse((o) => { if (o.isMesh) o.material = mat; }); }
+  const kratH = new THREE.Box3().setFromObject(kratVorm).max.y;
+  const krat = (r, b, n, draai = 0) => { for (let i = 0; i < n; i++) { const k = new THREE.Group(); k.add(kratVorm.clone()); k.position.copy(W(r, b, i * kratH)); k.rotation.y = yaw + draai + tussen(-0.08, 0.08); decor.add(k); } };
+  krat(DIEP - 0.3, -2.9, 4); krat(DIEP - 0.3, -2.45, 3, Math.PI / 2); krat(DIEP - 0.32, -1.98, 2); krat(DIEP - 0.9, -2.85, 2, 0.4); krat(STOEL.r + 0.1, STOEL.b + 0.75, 1, 0.2); krat(0.5, 2.7, 3); krat(0.5, 2.25, 1, 0.5);
+  for (let i = 0; i < 3; i++) { const k = blik(); k.position.copy(W(STOEL.r + 0.1 + tussen(-0.1, 0.1), STOEL.b + 0.75 + tussen(-0.1, 0.1), kratH + 0.005)); decor.add(k); }
   const handBlik = blik(); scene.add(handBlik);
   // rodpod (zelf gebouwd: hiervan was geen bruikbaar model te vinden): twee dwarsbalken op poten, voor hoger dan achter
   const POD = { voor: 1.15, achter: 2.55, hVoor: 0.86, hAchter: 0.5, b: 0.36 };
@@ -113,6 +133,7 @@ export async function maakVissen({ scene, camera, data, geluid, fx, maakMens, bo
   });
   // de hengels: het model rechtgelegd (handvat op 0, top langs +z), met de molen onder de hengel; buigen kan per punt
   const HENGEL = 3.6;
+  const molenVorm = recht(M.molen.scene, 0.15); { const b = new THREE.Box3().setFromObject(molenVorm), w = new THREE.Group(); molenVorm.position.y = -(b.max.y - b.min.y); } // hangt onder de hengel
   const maakHengel = () => {
     const bron = M.hengel.scene.clone(true); let mesh = null; bron.updateMatrixWorld(true); bron.traverse((o) => { if (o.isMesh && !mesh) mesh = o; });
     // (de punten in het bestand zijn ingepakt als hele getallen: eerst uitpakken naar gewone meters)
@@ -135,6 +156,8 @@ export async function maakVissen({ scene, camera, data, geluid, fx, maakMens, bo
     geo.computeVertexNormals();
     const m = new THREE.Mesh(geo, mesh.material); m.castShadow = true; m.frustumCulled = false;
     const g = new THREE.Group(); g.add(m); scene.add(g);
+    // een echte molen onder het handvat (die van het hengelmodel is na het versmallen te klein om te zien)
+    { const mo = new THREE.Group(); mo.add(molenVorm.clone()); mo.position.set(0, -0.012, 0.52); g.add(mo); }
     const y0 = Float32Array.from(geo.attributes.position.array);
     const h = { g, bocht: 0, top: new THREE.Vector3(),
       /** Buig de hengel (0 = recht): de top zakt, het meest aan het eind. */
@@ -161,6 +184,10 @@ export async function maakVissen({ scene, camera, data, geluid, fx, maakMens, bo
   const mens = (rol) => { const m = maakMens(rol), g = new THREE.Group(); g.add(m.object); m.object.visible = true; m.object.position.set(0, 0, 0); m.object.rotation.set(0, 0, 0); scene.add(g); return { m, g, r: 0, b: 0 }; };
   const man = mens("visser"), rooie = mens("rooie");
   man.m.detail(true, true); rooie.m.detail(true, true);
+  { const sc = man.m.object.scale; sc.set(sc.x * 1.22, sc.y, sc.z * 1.3); } // een flinke bierbuik
+  // hij hikt om de paar tellen: een schokje door zijn lijf en een hikje
+  const hik = { over: 2, schok: 0 };
+  const hikken = (dt) => { hik.over -= dt; hik.schok = Math.max(0, hik.schok - dt * 5); if (hik.over <= 0) { hik.over = tussen(2.2, 4.5); hik.schok = 1; geluid.toon?.({ freq: 430, freq2: 980, duur: 0.07, type: "sine", gain: 0.07 }); geluid.toon?.({ freq: 300, freq2: 240, duur: 0.06, type: "sine", gain: 0.04, start: 0.09 }); } };
 
   // ---------- de ambulance ----------
   const ambu = recht(M.ambulance.scene, 6.4); ambu.visible = false; scene.add(ambu);
@@ -209,17 +236,17 @@ export async function maakVissen({ scene, camera, data, geluid, fx, maakMens, bo
   const sirene = (sec) => { for (let i = 0; i < sec / 0.55; i++) geluid.toon?.({ freq: i % 2 ? 560 : 420, duur: 0.52, type: "triangle", gain: 0.05, start: i * 0.55 }); };
 
   /** Zet een mens neer: r meter achter de reling, kijkend naar het water, achterover geleund. */
-  function zet(p, { h = 0, leun = 0, draai = 0, zwalk = 0 } = {}) { p.g.position.copy(W(p.r, p.b, h)); p.g.rotation.set(-leun, yaw + draai, zwalk, "YXZ"); p.g.updateMatrixWorld(true); }
+  function zet(p, { h = 0, leun = 0, draai = 0, zwalk = 0 } = {}) { const s = p === man ? hik.schok : 0; p.g.position.copy(W(p.r, p.b, h + s * 0.05)); p.g.rotation.set(-leun - s * 0.14, yaw + draai, zwalk, "YXZ"); p.g.updateMatrixWorld(true); }
   const val = { van: new THREE.Vector3(), t: 0 };
   let klok = 0;
 
   function stap(dt) {
     if (S.fase === "uit") return false;
-    S.t += dt; S.shotT += dt; klok += dt; visMixer.update(dt * (S.fase === "dril" ? 2.5 : 1));
+    S.t += dt; S.shotT += dt; klok += dt; if (["intro", "wacht", "beet", "dril"].includes(S.fase)) hikken(dt); visMixer.update(dt * (S.fase === "dril" ? 2.5 : 1));
     const beetK = S.beet ? 1 : -1, andere = 1 - S.beet;
     // de hengel die niet meedoet ligt gewoon op de rodpod
     const rust = (i) => { const k = i ? 1 : -1, top = hengels[i].leg(podPlek(k), podRichting); hengels[i].buig(0.02); zetLijn(i, top, inworp[i], 1.2); };
-    const zitten = () => { man.r = STOEL.r; man.b = STOEL.b; man.m.zet("zitten"); man.m.mixer.update(dt); man.m.object.position.y = STOEL.zit - man.m.zithoogte(); zet(man, { zwalk: Math.sin(klok * 0.7) * 0.05, leun: 0.08 }); };
+    const zitten = () => { man.r = STOEL.r; man.b = STOEL.b; man.m.zet("zitten"); man.m.mixer.update(dt); man.m.object.position.y = STOEL.zit - man.m.zithoogte(); zet(man, { zwalk: Math.sin(klok * 0.9) * 0.1 + Math.sin(klok * 0.37) * 0.05, leun: 0.1 + Math.sin(klok * 0.6) * 0.05 }); };
     const drinkt = () => { // het blikje in zijn hand, af en toe naar zijn mond
       const slok = Math.max(0, Math.sin(klok * 0.9)) ** 6, borst = man.m.plek("DEF-spine003"), doel = borst.clone().addScaledVector(u, 0.3 - slok * 0.1).add(V(0, -0.12 + slok * 0.36, 0)).addScaledVector(t, 0.16);
       man.m.arm("R", doel, V(0, -1, 0).addScaledVector(t, 0.6)); handBlik.visible = true; handBlik.position.copy(doel).add(V(0, -0.02, 0)); handBlik.rotation.set(slok * 1.1, yaw, 0, "YXZ");
@@ -237,7 +264,7 @@ export async function maakVissen({ scene, camera, data, geluid, fx, maakMens, bo
       { const top = hengels[S.beet].leg(podPlek(beetK), podRichting); hengels[S.beet].buig(0.03 + Math.sin(klok * 22) * 0.02); zetLijn(S.beet, top, vis.p.clone().setY(0), 0.1); }
       vis.p.addScaledVector(u, dt * 0.8); karper.position.copy(vis.p);
       if (S.t < 0.6) { zitten(); drinkt(); }
-      else { handBlik.visible = false; man.m.object.position.y = 0; man.r = THREE.MathUtils.lerp(STOEL.r, R0 + 0.9, k); man.b = THREE.MathUtils.lerp(STOEL.b, beetK * POD.b * 0.6, k); man.m.zet(k < 1 ? "lopen" : "staan"); man.m.mixer.update(dt); zet(man, { zwalk: Math.sin(klok * 5) * 0.12, draai: (1 - k) * 0.8 }); }
+      else { handBlik.visible = false; man.m.object.position.y = 0; man.r = THREE.MathUtils.lerp(STOEL.r, R0 + 0.9, k); man.b = THREE.MathUtils.lerp(STOEL.b, beetK * POD.b * 0.6, k); man.b += Math.sin(klok * 4.2) * 0.14 * Math.sin(k * Math.PI); man.m.zet(k < 1 ? "lopen" : "staan", 0.8); man.m.mixer.update(dt); zet(man, { zwalk: Math.sin(klok * 4.2) * 0.24, leun: Math.sin(klok * 2.1) * 0.1, draai: (1 - k) * 0.8 + Math.sin(klok * 2.1) * 0.25 }); } // hij waggelt naar zijn hengel
       if (S.t > 1.4 && S.shot !== "balkon") shot("balkon");
       if (S.t > 2.4) { zetFase("dril"); S.r = R0; geluid.zwiep?.(1); }
     } else if (S.fase === "dril") {
@@ -250,7 +277,7 @@ export async function maakVissen({ scene, camera, data, geluid, fx, maakMens, bo
       if (greep && !S.hielp) { S.hielp = true; S.r = Math.min(R0 + 0.2, S.r + 0.55); }
       man.r = THREE.MathUtils.lerp(man.r, S.r, Math.min(1, dt * 8)); man.b = THREE.MathUtils.lerp(man.b, beetK * POD.b * 0.6 + Math.sin(klok * 1.3) * 0.25, Math.min(1, dt * 3));
       const span = 1 - zacht((S.r - RAND) / (R0 - RAND)), leun = 0.25 + Math.sin(klok * 2.3) * 0.1 - span * 0.1;
-      man.m.zet("vechtklaar", 0.6); man.m.mixer.update(dt); man.m.object.position.y = 0; zet(man, { leun, zwalk: Math.sin(klok * 3.1) * 0.1 });
+      man.m.zet("vechtklaar", 0.6); man.m.mixer.update(dt); man.m.object.position.y = 0; zet(man, { leun, zwalk: Math.sin(klok * 2.2) * 0.17 + Math.sin(klok * 5.3) * 0.05, draai: Math.sin(klok * 1.4) * 0.12 });
       // de vis schiet heen en weer en maakt kolken
       vis.h += dt * (1.6 + span); vis.p.set(plons.x + Math.sin(vis.h) * 4 + u.x * 2, -0.15 + Math.max(0, Math.sin(vis.h * 2.7)) * 0.2, plons.z + Math.cos(vis.h * 0.7) * 3 + u.z * 2);
       karper.position.copy(vis.p); karper.rotation.set(Math.sin(klok * 9) * 0.3, Math.atan2(Math.cos(vis.h) * 4, -Math.sin(vis.h * 0.7) * 2.1), Math.sin(klok * 11) * 0.4);
