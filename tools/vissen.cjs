@@ -10,6 +10,7 @@ const T = { ".jpg": "image/jpeg", ".html": "text/html", ".js": "text/javascript"
   const fout = []; p.on("pageerror", (e) => { fout.push(e.message); console.log("FOUT", e.message); });
   await p.goto("http://spel.test/?licht=0&level=landlust"); await p.waitForSelector("#start:not([hidden])", { timeout: 240000 });
   await p.screenshot({ path: `${UIT}/0-start.png` });
+  await p.tap("#kiesSpeler"); console.log("speler:", await p.evaluate(() => document.querySelector("#kiesSpeler b").textContent + (document.querySelector("#spelerPaneel").hidden ? " (niet te kiezen)" : " (KEUZESCHERM OPEN)")));
   await p.tap("#begin"); await p.waitForTimeout(1500);
   const info = await p.evaluate(() => { const v = window.__spel.vis; return JSON.stringify({ fase: v.fase, terras: v.terras, vloer: +v.vloer.toFixed(1), rand: v.rand.toArray().map((x) => +x.toFixed(1)), plons: v.plons.toArray().map((x) => +x.toFixed(1)) }); });
   console.log("begin:", info);

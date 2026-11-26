@@ -1209,6 +1209,7 @@ function toonStart() {
     : `${ri.fatbikes} fatbikes · ${isFinite(ri.kogels) ? ri.kogels : "∞"} kogels · ${ri.tijd ? mmss(ri.tijd) : "geen haast"}`;
   tekenOpties();
   if (vis) $("#startDoel").textContent = "Houd de visser op zijn balkon";
+  if (vis) { $("#kiesSpeler b").textContent = "De dronkenlap"; $("#kiesSpeler").style.opacity = 0.75; $("#kiesSpeler").style.cursor = "default"; } // hier speel je niemand anders
   $("#startBest").textContent = vis ? (+(localStorage.getItem("fbs-vis") ?? 0) ? `Record: ${localStorage.getItem("fbs-vis")} seconden` : "") : bonus ? (bestBonus ? `Record: ${bestBonus} fatbikes` : "") : best ? `Beste score: ${best}` : "";
   for (const b of document.querySelectorAll("#levels button")) b.classList.toggle("aan", b.dataset.level === LOCATIE);
   $("#kiesLevel b").textContent = LEVELS[LOCATIE];
@@ -2348,7 +2349,7 @@ function zoomNaarSchuif(z) { return z < 1.5 ? 0 : ONDER + ((1000 - ONDER) * Math
 }
 $("#begin").addEventListener("click", begin);
 // level kiezen: een ander level laadt een andere wereld, dus de pagina opnieuw
-$("#kiesSpeler").addEventListener("click", () => { $("#spelerPaneel").hidden = false; });
+$("#kiesSpeler").addEventListener("click", () => { if (!vis) $("#spelerPaneel").hidden = false; }); // in het vislevel valt er niets te kiezen
 $("#kiesLevel").addEventListener("click", () => { $("#levelPaneel").hidden = false; });
 $("#makersKnop").addEventListener("click", () => { $("#makersPaneel").hidden = false; });
 for (const el of document.querySelectorAll(".paneel")) el.addEventListener("click", (e) => { if (e.target === el || e.target.classList.contains("groot")) el.hidden = true; }); // naast de knoppen tikken = sluiten
