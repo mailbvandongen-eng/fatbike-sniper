@@ -154,6 +154,7 @@ export function maakMens(rol = "voetganger") {
   if (rol === "karateka") band(m);
   if (rol === "heks") cape(m);
   if (rol === "kind") kuif(m);
+  if (rol === "tiener") pijpenkrullen(m);
   if (zwart) hoodie(m, Math.random() < 0.8);
   return m;
 }
@@ -190,6 +191,27 @@ function kuif(m) {
   const lok = new THREE.Mesh(new THREE.ConeGeometry(0.045 * s, 0.13 * s, 7), new THREE.MeshStandardMaterial({ color: "#e6c66a", roughness: 0.8 }));
   lok.position.set(hp.x, top + 0.02 * s, hp.z + 0.075 * s); lok.rotation.x = -0.55; lok.castShadow = true;
   o.add(lok); lok.updateMatrixWorld(true); hoofd.attach(lok);
+}
+/** Pijpenkrullen: lange kurkentrekkers die rondom van het hoofd tot over de schouders hangen (ze zitten aan het hoofd vast). */
+function pijpenkrullen(m, kleur = "#ab4419") {
+  const o = m.object; o.updateMatrixWorld(true);
+  let hoofd = null; o.traverse((b) => { if (b.isBone && b.name === "DEF-head") hoofd = b; });
+  if (!hoofd || !m.hoog) return;
+  const s = m.schaal, top = new THREE.Box3().setFromObject(m.hoog).max.y, hp = hoofd.getWorldPosition(new THREE.Vector3());
+  const mat = new THREE.MeshStandardMaterial({ color: kleur, roughness: 0.6 }), groep = new THREE.Group();
+  groep.position.set(hp.x, top - 0.1 * s, hp.z + 0.005 * s); // het midden van het hoofd
+  const N = 15;
+  for (let i = 0; i < N; i++) {
+    // van de ene slaap via het achterhoofd naar de andere (0 = recht naar achteren); om en om een rij dichter op het hoofd
+    const h = ((i / (N - 1)) * 2 - 1) * 2.15, binnen = i % 2, R = (binnen ? 0.085 : 0.108) * s, lang = (0.4 - Math.abs(h) * 0.035 + (binnen ? 0.03 : 0)) * s;
+    const x0 = Math.sin(h) * R, z0 = -Math.cos(h) * R, y0 = (0.045 - Math.abs(h) * 0.012) * s, r = 0.024 * s, slagen = 7 + binnen, f = i * 1.7, punten = [];
+    for (let k = 0; k <= slagen * 8; k++) {
+      const t = k / (slagen * 8), a = f + t * slagen * 6.2832 * (i % 3 ? 1 : -1), rr = r * (0.55 + 0.45 * Math.min(1, t * 4)) * (1 - t * 0.25);
+      punten.push(new THREE.Vector3(x0 + Math.cos(a) * rr + Math.sin(h) * t * 0.02 * s, y0 - t * lang, z0 + Math.sin(a) * rr - Math.cos(h) * t * 0.02 * s));
+    }
+    const krul = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(punten), slagen * 10, 0.012 * s, 5), mat); krul.castShadow = true; groep.add(krul);
+  }
+  groep.updateMatrixWorld(true); hoofd.attach(groep); // de maten hierboven zijn wereldmaten: zo blijven ze kloppen, hoe het model ook geschaald is
 }
 /** Laat de cape hangen en waaien: recht omlaag (ook als ze bukt of leunt), naar achteren bij vaart, met een lichte deining. */
 const _cq = new THREE.Quaternion(), _ce = new THREE.Euler();
