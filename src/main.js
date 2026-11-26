@@ -16,7 +16,7 @@ import { Geluid } from "./geluid.js";
 
 const $ = (s) => document.querySelector(s);
 // het level: uit het adres (?level=), anders de laatste keuze, anders het Julianaplein
-const LEVELS = { julianaplein: "Julianaplein", steelaan: "Van Steelaan", buskenhuet: "Busken Huethove", hoekerkade: "Hoekerkade" };
+const LEVELS = { julianaplein: "Julianaplein", steelaan: "Van Steelaan", buskenhuet: "Busken Huethove", hoekerkade: "Hoekerkade", landlust: "Landlustlaan" };
 const gevraagd = new URLSearchParams(location.search).get("level") ?? localStorage.getItem("fbs-level");
 const LOCATIE = LEVELS[gevraagd] ? gevraagd : "julianaplein";
 // opties van het beginscherm (bewaard op dit toestel). tijd: null = zoals het level bedoeld is.
@@ -234,10 +234,16 @@ async function laad() {
   for (const [soort, x, z] of data.dingen) if (soort === "bank" && Math.hypot(x, z) < 75 && Math.random() < (data.hangjeugd ? 1 : 0.6)) reizigers.push(new Staander(scene, x + tussen(-0.5, 0.5), z, Math.random() * Math.PI * 2, true, data.hangjeugd ? "fatbiker" : "voetganger"));
   for (let i = 0; i < (licht ? 8 : 14) * Math.min(1, druk * 1.5); i++) reizigers.push(new Fietser(graaf, scene, kies(["fiets", "fiets", "fiets", "ebike", "ebike", "bakfiets"])));
   for (let i = 0; i < (licht ? 7 : 12) * Math.min(1, druk * 1.5); i++) reizigers.push(new Auto(graaf, scene));
+  // het vislevel: geen sluipschutter maar een visser op het balkon, gefilmd met een drone (src/vissen.js)
+  if (data.modus === "vissen") {
+    const { maakVissen } = await import(`./vissen.js?v=${window.VERSIE ?? ""}`);
+    vis = await maakVissen({ scene, camera, data, geluid, fx, maakMens, botsers: wereld.botsers, $, naarMenu: () => { $("#start").hidden = false; toonStart(); } });
+  }
   $("#laden").hidden = true;
   $("#start").hidden = false;
   toonStart();
 }
+let vis = null;
 
 // ---------- standplaatsen ----------
 function zetStand(nr) {
@@ -1197,17 +1203,19 @@ function toonStart() {
   const ri = rondeInstellingen(spel.ronde);
   const bonus = data?.modus === "bonus";
   const bestBonus = +(localStorage.getItem("fbs-best-bonus") ?? 0);
-  $("#startRonde").textContent = bonus ? "Bonuslevel" : `Ronde ${spel.ronde}`;
+  $("#startRonde").textContent = vis ? "Karpervissen" : bonus ? "Bonuslevel" : `Ronde ${spel.ronde}`;
   const mmss = (t) => `${Math.floor(t / 60)}:${String(Math.round(t) % 60).padStart(2, "0")}`;
   $("#startDoel").textContent = bonus ? (isFinite(ri.tijd) ? `Zoveel mogelijk fatbikes in ${Math.round(ri.tijd / 60)} minuten` : "Zoveel mogelijk fatbikes · geen klok")
     : `${ri.fatbikes} fatbikes · ${isFinite(ri.kogels) ? ri.kogels : "∞"} kogels · ${ri.tijd ? mmss(ri.tijd) : "geen haast"}`;
   tekenOpties();
-  $("#startBest").textContent = bonus ? (bestBonus ? `Record: ${bestBonus} fatbikes` : "") : best ? `Beste score: ${best}` : "";
+  if (vis) $("#startDoel").textContent = "Houd de visser op zijn balkon";
+  $("#startBest").textContent = vis ? (+(localStorage.getItem("fbs-vis") ?? 0) ? `Record: ${localStorage.getItem("fbs-vis")} seconden` : "") : bonus ? (bestBonus ? `Record: ${bestBonus} fatbikes` : "") : best ? `Beste score: ${best}` : "";
   for (const b of document.querySelectorAll("#levels button")) b.classList.toggle("aan", b.dataset.level === LOCATIE);
   $("#kiesLevel b").textContent = LEVELS[LOCATIE];
 }
 function begin() {
   geluid.start();
+  if (vis) { $("#opties").hidden = $("#start").hidden = $("#einde").hidden = true; $("#hud").hidden = true; pasGeluidAan(); return vis.begin(); }
   for (const pl of plekken) pl.m.removeFromParent(); plekken.length = 0;
   for (const g of gaten) scene.remove(g.m); gaten.length = 0; // een nieuwe ronde: de straat is weer heel
   $("#opties").hidden = true;
@@ -2768,6 +2776,8 @@ function lus() {
     for (let i = n; i < merken.length; i++) merken[i].visible = false;
   }
   // alleen voor tests: een vaste camera ergens anders
+  // het vislevel: jij doet niet mee, de drone bepaalt het beeld
+  if (vis?.stap(echt)) { schutter.object.visible = false; geweer.visible = false; if (standDecor) standDecor.visible = false; for (const m of Object.values(kast.mesh)) m.visible = false; if (staf) staf.visible = false; if (mobiel) mobiel.visible = false; if (katapult) katapult.visible = false; if (kruk) kruk.visible = false; }
   const vc = window.__spel?.vrijeCamera;
   if (vc) { camera.position.set(...vc.pos); camera.lookAt(...vc.doel); }
   renderer.render(scene, filmCam?.cam ?? camera);
@@ -2777,4 +2787,4 @@ function lus() {
 }
 zetZoom(1);
 laad().then(() => requestAnimationFrame(lus)).catch((e) => { $("#laden").textContent = "Laden mislukt: " + e.message; console.error(e); });
-window.__spel = { plekken, slaOver, truc, bolOpen, stapVallers, vallers, vuurVlam, herlaadNul: () => { herlaad = 0; }, stapKogels, spatten, spinnen, branders, ballonnen, autoBrand, rijderBrand, stapTrucs, wapens, get meisje() { return meisje; }, vizierPunt, gaten, maakGat, gatBij, stapTelefoon, get kind() { return kind; }, kiesSpeler, tover, get magie() { return magie; }, get heks() { return heks; }, staf: () => staf, worp: () => worp, uitAuto, get muziek() { return muziek; }, geluid, opties, kast, openKast, ontplof, vuurMg, vuurRaket, vuurVlam, kogels, get schutter() { return schutter; }, vuurwerk, stapVuurwerk, karate: () => Object.keys(TECHNIEK), spel, reizigers, stil, uitAuto, verlaten, get herlaad() { return herlaad; }, kijk, camera, oog, loop, rij, stapIn, stapUit, stapLopen, get straat() { return straat; }, get graaf() { return graaf; }, zetLopen, sla, actie, zetWapen, klapKrijgen, vallers, schiet, begin, zetZoom, draai, scene, renderer, stand: () => standen[standNr]?.naam };
+window.__spel = { get vis() { return vis; }, plekken, slaOver, truc, bolOpen, stapVallers, vallers, vuurVlam, herlaadNul: () => { herlaad = 0; }, stapKogels, spatten, spinnen, branders, ballonnen, autoBrand, rijderBrand, stapTrucs, wapens, get meisje() { return meisje; }, vizierPunt, gaten, maakGat, gatBij, stapTelefoon, get kind() { return kind; }, kiesSpeler, tover, get magie() { return magie; }, get heks() { return heks; }, staf: () => staf, worp: () => worp, uitAuto, get muziek() { return muziek; }, geluid, opties, kast, openKast, ontplof, vuurMg, vuurRaket, vuurVlam, kogels, get schutter() { return schutter; }, vuurwerk, stapVuurwerk, karate: () => Object.keys(TECHNIEK), spel, reizigers, stil, uitAuto, verlaten, get herlaad() { return herlaad; }, kijk, camera, oog, loop, rij, stapIn, stapUit, stapLopen, get straat() { return straat; }, get graaf() { return graaf; }, zetLopen, sla, actie, zetWapen, klapKrijgen, vallers, schiet, begin, zetZoom, draai, scene, renderer, stand: () => standen[standNr]?.naam };

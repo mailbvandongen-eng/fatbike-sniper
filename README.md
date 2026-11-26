@@ -240,3 +240,13 @@ Beide levels zijn dezelfde wijk; je kunt lopend van het Julianaplein naar de Van
 - wat er staat is voor alle levels hetzelfde (`GEDEELD` in `tools/locaties.mjs`: gevels per pand, gevelstijl per gebied, vaste auto's bij een adres), en elke kaart bevat alles tot 320 m;
 - op straat blijft de drukte dicht om je heen (`graaf.krap` = 0,62: voetgangers binnen ±45 m, fatbikes ±40 m, verkeer ±70 m); wie achterblijft, komt opnieuw de buurt in, bij voorkeur buiten beeld. Vanaf het balkon is alles verspreid over het plein;
 - de wereld schuift met je mee (`wereld.bij(x, z)`): de scherpe grondtekening (170 m) wordt opnieuw getekend als je 45 m verder bent, de geparkeerde auto's worden alleen rond je getekend (heel model tot 50 m, licht model tot 115 m), en mensen en verkeer bewegen rond jou (`graaf.c`). Terug bij het raam ligt alles weer rond het level.
+
+## Vislevel: Landlustlaan (Leidschendam)
+
+Een level zonder sluipschutter (`modus: "vissen"` in `tools/locaties.mjs`, alles in `src/vissen.js`). Op het dakterras van het appartementenblok aan de vijver zit een visser met twee karperhengels op een rodpod; de lijnen liggen in het water. Een drone filmt alles (`filmen`: wijd, water, pieper, balkon, dronie, van boven, van opzij, ambulance).
+
+Verloop (`S.fase`): `intro` → `wacht` → `beet` (een pieper gaat af, hij komt overeind) → `dril` (de vis trekt hem naar de reling; de speler tikt op de trekknop of de spatiebalk, één keer de noodknop: "de rooie" rent naar buiten en houdt hem vast) → `val` (over de reling, in een boog het water in: niemand raakt gewond, ze komen proestend boven) → `water` → `ambulance` → `einde` ("Nog een keer proberen?", met het aantal seconden dat je het volhield; record in `fbs-vis`). De vis trekt steeds harder, dus winnen kan niet: het gaat om hoe lang je het rekt.
+
+Modellen (`tools/vis/bouw.sh`, Sketchfab CC BY 4.0): hengel met molen, karper (zwemt), campingstoel, blikje, ambulance. De rodpod en de piepers zijn zelf gebouwd: daarvan stond geen bruikbaar model op Sketchfab. De hengel wordt bij het laden rechtgelegd (handvat = het dikke eind) en kan buigen (`buig`). Het water krijgt hier een glad vlak met waterplanten en plompenbladeren. Mensen: `visser` en `rooie` in `tools/mensen/mensen.json`.
+
+Testen: `node tools/vissen.cjs` (speelt het hele verloop versneld af, beelden in `/tmp/fbs/vissen`).

@@ -321,6 +321,34 @@
    "haar": "bob01",
    "haarTint": "#a06c3c",
    "ogen": "green"
+  },
+  {
+   "naam": "visser",
+   "rol": "visser",
+   "geslacht": "male",
+   "afkomst": "caucasian",
+   "oud": 0.75,
+   "spier": 0,
+   "gewicht": 0.95,
+   "pak": "male_casualsuit03",
+   "schoenen": "shoes01",
+   "haar": "short02",
+   "haarTint": "#8a8580",
+   "ogen": "blue"
+  },
+  {
+   "naam": "rooie",
+   "rol": "rooie",
+   "geslacht": "male",
+   "afkomst": "caucasian",
+   "oud": 0.3,
+   "spier": 0.3,
+   "gewicht": 0,
+   "pak": "male_casualsuit01",
+   "schoenen": "shoes04",
+   "haar": "short04",
+   "haarTint": "#a06c3c",
+   "ogen": "green"
   }
  ]
 }

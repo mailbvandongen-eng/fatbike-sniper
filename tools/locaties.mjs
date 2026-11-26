@@ -4,6 +4,8 @@
 export const GEDEELD = {
   // Gevels die afwijken van de regel "stijl op bouwjaar", naar Google 3D-beelden van Bob (22-11-2026). Sleutel = BAG-pand.
   stijlPerPand: {
+    "1916100000094452": "jaren50", "1916100000099711": "jaren50", // Landlustlaan: de twee roodbruine appartementenblokken aan de vijver
+    "1916100000102130": "creme", // en het lichte, gebogen gebouw erachter
     "1916100000102052": "bruinwit", // blok achter de parkeerplaats, boven de Jumbo
     "1916100000098418": "geel", // blok aan de westkant
     "1916100000101520": "creme", // blok aan de oostkant, met zonneschermen
@@ -93,5 +95,24 @@ export const LOCATIES = {
     verleg: [[[-40.68, -3.5], [-40.6, -7.1]], [[-34.45, -4.52], [-34.3, -6.3]], [[14.66, 16.12], [0.45, 5.9]], [[17.83, 17.39], [13.2, 10.9]], [[19.34, 13.91], [19.7, 9.8]]],
     fatDruk: 1.5,
     druk: 0.4,
+  },
+  landlust: {
+    naam: "Landlustlaan, Leidschendam",
+    kort: "Landlustlaan",
+    midden: [87405, 455708], // de vijver tussen de appartementen
+    straalGebouwen: 300,
+    osmBbox: [52.0826, 4.3969, 52.0882, 4.4061],
+    // Geen sluipschutter: een visser op het hoogste balkon, met twee karperhengels in de vijver (src/vissen.js).
+    modus: "vissen",
+    flatPand: "1916100000094452",
+    flat: "Appartement",
+    verdieping: 4,
+    verdiepingen: [[4, "Balkon"]],
+    dak: false,
+    kijkpunt: [87412, 455714], // de vijver
+    bgt: true,
+    grond: "gras",
+    fatDruk: 0.3,
+    druk: 0.3,
   },
 };

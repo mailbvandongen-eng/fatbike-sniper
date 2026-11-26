@@ -8,7 +8,7 @@ const ROLLEN = {
   voetganger: ["m_wit", "m_spijker", "m_jas", "m_streep", "m_pak", "m_groen", "v_spijker", "v_kort", "v_net", "v_lang"],
   fatbiker: ["f_zwart", "f_grijs", "f_sport"],
   schutter: ["schutter"],
-  handhaver: ["handhaver"], agent: ["agent"], karateka: ["karateka"], heks: ["tovenares"], kind: ["jongen"], tiener: ["meisje"],
+  handhaver: ["handhaver"], agent: ["agent"], karateka: ["karateka"], heks: ["tovenares"], kind: ["jongen"], tiener: ["meisje"], visser: ["visser"], rooie: ["rooie"],
 };
 // houding in het spel -> beweging uit de bibliotheek
 const CLIP = {
@@ -154,6 +154,7 @@ export function maakMens(rol = "voetganger") {
   if (rol === "karateka") band(m);
   if (rol === "heks") cape(m);
   if (rol === "kind") kuif(m);
+  if (rol === "rooie") kuif(m, "#ab4419");
   if (rol === "tiener") pijpenkrullen(m);
   if (zwart) hoodie(m, Math.random() < 0.8);
   return m;
@@ -182,15 +183,15 @@ function hoodie(m, op) {
   kraag.rotation.x = Math.PI / 2;
   zet(romp, kraag, new THREE.Vector3(hp.x, top - 0.275 * s, hp.z + 0.005 * s));
 }
-/** Een kuifje: een blonde lok die voor op het hoofd omhoog staat. */
-function kuif(m) {
+/** Een kuifje: een lok die voor op het hoofd omhoog staat (maten in de wereld, daarna aan het hoofd gehangen). */
+function kuif(m, kleur = "#e6c66a") {
   const o = m.object; o.updateMatrixWorld(true);
   let hoofd = null; o.traverse((b) => { if (b.isBone && b.name === "DEF-head") hoofd = b; });
   if (!hoofd || !m.hoog) return;
   const s = m.schaal, top = new THREE.Box3().setFromObject(m.hoog).max.y, hp = hoofd.getWorldPosition(new THREE.Vector3());
-  const lok = new THREE.Mesh(new THREE.ConeGeometry(0.045 * s, 0.13 * s, 7), new THREE.MeshStandardMaterial({ color: "#e6c66a", roughness: 0.8 }));
-  lok.position.set(hp.x, top + 0.02 * s, hp.z + 0.075 * s); lok.rotation.x = -0.55; lok.castShadow = true;
-  o.add(lok); lok.updateMatrixWorld(true); hoofd.attach(lok);
+  const lok = new THREE.Mesh(new THREE.ConeGeometry(0.045 * s, 0.13 * s, 7), new THREE.MeshStandardMaterial({ color: kleur, roughness: 0.8 }));
+  lok.position.set(hp.x, top - 0.002 * s, hp.z + 0.075 * s); lok.rotation.x = -0.6; lok.castShadow = true;
+  lok.updateMatrixWorld(true); hoofd.attach(lok);
 }
 /** Pijpenkrullen: lange kurkentrekkers die rondom van het hoofd tot over de schouders hangen (ze zitten aan het hoofd vast). */
 function pijpenkrullen(m, kleur = "#ab4419") {
