@@ -306,6 +306,21 @@
    "haar": "short04",
    "haarTint": "#e6c66a",
    "ogen": "blue"
+  },
+  {
+   "naam": "meisje",
+   "rol": "tiener",
+   "kind": true,
+   "geslacht": "female",
+   "afkomst": "caucasian",
+   "oud": 0,
+   "spier": 0,
+   "gewicht": -0.1,
+   "pak": "female_casualsuit02",
+   "schoenen": "shoes06",
+   "haar": "long01",
+   "haarTint": "#c2401f",
+   "ogen": "green"
   }
  ]
 }

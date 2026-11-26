@@ -298,6 +298,20 @@ export function laatVallen(wie, gat, duur = 4, verplaats = null) {
   wie.m.zet("vliegen", 1.4, 0);
   return true;
 }
+/** Vastgeplakt met kauwgom: hij staat te trekken en te wiebelen en komt na een paar tellen los. */
+export function plakVast(wie, duur = 6) {
+  if (wie.worp || wie.groep?.visible === false) return false;
+  wie.worp = { fase: "plak", t: 0, y: 0, duur, wx: Math.sin(wie.richting), wz: Math.cos(wie.richting) };
+  wie.ruzieT = 0; wie.schrik = 0; wie.dreigt = false; wie.m.zet("boos", 1.5, 0);
+  return true;
+}
+/** Er klinkt muziek: hij kan het niet laten en gaat dansen. Daarna loopt hij gewoon verder. */
+export function laatDansen(wie, duur = 8) {
+  if (wie.worp || wie.groep?.visible === false) return false;
+  wie.worp = { fase: "dans", t: 0, y: 0, duur, f: Math.random() * 6, r0: wie.richting };
+  wie.ruzieT = 0; wie.schrik = 0; wie.dreigt = false; wie.zit = false;
+  return true;
+}
 /** De zweefspreuk: iemand stijgt op, hangt een paar tellen in de lucht en valt dan. */
 export function laatZweven(wie, duur = 3.2) {
   if (wie.worp || wie.groep?.visible === false) return false;
@@ -310,6 +324,21 @@ function stapWorp(wie, dt) {
   const w = wie.worp; if (!w) return false;
   if (w.fase === "ijs") return true; // bevroren: het standbeeld staat er in zijn plaats (src/magie.js)
   w.t += dt;
+  if (w.fase === "plak") {
+    wie.groep.rotation.z = Math.sin(w.t * 11) * 0.09; wie.groep.rotation.x = Math.sin(w.t * 7) * 0.07; // trekken en wiebelen, de voeten blijven staan
+    wie.m.zet(Math.floor(w.t / 1.2) % 2 ? "vechtklaar" : "boos", 1.5); wie.m.mixer.update(dt);
+    wie.groep.position.copy(wie.pos); wie.groep.rotation.y = wie.richting;
+    if (w.t > w.duur) renWeg(wie, w);
+    return true;
+  }
+  if (w.fase === "dans") {
+    const maat = w.t * 7.4 + w.f;
+    w.y = Math.abs(Math.sin(maat)) * 0.13; wie.richting = w.r0 + Math.sin(maat * 0.5) * 0.9; wie.groep.rotation.z = Math.sin(maat) * 0.12;
+    wie.m.zet(["vechtklaar", "praten", "boos", "toverklaar"][Math.floor(w.t / 0.9) % 4], 1.8); wie.m.mixer.update(dt);
+    wie.groep.position.set(wie.pos.x, w.y, wie.pos.z); wie.groep.rotation.y = wie.richting;
+    if (w.t > w.duur) { wie.worp = null; wie.groep.rotation.z = 0; wie.richting = w.r0; wie.wacht = 0; }
+    return true;
+  }
   if (w.fase === "gat") {
     if (w.t < w.duur) { w.y = Math.max(-2.8, w.y - 7 * dt); wie.groep.rotation.x = Math.sin(w.t * 9) * 0.25 * (w.y > -2.7 ? 1 : 0); }
     else { if (!w.klim) { w.klim = true; w.verplaats?.(wie); wie.m.zet("opstaan", 1.6, 0.5); wie.groep.rotation.x = 0; } w.y += 3.2 * dt; if (w.y >= 0) { renWeg(wie, w); return true; } }

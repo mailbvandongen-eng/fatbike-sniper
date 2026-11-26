@@ -8,7 +8,7 @@ const ROLLEN = {
   voetganger: ["m_wit", "m_spijker", "m_jas", "m_streep", "m_pak", "m_groen", "v_spijker", "v_kort", "v_net", "v_lang"],
   fatbiker: ["f_zwart", "f_grijs", "f_sport"],
   schutter: ["schutter"],
-  handhaver: ["handhaver"], agent: ["agent"], karateka: ["karateka"], heks: ["tovenares"], kind: ["jongen"],
+  handhaver: ["handhaver"], agent: ["agent"], karateka: ["karateka"], heks: ["tovenares"], kind: ["jongen"], tiener: ["meisje"],
 };
 // houding in het spel -> beweging uit de bibliotheek
 const CLIP = {
@@ -82,7 +82,7 @@ export function maakMens(rol = "voetganger") {
   const object = SkeletonUtils.clone(modellen[naam]);
   let hoog = null, laag = null;
   object.traverse((o) => { if (o.isMesh) { if (o.name.includes("Laag")) laag = o; else hoog = o; } });
-  const schaal = rol === "kind" ? 0.74 : rol === "schutter" || rol === "karateka" || rol === "heks" ? 1 : 0.94 + Math.random() * 0.12;
+  const schaal = rol === "kind" ? 0.74 : rol === "tiener" ? 0.84 : rol === "schutter" || rol === "karateka" || rol === "heks" ? 1 : 0.94 + Math.random() * 0.12;
   object.scale.setScalar(schaal);
   if (rol === "kind") object.scale.set(schaal * 1.12, schaal * 0.95, schaal * 1.12); // een kind van acht: kleiner en steviger
   const mixer = new THREE.AnimationMixer(object);
